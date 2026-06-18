@@ -9,16 +9,36 @@ GitHub 이슈를 만들고, 네가 승인하면 브랜치 따서 고치고 PR까
 
 ## 설치
 
+### Claude Code (플러그인)
+
 ```bash
 # 마켓플레이스 등록 후 설치
 /plugin marketplace add NariP/triage-flow
 /plugin install triage-flow@triage-flow
 ```
 
-또는 로컬에서 바로 테스트:
+로컬에서 바로 테스트:
 ```bash
-claude --plugin-dir ~/hobby/triage-flow
+claude --plugin-dir <클론 경로>
 ```
+
+### Claude Code + Codex CLI (스크립트)
+
+클론 후 `install.sh` 하나면 설치된 CLI(claude/codex)를 자동 감지해 각 홈에 설치한다.
+
+```bash
+git clone https://github.com/NariP/triage-flow
+cd triage-flow
+./install.sh              # claude·codex 둘 다 (감지된 것만)
+# ./install.sh --claude-only / --codex-only / --dry-run
+```
+
+| 대상 | 설치 위치 |
+|------|----------|
+| Claude | `~/.claude/skills/*`, `~/.claude/agents/*.md` |
+| Codex | `~/.agents/skills/*` + `~/.codex/skills/*` (버전 호환), `~/.codex/agents/*.toml` |
+
+> Codex에서 Serena LSP를 쓰려면 `~/.codex/config.toml`에 `[mcp_servers.serena]`를 등록한다(선택 — 없으면 grep으로 동작).
 
 ## 빠른 시작
 
@@ -43,6 +63,7 @@ claude --plugin-dir ~/hobby/triage-flow
 
 ## 특징
 
+- **Claude Code + Codex 둘 다** — 같은 워크플로우를 두 CLI에서 (스킬·서브에이전트·plan mode 네이티브 대응)
 - **입력 자유** — 노션 링크 / 슬랙 링크 / 그냥 텍스트 다 받음
 - **승인 정지점** — 이슈는 만들되, 코드는 네가 "ㅇㅋ" 해야 손댐
 - **멀티 레포** — 이슈 내용 보고 알맞은 레포 자동 판단 (애매하면 물어봄)
