@@ -1,0 +1,10 @@
+# 사용자별 임시/민감 산출물
+_workspace/
+*.local.json
+
+# OS
+.DS_Store
+
+# 에디터
+.vscode/
+.idea/

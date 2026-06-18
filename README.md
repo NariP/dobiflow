@@ -1,0 +1,77 @@
+# triage-flow
+
+이슈나 작업을 받아 **파악 → GitHub 이슈 → 승인 → 수정 → 자가체크 → PR**까지
+로컬에서 자동으로 굴리는 Claude Code 플러그인.
+
+버그든 기능이든 한 줄 던지면 알아서 분류하고, 코드 원인/설계를 파악해
+GitHub 이슈를 만들고, 네가 승인하면 브랜치 따서 고치고 PR까지 올린다.
+전부 **로컬 실행**(GitHub Actions 안 씀) — Claude Code 구독으로 굴러가니 API 추가 비용 0.
+
+## 설치
+
+```bash
+# 마켓플레이스 등록 후 설치
+/plugin marketplace add NariP/triage-flow
+/plugin install triage-flow@triage-flow
+```
+
+또는 로컬에서 바로 테스트:
+```bash
+claude --plugin-dir ~/hobby/triage-flow
+```
+
+## 빠른 시작
+
+```
+1.  /triage-init      ← 새 프로젝트에서 딱 1번 (설정 자동 생성)
+2.  /work <할 일>      ← 평소엔 이것만. 버그든 기능이든 던지면 알아서 분류
+3.  "ㅇㅋ"             ← 만든 이슈/설계 보고 승인하면 → PR까지 자동
+```
+
+까먹으면 `/triage-help`.
+
+## 명령어
+
+| 명령 | 역할 |
+|------|------|
+| `/work` | 입구 — 입력 보고 버그/기능 분류 → 알맞은 워크플로우로 |
+| `/triage-fix` | 버그 — 원인 파악 → 이슈 → 수정 → PR |
+| `/task-fix` | 기능/개선/리팩토링 — 설계 → 이슈 → 구현 → PR (큰 작업은 plan mode) |
+| `/triage-status` | 열린 이슈·진행 PR 현황 조회 (조회만) |
+| `/triage-init` | 새 프로젝트 설정 생성 (레포·린트·정책문서·커밋규칙·계정 감지) |
+| `/triage-help` | 사용법 안내 |
+
+## 특징
+
+- **입력 자유** — 노션 링크 / 슬랙 링크 / 그냥 텍스트 다 받음
+- **승인 정지점** — 이슈는 만들되, 코드는 네가 "ㅇㅋ" 해야 손댐
+- **멀티 레포** — 이슈 내용 보고 알맞은 레포 자동 판단 (애매하면 물어봄)
+- **멀티 계정** — 레포마다 다른 GitHub 계정. 쓰기 직전 계정 재확인(오발송 방지)
+- **프로젝트 룰 우선** — 커밋 규칙·정책·컨벤션을 그 프로젝트 것으로
+- **자가체크 분리** — 도메인 정책 검사 + 일반 코드리뷰를 따로 (읽기 전용 에이전트)
+- **코드 탐색** — Serena LSP 있으면 심볼 단위 정밀, 없으면 grep 폴백
+
+## 의존성 (권장)
+
+- **GitHub CLI (`gh`)** — 이슈/PR 생성. 인증 필요(`gh auth login`).
+- **Serena MCP** (선택) — 심볼 단위 코드 탐색. 없으면 grep으로 동작.
+  user 스코프 등록: `claude mcp add --scope user serena -- serena start-mcp-server --context claude-code`
+
+## 동작 방식
+
+```
+/work 대시보드 로고 눌렀는데 안 감
+   ├─ 분류        → 버그 → triage-fix
+   ├─ 원인 파악    → issue-triage (읽기 전용)
+   ├─ GitHub 이슈  → 생성 + URL 보고
+   ├─ ✋ 승인       → 레포·계정 확인 후 "고칠까요?"
+   ├─ 수정         → 브랜치 + 최소 수정 + 린트
+   ├─ 자가체크     → policy-checker + code-reviewer (병렬)
+   └─ PR          → 생성 + 리뷰어 + URL
+```
+
+자세히는 [`docs/triage-workflow-guide.md`](docs/triage-workflow-guide.md).
+
+## 라이선스
+
+MIT
