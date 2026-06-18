@@ -1,98 +1,118 @@
 # triage-flow
 
-이슈나 작업을 받아 **파악 → GitHub 이슈 → 승인 → 수정 → 자가체크 → PR**까지
-로컬에서 자동으로 굴리는 Claude Code 플러그인.
+> 한국어: [README.ko.md](README.ko.md)
 
-버그든 기능이든 한 줄 던지면 알아서 분류하고, 코드 원인/설계를 파악해
-GitHub 이슈를 만들고, 네가 승인하면 브랜치 따서 고치고 PR까지 올린다.
-전부 **로컬 실행**(GitHub Actions 안 씀) — Claude Code 구독으로 굴러가니 API 추가 비용 0.
+A Claude Code / Codex plugin that takes an issue or task and runs it **locally**
+all the way through: **understand → GitHub issue → approval → fix → self-check → PR**.
 
-## 설치
+Throw a bug or a feature in one line. It classifies the input, investigates the
+root cause (or designs the change), opens a GitHub issue, and — once you approve —
+branches, fixes, and opens a PR. Everything runs **locally** (no GitHub Actions),
+on your Claude Code / Codex subscription, so there's no extra API cost.
 
-### Claude Code (플러그인)
+## Install
+
+### Claude Code (plugin)
 
 ```bash
-# 마켓플레이스 등록 후 설치
+# add the marketplace, then install
 /plugin marketplace add NariP/triage-flow
 /plugin install triage-flow@triage-flow
 ```
 
-로컬에서 바로 테스트:
+Test locally without installing:
 ```bash
-claude --plugin-dir <클론 경로>
+claude --plugin-dir <clone path>
 ```
 
-### Claude Code + Codex CLI (스크립트)
+### Claude Code + Codex CLI (script)
 
-클론 후 `install.sh` 하나면 설치된 CLI(claude/codex)를 자동 감지해 각 홈에 설치한다.
+After cloning, `install.sh` auto-detects which CLIs (claude/codex) are present
+and installs into each home.
 
 ```bash
 git clone https://github.com/NariP/triage-flow
 cd triage-flow
-./install.sh              # claude·codex 둘 다 (감지된 것만)
+./install.sh              # both claude & codex (whichever is detected)
 # ./install.sh --claude-only / --codex-only / --dry-run
 ```
 
-| 대상 | 설치 위치 |
-|------|----------|
+| Target | Install location |
+|--------|------------------|
 | Claude | `~/.claude/skills/*`, `~/.claude/agents/*.md` |
-| Codex | `~/.agents/skills/*` + `~/.codex/skills/*` (버전 호환), `~/.codex/agents/*.toml` |
+| Codex | `~/.agents/skills/*` + `~/.codex/skills/*` (version-compat), `~/.codex/agents/*.toml` |
 
-> Codex에서 Serena LSP를 쓰려면 `~/.codex/config.toml`에 `[mcp_servers.serena]`를 등록한다(선택 — 없으면 grep으로 동작).
+> To use Serena LSP on Codex, register `[mcp_servers.serena]` in `~/.codex/config.toml`
+> (optional — falls back to grep if absent).
 
-## 빠른 시작
-
-```
-1.  /triage-init      ← 새 프로젝트에서 딱 1번 (설정 자동 생성)
-2.  /work <할 일>      ← 평소엔 이것만. 버그든 기능이든 던지면 알아서 분류
-3.  "ㅇㅋ"             ← 만든 이슈/설계 보고 승인하면 → PR까지 자동
-```
-
-까먹으면 `/triage-help`.
-
-## 명령어
-
-| 명령 | 역할 |
-|------|------|
-| `/work` | 입구 — 입력 보고 버그/기능 분류 → 알맞은 워크플로우로 |
-| `/triage-fix` | 버그 — 원인 파악 → 이슈 → 수정 → PR |
-| `/task-fix` | 기능/개선/리팩토링 — 설계 → 이슈 → 구현 → PR (큰 작업은 plan mode) |
-| `/triage-status` | 열린 이슈·진행 PR 현황 조회 (조회만) |
-| `/triage-init` | 새 프로젝트 설정 생성 (레포·린트·정책문서·커밋규칙·계정 감지) |
-| `/triage-help` | 사용법 안내 |
-
-## 특징
-
-- **Claude Code + Codex 둘 다** — 같은 워크플로우를 두 CLI에서 (스킬·서브에이전트·plan mode 네이티브 대응)
-- **입력 자유** — 노션 링크 / 슬랙 링크 / 그냥 텍스트 다 받음
-- **승인 정지점** — 이슈는 만들되, 코드는 네가 "ㅇㅋ" 해야 손댐
-- **멀티 레포** — 이슈 내용 보고 알맞은 레포 자동 판단 (애매하면 물어봄)
-- **멀티 계정** — 레포마다 다른 GitHub 계정. 쓰기 직전 계정 재확인(오발송 방지)
-- **프로젝트 룰 우선** — 커밋 규칙·정책·컨벤션을 그 프로젝트 것으로
-- **자가체크 분리** — 도메인 정책 검사 + 일반 코드리뷰를 따로 (읽기 전용 에이전트)
-- **코드 탐색** — Serena LSP 있으면 심볼 단위 정밀, 없으면 grep 폴백
-
-## 의존성 (권장)
-
-- **GitHub CLI (`gh`)** — 이슈/PR 생성. 인증 필요(`gh auth login`).
-- **Serena MCP** (선택) — 심볼 단위 코드 탐색. 없으면 grep으로 동작.
-  user 스코프 등록: `claude mcp add --scope user serena -- serena start-mcp-server --context claude-code`
-
-## 동작 방식
+## Quick start
 
 ```
-/work 대시보드 로고 눌렀는데 안 감
-   ├─ 분류        → 버그 → triage-fix
-   ├─ 원인 파악    → issue-triage (읽기 전용)
-   ├─ GitHub 이슈  → 생성 + URL 보고
-   ├─ ✋ 승인       → 레포·계정 확인 후 "고칠까요?"
-   ├─ 수정         → 브랜치 + 최소 수정 + 린트
-   ├─ 자가체크     → policy-checker + code-reviewer (병렬)
-   └─ PR          → 생성 + 리뷰어 + URL
+1.  /triage-init      ← run once per project (auto-generates config)
+2.  /work <task>      ← your everyday entry. Bug or feature, it routes for you
+3.  "ok"              ← review the issue/design, approve → it goes to PR
 ```
 
-자세히는 [`docs/triage-workflow-guide.md`](docs/triage-workflow-guide.md).
+Forgot how? `/triage-help`.
 
-## 라이선스
+## Commands
+
+| Command | Role |
+|---------|------|
+| `/work` | Entry point — classifies input (bug/feature) and routes to the right flow |
+| `/triage-fix` | Bug — root cause → issue → fix → PR |
+| `/task-fix` | Feature/improvement/refactor — design → issue → build → PR (plan mode for big ones) |
+| `/triage-status` | List open issues & in-progress PRs (read-only) |
+| `/triage-init` | Generate per-project config (detects repo, lint, policy docs, commit rules, account) |
+| `/triage-help` | Usage guide |
+
+## How it works
+
+```
+/work "the dashboard logo doesn't go anywhere when clicked"
+   ├─ classify     → bug → triage-fix
+   ├─ investigate  → issue-triage (read-only)
+   ├─ GitHub issue → created + URL reported
+   ├─ ✋ approval   → confirm repo · account, then "fix it?"
+   ├─ fix          → branch + minimal change + lint
+   ├─ self-check   → policy-checker + code-reviewer (parallel)
+   └─ PR           → created + reviewer + URL
+```
+
+More detail: [`docs/triage-workflow-guide.md`](docs/triage-workflow-guide.md).
+
+## Requirements & limits (read this)
+
+triage-flow runs everything **on your machine**, so a few conditions must hold:
+
+- **The target repo must be cloned locally.** Routing picks the repo from your
+  cloned repos. If the repo isn't on your machine, it stops and asks you to clone
+  it first — it never clones a repo on its own.
+- **It's for code work (bugs / features / refactors).** Things like editing legal
+  copy, terms-of-service text, or pure content/ops tasks are out of scope — `/work`
+  will say so and stop instead of forcing an issue.
+- **Weak routing matches aren't auto-run.** If it's unsure which repo, it asks.
+- **Writes are gated.** Before creating an issue/PR it re-checks the active GitHub
+  account (to avoid pushing to the wrong account), and you approve before any code
+  is touched.
+
+## Features
+
+- **Claude Code + Codex** — same workflow on both CLIs (skills, subagents, plan mode map natively)
+- **Any input** — Notion link / Slack link / plain text
+- **Approval gate** — the issue gets created, but no code is touched until you say "ok"
+- **Multi-repo** — infers the right repo from the issue (asks when unsure)
+- **Multi-account** — different GitHub account per repo; re-checks account right before writing
+- **Project rules first** — commit convention, policies, conventions follow the target project
+- **Split self-check** — domain-policy check and general code review run separately (read-only agents)
+- **Code search** — symbol-level via Serena LSP when available, grep fallback otherwise
+
+## Dependencies (recommended)
+
+- **GitHub CLI (`gh`)** — creates issues/PRs. Requires auth (`gh auth login`).
+- **Serena MCP** (optional) — symbol-level code search. Falls back to grep if absent.
+  Register at user scope: `claude mcp add --scope user serena -- serena start-mcp-server --context claude-code`
+
+## License
 
 MIT
