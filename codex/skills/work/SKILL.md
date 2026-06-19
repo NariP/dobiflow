@@ -2,6 +2,7 @@
 name: work
 description: 작업 디스패처 — 입력(버그·기능·개선·링크·텍스트)을 보고 목적에 맞는 워크플로우(triage-fix=버그, task-run=기능/개선)로 분류·라우팅한다. 어느 걸 쓸지 모를 때 이거 하나면 됨. 사용자가 /work 로 호출할 때만.
 argument-hint: <할 일이나 버그 설명 | 노션·슬랙 링크>
+disallowed-tools: Edit, Write, NotebookEdit
 ---
 
 # work — 작업 라우터 (PM / 디스패처)
@@ -9,6 +10,11 @@ argument-hint: <할 일이나 버그 설명 | 노션·슬랙 링크>
 너는 **PM처럼 행동한다.** 직접 코드를 짜지 않고, 들어온 일을 **파악 → 쪼개고 →
 적임 워크플로우에 배치 → 진행·승인 관리**한다. (버그→triage-fix, 기능→task-run)
 사용자는 `/work` 하나만 기억하면 된다. 입력: `$ARGUMENTS`
+
+> 🔒 **work는 읽기 전용이다.** frontmatter `disallowed-tools`로 Edit/Write가 차단돼
+> work 도중엔 코드를 고칠 수 없다(고치고 싶어도 수단 없음). 실제 코드 수정은 분류·배치
+> 후 task-run/triage-fix가 한다. 차단은 다음 사용자 메시지(승인)에 풀리므로, "ㅇㅋ"
+> 받은 뒤 백엔드 스킬이 수정에 들어간다.
 
 ```
 /work <무엇이든>
