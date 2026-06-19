@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# triage-flow — Claude Code + Codex CLI 전역 설치 스크립트
+# dobiflow — Claude Code + Codex CLI 전역 설치 스크립트
 # 클론 후 `./install.sh` 한 번이면 설치된 CLI(claude/codex)를 자동 감지해 각 홈에 설치한다.
 set -euo pipefail
 
@@ -14,7 +14,7 @@ DRY=no
 
 usage() {
   cat <<EOF
-triage-flow 설치 스크립트
+dobiflow 설치 스크립트
 
 사용법: ./install.sh [옵션]
   (옵션 없음)      설치된 CLI(claude/codex) 자동 감지해 둘 다 설치
@@ -24,7 +24,7 @@ triage-flow 설치 스크립트
   -h, --help       도움말
 
 설치 위치:
-  Claude: $CLAUDE_HOME/skills/{work,triage-fix,task-fix,triage-status,triage-init,triage-help}
+  Claude: $CLAUDE_HOME/skills/{work,triage-fix,task-run,triage-status,triage-init,triage-help}
           $CLAUDE_HOME/agents/{issue-triage,policy-checker,code-reviewer}.md
   Codex : $AGENTS_HOME/skills/<name>  +  $CODEX_HOME/skills/<name>  (양쪽 — 버전 호환)
           $CODEX_HOME/agents/<name>.toml
@@ -48,7 +48,7 @@ run() {
   if [ "$DRY" = yes ]; then echo "  [dry] $*"; else "$@"; fi
 }
 
-SKILLS="work triage-fix task-fix triage-status triage-init triage-help"
+SKILLS="work triage-fix task-run triage-status triage-init triage-help"
 AGENTS_MD="issue-triage policy-checker code-reviewer"
 
 # ---- Claude Code ----

@@ -1,4 +1,4 @@
-# triage-flow
+# dobiflow
 
 > English: [README.md](README.md)
 
@@ -15,8 +15,8 @@ GitHub 이슈를 만들고, 네가 승인하면 브랜치 따서 고치고 PR까
 
 ```bash
 # 마켓플레이스 등록 후 설치
-/plugin marketplace add NariP/triage-flow
-/plugin install triage-flow@triage-flow
+/plugin marketplace add NariP/dobiflow
+/plugin install dobiflow@dobiflow
 ```
 
 로컬에서 바로 테스트:
@@ -29,8 +29,8 @@ claude --plugin-dir <클론 경로>
 클론 후 `install.sh` 하나면 설치된 CLI(claude/codex)를 자동 감지해 각 홈에 설치한다.
 
 ```bash
-git clone https://github.com/NariP/triage-flow
-cd triage-flow
+git clone https://github.com/NariP/dobiflow
+cd dobiflow
 ./install.sh              # claude·codex 둘 다 (감지된 것만)
 # ./install.sh --claude-only / --codex-only / --dry-run
 ```
@@ -58,7 +58,7 @@ cd triage-flow
 |------|------|
 | `/work` | 입구 — 입력 보고 버그/기능 분류 → 알맞은 워크플로우로 |
 | `/triage-fix` | 버그 — 원인 파악 → 이슈 → 수정 → PR |
-| `/task-fix` | 기능/개선/리팩토링 — 설계 → 이슈 → 구현 → PR (큰 작업은 plan mode) |
+| `/task-run` | 기능/개선/리팩토링 — 설계 → 이슈 → 구현 → PR (큰 작업은 plan mode) |
 | `/triage-status` | 열린 이슈·진행 PR 현황 조회 (조회만) |
 | `/triage-init` | 새 프로젝트 설정 생성 (레포·린트·정책문서·커밋규칙·계정 감지) |
 | `/triage-help` | 사용법 안내 |
@@ -80,7 +80,7 @@ cd triage-flow
 
 ## 동작 조건과 한계 (꼭 읽기)
 
-triage-flow는 전부 **네 컴퓨터에서** 돌아가므로 몇 가지 조건이 필요하다:
+dobiflow는 전부 **네 컴퓨터에서** 돌아가므로 몇 가지 조건이 필요하다:
 
 - **대상 레포가 로컬에 클론돼 있어야 한다.** 라우팅은 클론된 레포들 중에서 고른다.
   레포가 컴퓨터에 없으면 "클론 후 다시 시도"라고 안내하고 멈춘다 — 임의로 클론하지 않는다.

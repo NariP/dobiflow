@@ -1,4 +1,4 @@
-# triage-flow
+# dobiflow
 
 > 한국어: [README.ko.md](README.ko.md)
 
@@ -16,8 +16,8 @@ on your Claude Code / Codex subscription, so there's no extra API cost.
 
 ```bash
 # add the marketplace, then install
-/plugin marketplace add NariP/triage-flow
-/plugin install triage-flow@triage-flow
+/plugin marketplace add NariP/dobiflow
+/plugin install dobiflow@dobiflow
 ```
 
 Test locally without installing:
@@ -31,8 +31,8 @@ After cloning, `install.sh` auto-detects which CLIs (claude/codex) are present
 and installs into each home.
 
 ```bash
-git clone https://github.com/NariP/triage-flow
-cd triage-flow
+git clone https://github.com/NariP/dobiflow
+cd dobiflow
 ./install.sh              # both claude & codex (whichever is detected)
 # ./install.sh --claude-only / --codex-only / --dry-run
 ```
@@ -61,7 +61,7 @@ Forgot how? `/triage-help`.
 |---------|------|
 | `/work` | Entry point — classifies input (bug/feature) and routes to the right flow |
 | `/triage-fix` | Bug — root cause → issue → fix → PR |
-| `/task-fix` | Feature/improvement/refactor — design → issue → build → PR (plan mode for big ones) |
+| `/task-run` | Feature/improvement/refactor — design → issue → build → PR (plan mode for big ones) |
 | `/triage-status` | List open issues & in-progress PRs (read-only) |
 | `/triage-init` | Generate per-project config (detects repo, lint, policy docs, commit rules, account) |
 | `/triage-help` | Usage guide |
@@ -83,7 +83,7 @@ More detail: [`docs/triage-workflow-guide.md`](docs/triage-workflow-guide.md).
 
 ## Requirements & limits (read this)
 
-triage-flow runs everything **on your machine**, so a few conditions must hold:
+dobiflow runs everything **on your machine**, so a few conditions must hold:
 
 - **The target repo must be cloned locally.** Routing picks the repo from your
   cloned repos. If the repo isn't on your machine, it stops and asks you to clone

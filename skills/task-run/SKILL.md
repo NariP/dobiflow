@@ -1,11 +1,11 @@
 ---
-name: task-fix
-description: 일반 태스크(기능 추가·개선·리팩토링) 작업 — 요구 파악 → 알맞은 레포 결정 → 설계 → GitHub 이슈 생성 → 설계 승인 → 브랜치·구현·자가체크·PR. 규모 크면 plan mode 권유. 사용자가 /task-fix(또는 /work 라우터) 로 호출할 때만.
+name: task-run
+description: 일반 태스크(기능 추가·개선·리팩토링) 작업 — 요구 파악 → 알맞은 레포 결정 → 설계 → GitHub 이슈 생성 → 설계 승인 → 브랜치·구현·자가체크·PR. 규모 크면 plan mode 권유. 사용자가 /task-run(또는 /work 라우터) 로 호출할 때만.
 argument-hint: <할 일 설명 | 노션·슬랙 링크>
 disable-model-invocation: true
 ---
 
-# task-fix — 일반 태스크(기능/개선) 파악부터 PR까지
+# task-run — 일반 태스크(기능/개선) 파악부터 PR까지
 
 버그가 아니라 **새 기능·개선·리팩토링** 같은 일반 작업을 처리한다. 입력: `$ARGUMENTS`
 

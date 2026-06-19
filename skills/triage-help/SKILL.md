@@ -1,6 +1,6 @@
 ---
 name: triage-help
-description: triage 워크플로우(work/triage-fix/task-fix/triage-status/triage-init) 사용법을 안내한다. "어떻게 쓰지?" 싶을 때. 사용자가 /triage-help 로 호출할 때만.
+description: triage 워크플로우(work/triage-fix/task-run/triage-status/triage-init) 사용법을 안내한다. "어떻게 쓰지?" 싶을 때. 사용자가 /triage-help 로 호출할 때만.
 disable-model-invocation: true
 ---
 
