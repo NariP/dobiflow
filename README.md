@@ -88,9 +88,12 @@ triage-flow runs everything **on your machine**, so a few conditions must hold:
 - **The target repo must be cloned locally.** Routing picks the repo from your
   cloned repos. If the repo isn't on your machine, it stops and asks you to clone
   it first — it never clones a repo on its own.
-- **It's for code work (bugs / features / refactors).** Things like editing legal
-  copy, terms-of-service text, or pure content/ops tasks are out of scope — `/work`
-  will say so and stop instead of forcing an issue.
+- **It's for code work (bugs / features / refactors).** Classification reads the
+  *whole request*, not just the title — if there's any implementation work (a popup,
+  a button, link wiring, a "don't show again" toggle…), it's a feature even if the
+  title says "terms" or "policy". Only requests with **no code work at all** (pure
+  legal copy, docs, ops) are out of scope; mixed requests are split (code part runs,
+  non-code part is flagged).
 - **Weak routing matches aren't auto-run.** If it's unsure which repo, it asks.
 - **Writes are gated.** Before creating an issue/PR it re-checks the active GitHub
   account (to avoid pushing to the wrong account), and you approve before any code
