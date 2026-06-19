@@ -103,6 +103,24 @@ dobiflow는 전부 **네 컴퓨터에서** 돌아가므로 몇 가지 조건이 
 - **자가체크 분리** — 도메인 정책 검사 + 일반 코드리뷰를 따로 (읽기 전용 에이전트)
 - **코드 탐색** — Serena LSP 있으면 심볼 단위 정밀, 없으면 grep 폴백
 
+## 이벤트 훅 (선택)
+
+dobiflow가 GitHub 이슈·PR을 만들면 훅이 발동해서 **네가 정의한 스크립트**를 실행한다 —
+슬랙/텔레그램 알림, 로그, 노션 기록, 뭐든.
+
+실행 가능한 스크립트를 아래 위치에 두면 된다(전역·프로젝트 둘 다 가능):
+
+```
+~/.dobiflow/hooks/on-issue-created.sh          # 전역 (모든 프로젝트)
+~/.dobiflow/hooks/on-pr-created.sh
+<repo>/.claude/dobiflow-hooks/on-issue-created.sh   # 프로젝트별
+<repo>/.claude/dobiflow-hooks/on-pr-created.sh
+```
+
+훅에는 환경변수로 정보가 들어온다: `DOBIFLOW_EVENT`, `DOBIFLOW_URL`,
+`DOBIFLOW_COMMAND`, `DOBIFLOW_CWD`. 템플릿은 `hooks/examples/` 참고.
+훅이 실패해도 dobiflow 본 작업은 막히지 않는다. (`jq` 필요)
+
 ## 의존성 (권장)
 
 - **GitHub CLI (`gh`)** — 이슈/PR 생성. 인증 필요(`gh auth login`).

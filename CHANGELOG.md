@@ -4,6 +4,11 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 [유의적 버전](https://semver.org/lang/ko/)을 사용합니다.
 
+## [0.7.0] - 2026-06-19
+
+### Added
+- **이벤트 훅** — dobiflow가 GitHub 이슈/PR 생성 시 사용자 정의 스크립트 자동 실행. `hooks/hooks.json`(PostToolUse) + `scripts/dobiflow-hook.sh`(디스패처). 사용자 훅 위치: 전역 `~/.dobiflow/hooks/on-{issue,pr}-created.sh` + 프로젝트 `.claude/dobiflow-hooks/`. 환경변수 `DOBIFLOW_{EVENT,URL,COMMAND,CWD}` 전달. 예시 `hooks/examples/`. 훅 실패는 본 작업 비차단.
+
 ## [0.6.0] - 2026-06-19
 
 ### Changed

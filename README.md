@@ -110,6 +110,24 @@ dobiflow runs everything **on your machine**, so a few conditions must hold:
 - **Split self-check** — domain-policy check and general code review run separately (read-only agents)
 - **Code search** — symbol-level via Serena LSP when available, grep fallback otherwise
 
+## Event hooks (optional)
+
+dobiflow fires a hook when it creates a GitHub issue or PR, so you can run
+**your own script** — Slack/Telegram notification, logging, Notion record, anything.
+
+Drop an executable script at either location (or both):
+
+```
+~/.dobiflow/hooks/on-issue-created.sh          # global (all projects)
+~/.dobiflow/hooks/on-pr-created.sh
+<repo>/.claude/dobiflow-hooks/on-issue-created.sh   # per-project
+<repo>/.claude/dobiflow-hooks/on-pr-created.sh
+```
+
+It receives the event via env vars: `DOBIFLOW_EVENT`, `DOBIFLOW_URL`,
+`DOBIFLOW_COMMAND`, `DOBIFLOW_CWD`. See `hooks/examples/` for templates.
+Hook failures never block dobiflow's main work. (requires `jq`)
+
 ## Dependencies (recommended)
 
 - **GitHub CLI (`gh`)** — creates issues/PRs. Requires auth (`gh auth login`).

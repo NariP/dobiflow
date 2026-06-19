@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# dobiflow 이슈 생성 훅 — 예시
+#
+# 사용법: 이 파일을 아래 둘 중 한 곳에 `.example` 빼고 복사한 뒤 실행권한 부여.
+#   전역    : ~/.dobiflow/hooks/on-issue-created.sh
+#   프로젝트: <repo>/.claude/dobiflow-hooks/on-issue-created.sh
+#   chmod +x <그 파일>
+#
+# dobiflow가 gh issue create를 실행하면 이 스크립트가 자동 호출된다.
+# 다음 환경변수가 채워져 들어온다:
+#   DOBIFLOW_EVENT   = "issue-created"
+#   DOBIFLOW_URL     = 생성된 이슈 전체 URL
+#   DOBIFLOW_COMMAND = 실행된 gh 명령 전문
+#   DOBIFLOW_CWD     = 작업 디렉토리
+#
+# 아래는 자유롭게 바꿔 쓰는 부분. 알림·기록·API 호출 무엇이든.
+
+set -euo pipefail
+
+# --- 예시 1: 그냥 로그 파일에 적재 ---
+echo "$(date '+%F %T')  ISSUE  $DOBIFLOW_URL" >> "$HOME/.dobiflow/log.txt"
+
+# --- 예시 2: 텔레그램 알림 (TG_BOT_TOKEN, TG_CHAT_ID 환경변수 필요) ---
+# curl -s "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
+#   -d chat_id="${TG_CHAT_ID}" \
+#   -d text="🐞 이슈 생성: ${DOBIFLOW_URL}" >/dev/null
+
+# --- 예시 3: 슬랙 incoming webhook ---
+# curl -s -X POST "$SLACK_WEBHOOK_URL" \
+#   -H 'Content-Type: application/json' \
+#   -d "{\"text\":\"🐞 이슈 생성: ${DOBIFLOW_URL}\"}" >/dev/null
