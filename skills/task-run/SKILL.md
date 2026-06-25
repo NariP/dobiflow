@@ -72,7 +72,7 @@ TOKEN=$(gh auth token --user {account})
 WHO=$(GH_TOKEN="$TOKEN" gh api user -q .login)   # == {account} 게이트, 불일치 중단
 GH_TOKEN="$TOKEN" gh issue create / pr create --repo {repo} ...
 ```
-push는 `git -c http.extraHeader="AUTHORIZATION: bearer $TOKEN" push`. 토큰 로깅 금지.
+push는 URL 토큰 주입 `git push "https://x-access-token:${TOKEN}@github.com/{repo}.git" <branch>` (extraHeader/bearer 방식은 invalid credentials로 실패). 출력은 `| sed -E "s/${TOKEN}/***/g"`로 마스킹, 토큰 로깅 금지.
 
 ## 이슈 템플릿 (4단계)
 

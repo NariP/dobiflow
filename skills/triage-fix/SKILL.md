@@ -120,8 +120,10 @@ GH_TOKEN="$TOKEN" gh issue create --repo {repo} ...
 GH_TOKEN="$TOKEN" gh pr create   --repo {repo} ...
 ```
 
-- **git push**: `GH_TOKEN`은 push 인증에 안 먹는다 →
-  `git -c http.extraHeader="AUTHORIZATION: bearer $TOKEN" push -u origin <branch>` 로 토큰 주입.
+- **git push**: `GH_TOKEN`도 `http.extraHeader="...bearer..."`도 push 인증에 안 먹는다(invalid credentials).
+  **URL에 토큰을 끼워** 1회성으로 push한다(remote 설정·전역 상태 안 건드림):
+  `git push "https://x-access-token:${TOKEN}@github.com/{repo}.git" <branch>`
+  출력에 토큰이 찍힐 수 있으니 `| sed -E "s/${TOKEN}/***/g"`로 마스킹한다.
 - **커밋 author**: `{git_identity}`로 커밋 단위 주입(위 6단계).
 - **토큰은 절대 로그·출력에 노출하지 않는다.**
 
