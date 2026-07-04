@@ -30,6 +30,7 @@ disable-model-invocation: true
   - `label_prefix` = `""` (접두사 없음)
   - `account` = 미지정 → **계정 전환 안 함**(현재 active gh 계정 그대로)
   - `loop.max_iterations` = 미지정 → `3` (구현 루프 최대 반복)
+  - `loop.full_verify_command` = 미지정 → 없음 (APPROVE 시점의 무거운 검증 생략 — 루프 검증은 lint·테스트만)
 - 이후 단계에서 `{repo}`, `{default_branch}`, `{lint_command}`, `{policy_docs}`,
   `{label_prefix}`, `{branch_prefix}`, `{bug_label}`, `{codeowners}`, `{account}`,
   `{git_identity}`, `{serena}`, `{convention_doc}`, `{tech_stack}`, `{loop}` 등을 config 값으로 쓴다.
@@ -82,6 +83,8 @@ disable-model-invocation: true
 - `{default_branch}`에서 새 브랜치: `{branch_prefix.fix}<짧은-영문-슬러그>` (기본 `fix/`).
 - **loop.md 생성**: `<repo>/.claude/loops/<이슈번호>/loop.md` — 아래 **loop.md 템플릿**대로.
   완료 기준은 이슈의 "해결 방안"·"기대 동작"에서 그대로 가져온다 (**루프 중 수정 금지**).
+  **"관련 위치"는 이슈의 "🔍 원인 파악"(관련 위치·흐름)을 그대로 복사** — issue-triage가 이미
+  찾아둔 파일:줄을 implementer가 재탐색하지 않게 하는 핸드오프다.
 - `.claude/loops/`가 커밋되지 않게 `.git/info/exclude`에 `.claude/loops/` 한 줄 추가(이미 있으면 생략).
 
 **루프 (최대 `{loop.max_iterations}`회, 기본 3):**
@@ -94,10 +97,18 @@ disable-model-invocation: true
    - **`policy-checker`** — 도메인 정책 위반. **`{policy_docs}` 목록을 인자로 전달**(비면 "정책 문서 없음" 통과).
    - **`code-reviewer`** — 일반 코드 품질. **`{convention_doc}`+`{tech_stack}`를 전달**(없으면 범용 베스트프랙티스).
    - 둘 다 `{serena}` 값도 전달(false면 grep 폴백).
+   - **1회차 = 전체 검사** (이번 작업 diff 전체). **2회차부터 = 재검증 모드** — 풀 리체크 금지.
+     전달할 것: ① 직전 지적사항 목록 ② 이번 회차 implementer가 보고한 변경 파일의 diff(델타).
+     검사 질문은 둘뿐 — "지적이 해소됐나 + 델타가 새 위반을 만들었나" (전체는 1회차에 이미 봤다).
 3. **판정 (메인 세션):**
    - implementer가 **막힘** 보고 → 루프 즉시 중단, 사용자에게 보고 (커밋·PR 없음).
    - ❌ **위반 있음** → **REQUEST_CHANGES**: 지적사항을 loop.md 반복 로그에 기록하고 다음 반복으로.
-   - ❌ 없음(⚠️/💡만) → **APPROVE**: ⚠️는 PR "## 셀프체크"용으로 요약해 두고 루프 종료 → 6단계.
+   - ⚠️뿐이어도 **실질 회귀·데이터 손실·보안 노출**로 판단되면 ❌로 승격해 REQUEST_CHANGES 할 수 있다
+     — 승격 사유를 loop.md에 기록 (checker가 심각도를 낮게 분류했을 때의 안전망).
+   - ❌ 없음(⚠️/💡만) → **APPROVE**: `{loop.full_verify_command}`가 있으면 **여기서 1회 실행**
+     (풀 빌드 등 무거운 검증 — 매 반복 돌리지 않고 APPROVE 시점에만). 실패하면 실패 내용을
+     지적사항 삼아 REQUEST_CHANGES로 다음 반복. 통과(또는 명령 없음)하면 ⚠️는 PR "## 셀프체크"용으로
+     요약해 두고 루프 종료 → 6단계.
 
 - **max 소진 시**: 커밋·PR 없이 중단. WIP 브랜치는 유지하고, 마지막 지적사항 + 뭐가 안 풀리는지
   정리해 사용자에게 보고한다 (계속/방향 전환/직접 확인은 사용자 판단).
@@ -219,8 +230,13 @@ Closes #<이슈번호>
 ## 완료 기준 (이슈에서 복사 — 루프 중 수정 금지)
 - [ ] <기대 동작 / 해결 방안 항목>
 
+## 관련 위치 (이슈 🔍 원인 파악에서 복사 — implementer는 재탐색 전에 여기부터)
+- `path/to/file:line` — <역할>
+- 흐름: <진입점 → ... → 문제 지점>
+
 ## 검증 명령
 - lint: `<lint_command>` / test: `<test_command>` (없으면 "없음")
+- APPROVE 시 1회: `<loop.full_verify_command>` (없으면 "없음" — 루프 안에서는 돌리지 않는다)
 
 ## 반복 로그
 ### 1회차

@@ -36,7 +36,7 @@ Bash/Read/Glob로 수집:
 | `branch_prefix` | `CLAUDE.md`에 "브랜치:" 규칙 있으면 파싱, 없으면 `{fix:"fix/", feat:"feat/"}` |
 | `commit_convention` | **그 프로젝트의 커밋 규칙.** ① `CLAUDE.md`/`CONTRIBUTING.md`의 "커밋"/"Commit" 섹션 파싱(prefix·언어·이모지 규칙). ② 없으면 `git log --oneline -30`에서 실제 패턴 추론(Conventional? gitmoji? 한글? prefix 종류?). 결과를 한 줄 규칙 + 예시 1~2개로 저장 |
 | `keywords` | (선택) `CLAUDE.md` 첫 줄/README 제목에서 도메인 키워드 몇 개 추출 (라우팅 매칭용) |
-| `loop` | 감지 아님 — 기본 `{ "max_iterations": 3 }`로 생성. 구현 루프(implementer 구현→검증→자가체크)의 최대 반복 횟수. 프로젝트 취향껏 수정 |
+| `loop` | `max_iterations`: 감지 아님 — 기본 `3` (구현 루프 최대 반복, 취향껏 수정). `full_verify_command`: `package.json` scripts에 `build` 있으면 `{pm} build` 제안, 없으면 필드 생략 — **APPROVE 시점에만 1회 도는 무거운 검증**(풀 빌드·코드 생성 등). 루프 안 반복 검증은 lint·test만이라 여기 넣은 명령은 매 반복 돌지 않는다 |
 
 ## 2단계 — 사용자 확인 (AskUserQuestion)
 
@@ -79,7 +79,7 @@ Bash/Read/Glob로 수집:
   "serena": true,
   "bug_label": "bug",
   "branch_prefix": { "fix": "fix/", "feat": "feat/" },
-  "loop": { "max_iterations": 3 },
+  "loop": { "max_iterations": 3, "full_verify_command": "pnpm build" },
   "commit_convention": {
     "rule": "Conventional Commits (feat/fix/chore/refactor/docs/test). 제목 한국어/영어 혼용 OK. Co-Authored-By 금지.",
     "examples": ["fix(hub): 대시보드 로고 이동 수정", "feat(gr-map): 후보지 검색 필터 추가"]

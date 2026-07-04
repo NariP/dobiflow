@@ -19,7 +19,7 @@ argument-hint: <할 일 설명 | 노션·슬랙 링크>
 
 ### 0단계 — 설정 로드
 `triage-fix`와 동일. cwd(또는 라우팅된 레포)의 `triage.config.json`(+`.local.json`) 읽기.
-없으면 fallback(repo=git remote, default_branch=main, lint 감지, label_prefix="", 계정 전환 안 함, loop.max_iterations=3). 핵심값: `repo`, `default_branch`, `lint_command`, `test_command`, `convention_doc`, `tech_stack`, `commit_convention`, `branch_prefix`, `codeowners`, `account`, `git_identity`, `serena`, `policy_docs`, `loop`.
+없으면 fallback(repo=git remote, default_branch=main, lint 감지, label_prefix="", 계정 전환 안 함, loop.max_iterations=3, loop.full_verify_command 없음). 핵심값: `repo`, `default_branch`, `lint_command`, `test_command`, `convention_doc`, `tech_stack`, `commit_convention`, `branch_prefix`, `codeowners`, `account`, `git_identity`, `serena`, `policy_docs`, `loop`.
 
 ### 1단계 — 요구 읽기
 입력(텍스트/노션/슬랙)에서 **무엇을 만들/바꿀지** 파악. 모호하면 사용자에게 구체화 질문(추측 금지).
@@ -54,14 +54,19 @@ argument-hint: <할 일 설명 | 노션·슬랙 링크>
 (직접 구현 금지), 구현은 매 반복 `implementer` 서브에이전트가. task-run 고유 사항:
 - **준비**: 브랜치 `{branch_prefix.feat}<슬러그>`(기본 `feat/`, 리팩토링이면 적절한 prefix).
   `<repo>/.claude/loops/<이슈번호>/loop.md` 생성 — 완료 기준은 이슈의 **"✅ 완료 기준"** 체크리스트를
-  그대로 복사 (루프 중 수정 금지). `.git/info/exclude`에 `.claude/loops/` 추가.
+  그대로 복사 (루프 중 수정 금지). **"관련 위치"에는 이슈 "📐 설계"의 변경 범위 + 2단계
+  issue-triage가 찾은 파일:줄을 복사** (implementer 재탐색 방지). `.git/info/exclude`에 `.claude/loops/` 추가.
 - **루프 (최대 `{loop.max_iterations}`회, 기본 3):**
   1. `implementer` 위임 — loop.md 경로 + 이번 반복 지시(1회차 = 4단계에서 승인된 **설계**,
      2회차부터 = 직전 지적사항) + config(`convention_doc`·`tech_stack`·`lint_command`·`test_command`·`serena`).
      **기존 패턴·컨벤션 준수**(새 추상화 남발 금지)를 지시에 명시. lint·테스트 통과가 완료의 전제.
   2. 자가체크 — `policy-checker`+`code-reviewer` 병렬(읽기 전용). `{policy_docs}`·`{convention_doc}`·`{tech_stack}`·`{serena}` 전달.
-  3. 판정 — ❌위반 = **REQUEST_CHANGES**(지적사항 loop.md 기록 후 재위임) / ❌없음 = **APPROVE**(⚠️는
-     PR 셀프체크에 기록, 6단계로) / implementer **막힘** = 중단·보고.
+     **1회차 = 전체 diff 검사, 2회차부터 = 재검증 모드** — 직전 지적사항 + 이번 회차 변경 파일
+     diff(델타)만 전달해 "지적 해소 여부 + 델타의 새 위반"만 본다 (풀 리체크 금지).
+  3. 판정 — ❌위반 = **REQUEST_CHANGES**(지적사항 loop.md 기록 후 재위임) / ⚠️뿐이어도 실질 회귀·
+     데이터 손실·보안 노출이면 ❌로 승격 가능(사유 loop.md 기록) / ❌없음 = **APPROVE** —
+     `{loop.full_verify_command}` 있으면 여기서 1회 실행(풀 빌드 등, 실패 시 REQUEST_CHANGES로
+     다음 반복), 통과하면 ⚠️는 PR 셀프체크에 기록하고 6단계로 / implementer **막힘** = 중단·보고.
 - max 소진 시 커밋·PR 없이 중단·보고(WIP 브랜치 유지). **루프 안 커밋·push 금지.**
 
 ### 6단계 — 커밋 + PR (APPROVE 후에만)
