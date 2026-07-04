@@ -4,6 +4,20 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 [유의적 버전](https://semver.org/lang/ko/)을 사용합니다.
 
+## [0.9.0] - 2026-07-05
+
+### Changed
+- **구현 루프 속도 개선** — 실측(1파일 수정에 17분·서브에이전트 7회) 기반 4건 (claude+codex):
+  - **핸드오프 강화** — loop.md에 "관련 위치" 섹션 신설. issue-triage가 찾은 파일:줄·흐름을
+    이슈에서 복사해 두고, implementer는 코드베이스 재탐색 전에 여기부터 본다
+  - **델타 재검증** — 자가체크 2회차부터는 풀 리체크 대신 "직전 지적사항 + 이번 회차 변경 파일
+    diff"만 검증 (지적 해소 여부 + 델타의 새 위반). policy-checker·code-reviewer에 재검증 모드 입력 추가
+  - **무거운 검증 분리** — `loop.full_verify_command`(신규 config, triage-init이 build 스크립트
+    감지·제안). 루프 안 반복 검증은 lint·테스트만, 풀 빌드는 APPROVE 시점 1회
+    (실패 시 REQUEST_CHANGES로 루프 복귀). implementer는 지시 없이 무거운 검증을 돌리지 않음
+  - **심각도 분류 보강** — 동작 회귀·데이터 손실·보안 노출 가능성은 확신이 낮아도 ⚠️가 아닌
+    ❌로 분류(policy-checker·code-reviewer). 메인 세션의 ⚠️→❌ 승격 재량도 명문화(사유 loop.md 기록)
+
 ## [0.8.1] - 2026-07-05
 
 ### Added
