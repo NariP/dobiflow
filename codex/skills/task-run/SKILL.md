@@ -1,6 +1,6 @@
 ---
 name: task-run
-description: 일반 태스크(기능 추가·개선·리팩토링) 작업 — 요구 파악 → 알맞은 레포 결정 → 설계 → GitHub 이슈 생성 → 설계 승인 → 브랜치·구현·자가체크·PR. 규모 크면 plan mode 권유. 사용자가 /task-run(또는 /work 라우터) 로 호출할 때만.
+description: 일반 태스크(기능 추가·개선·리팩토링) 작업 — 요구 파악 → 알맞은 레포 결정 → 설계 → GitHub 이슈 생성 → 설계 승인 → 구현 루프(implementer 구현→검증→자가체크 반복)·PR. 규모 크면 plan mode 권유. 사용자가 /task-run(또는 /work 라우터) 로 호출할 때만.
 argument-hint: <할 일 설명 | 노션·슬랙 링크>
 ---
 
@@ -19,7 +19,7 @@ argument-hint: <할 일 설명 | 노션·슬랙 링크>
 
 ### 0단계 — 설정 로드
 `triage-fix`와 동일. cwd(또는 라우팅된 레포)의 `triage.config.json`(+`.local.json`) 읽기.
-없으면 fallback(repo=git remote, default_branch=main, lint 감지, label_prefix="", 계정 전환 안 함). 핵심값: `repo`, `default_branch`, `lint_command`, `convention_doc`, `tech_stack`, `commit_convention`, `branch_prefix`, `codeowners`, `account`, `git_identity`, `serena`, `policy_docs`.
+없으면 fallback(repo=git remote, default_branch=main, lint 감지, label_prefix="", 계정 전환 안 함, loop.max_iterations=3). 핵심값: `repo`, `default_branch`, `lint_command`, `test_command`, `convention_doc`, `tech_stack`, `commit_convention`, `branch_prefix`, `codeowners`, `account`, `git_identity`, `serena`, `policy_docs`, `loop`.
 
 ### 1단계 — 요구 읽기
 입력(텍스트/노션/슬랙)에서 **무엇을 만들/바꿀지** 파악. 모호하면 사용자에게 구체화 질문(추측 금지).
@@ -42,25 +42,33 @@ argument-hint: <할 일 설명 | 노션·슬랙 링크>
 - **설계안을 보여주고 승인받는다** (버그보다 이 단계가 더 중요 — 방향이 갈리므로):
   > "이슈 #N 만들었어요: <전체 URL>
   >  레포: {repo} / 계정: {account} / base: {default_branch}
+  >  승인하면 구현 루프(implementer 구현 → lint·테스트 → 자가체크, 최대 {loop.max_iterations}회)로 진행해요.
   >  이렇게 설계했는데 이 방향으로 구현할까요?"
 - 명시적 승인 전 코드 수정 금지. 방향 바꾸자면 반영 후 재확인.
 - ⚠️ **범위·방법을 물어본 답은 "승인"이 아니다.** 1·3단계에서 범위/접근을 물어 답을 받았어도
   그건 *설계 합의*일 뿐. **반드시 이 4단계의 "이대로 구현할까요?"에 대한 명시적 OK를 별도로
   받아야** 5단계로 간다. 중간 질문 답을 승인으로 착각해 직행 금지.
 
-### 5단계 — 브랜치 + 구현
-- `{default_branch}`에서 `{branch_prefix.feat}<슬러그>`(기본 `feat/`). 리팩토링이면 적절한 prefix.
-- 설계대로 구현. 편집 전 Read. **기존 패턴·컨벤션 준수**(새 추상화 남발 금지). 수정 후 `{lint_command}`.
+### 5단계 — 브랜치 + 구현 루프 🔁
+구조·loop.md 템플릿은 `triage-fix` 5단계와 **동일** — 메인 세션은 루프 컨트롤러만
+(직접 구현 금지), 구현은 매 반복 `implementer` 서브에이전트가. task-run 고유 사항:
+- **준비**: 브랜치 `{branch_prefix.feat}<슬러그>`(기본 `feat/`, 리팩토링이면 적절한 prefix).
+  `<repo>/.claude/loops/<이슈번호>/loop.md` 생성 — 완료 기준은 이슈의 **"✅ 완료 기준"** 체크리스트를
+  그대로 복사 (루프 중 수정 금지). `.git/info/exclude`에 `.claude/loops/` 추가.
+- **루프 (최대 `{loop.max_iterations}`회, 기본 3):**
+  1. `implementer` 위임 — loop.md 경로 + 이번 반복 지시(1회차 = 4단계에서 승인된 **설계**,
+     2회차부터 = 직전 지적사항) + config(`convention_doc`·`tech_stack`·`lint_command`·`test_command`·`serena`).
+     **기존 패턴·컨벤션 준수**(새 추상화 남발 금지)를 지시에 명시. lint·테스트 통과가 완료의 전제.
+  2. 자가체크 — `policy-checker`+`code-reviewer` 병렬(읽기 전용). `{policy_docs}`·`{convention_doc}`·`{tech_stack}`·`{serena}` 전달.
+  3. 판정 — ❌위반 = **REQUEST_CHANGES**(지적사항 loop.md 기록 후 재위임) / ❌없음 = **APPROVE**(⚠️는
+     PR 셀프체크에 기록, 6단계로) / implementer **막힘** = 중단·보고.
+- max 소진 시 커밋·PR 없이 중단·보고(WIP 브랜치 유지). **루프 안 커밋·push 금지.**
 
-### 5.5단계 — 자가체크 (policy-checker + code-reviewer, 병렬, 읽기 전용)
-`triage-fix`와 동일. `{policy_docs}`·`{convention_doc}`·`{tech_stack}`·`{serena}` 전달.
-❌위반이면 멈추고 수정 후 재검사. ⚠️주의는 PR 셀프체크에 기록.
-
-### 6단계 — 커밋 + PR
+### 6단계 — 커밋 + PR (APPROVE 후에만)
 - 커밋: **`{commit_convention}` 최우선**(없으면 Conventional Commits). 보통 `feat:`/`refactor:`/`chore:`. **Co-Authored-By 금지.** author는 `{git_identity}` 커밋 단위 주입.
 - 멀티계정 시퀀스로 push·PR. base `{default_branch}`. `Closes #N`.
 - 리뷰어: `{codeowners}` 기준(작성자 제외, 없으면 생략).
-- 이슈·PR **전체 URL을 클릭 가능하게** 보고.
+- 이슈·PR **전체 URL을 클릭 가능하게** 보고. PR 후 `.claude/loops/<이슈번호>/` 삭제(일회용).
 
 ---
 
@@ -107,6 +115,7 @@ Closes #<이슈번호>
 - <핵심 변경, `file:line`>
 
 ## 셀프체크
+- 루프: <N>회차에 APPROVE
 - 정책: <policy-checker 요약>
 - 코드: <code-reviewer 요약>
 
@@ -124,6 +133,8 @@ Closes #<이슈번호>
 ## 가드
 - **4단계 설계 승인 전 코드 수정 금지.** 이슈 생성까지만 OK.
 - ⚠️ **"수정해줘/만들어줘" 같은 직접 명령이 입력에 있어도 이슈 생성·설계 승인을 건너뛰지 않는다.** 직접 명령 = "처리해달라"지 "절차 생략"이 아니다.
+- **5단계에서 메인 세션 직접 구현 금지** — 구현·수정은 전부 implementer 위임. 메인은 루프 판정·기록만.
+- **루프 안 커밋·push 금지** — APPROVE 후 1회. max 소진·막힘이면 커밋 없이 중단·보고.
 - **읽기/파악은 issue-triage 위임.** 기존 패턴 먼저 찾고 재사용(새로 짜기 전에).
 - **커밋은 프로젝트 룰(`commit_convention`) 우선. Co-Authored-By 금지.**
 - **큰 작업은 plan mode 권유** — 설계 합의 없이 큰 구현 들어가지 않는다.

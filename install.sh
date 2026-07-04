@@ -25,7 +25,7 @@ dobiflow 설치 스크립트
 
 설치 위치:
   Claude: $CLAUDE_HOME/skills/{work,triage-fix,task-run,triage-status,triage-init,triage-help}
-          $CLAUDE_HOME/agents/{issue-triage,policy-checker,code-reviewer}.md
+          $CLAUDE_HOME/agents/{issue-triage,policy-checker,code-reviewer,implementer}.md
   Codex : $AGENTS_HOME/skills/<name>  +  $CODEX_HOME/skills/<name>  (양쪽 — 버전 호환)
           $CODEX_HOME/agents/<name>.toml
 
@@ -49,7 +49,7 @@ run() {
 }
 
 SKILLS="work triage-fix task-run triage-status triage-init triage-help"
-AGENTS_MD="issue-triage policy-checker code-reviewer"
+AGENTS_MD="issue-triage policy-checker code-reviewer implementer"
 
 # ---- Claude Code ----
 if [ "$DO_CLAUDE" != no ] && { [ "$DO_CLAUDE" = yes ] || command -v claude >/dev/null 2>&1; }; then
@@ -62,7 +62,7 @@ if [ "$DO_CLAUDE" != no ] && { [ "$DO_CLAUDE" = yes ] || command -v claude >/dev
   for a in $AGENTS_MD; do
     run cp "$REPO/agents/$a.md" "$CLAUDE_HOME/agents/$a.md"
   done
-  echo "  → Claude 스킬 6개 + 에이전트 3개 설치"
+  echo "  → Claude 스킬 6개 + 에이전트 4개 설치"
 else
   echo "== Claude Code 건너뜀 (미설치 또는 --codex-only) =="
 fi
@@ -80,7 +80,7 @@ if [ "$DO_CODEX" != no ] && { [ "$DO_CODEX" = yes ] || command -v codex >/dev/nu
   for a in $AGENTS_MD; do
     run cp "$REPO/codex/agents/$a.toml" "$CODEX_HOME/agents/$a.toml"
   done
-  echo "  → Codex 스킬 6개(신규+레거시 경로) + 에이전트 3개(toml) 설치"
+  echo "  → Codex 스킬 6개(신규+레거시 경로) + 에이전트 4개(toml) 설치"
   echo "  ℹ️  Serena LSP 쓰려면 $CODEX_HOME/config.toml 에 [mcp_servers.serena] 등록 필요"
 else
   echo "== Codex CLI 건너뜀 (미설치 또는 --claude-only) =="

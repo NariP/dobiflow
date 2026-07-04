@@ -3,7 +3,7 @@
 > 한국어: [README.ko.md](README.ko.md)
 
 A Claude Code / Codex plugin that takes an issue or task and runs it **locally**
-all the way through: **understand → GitHub issue → approval → fix → self-check → PR**.
+all the way through: **understand → GitHub issue → approval → implementation loop (code → verify → review) → PR**.
 
 Throw a bug or a feature in one line. It classifies the input, investigates the
 root cause (or designs the change), opens a GitHub issue, and — once you approve —
@@ -74,9 +74,10 @@ Forgot how? `/triage-help`.
    ├─ investigate  → issue-triage (read-only)
    ├─ GitHub issue → created + URL reported
    ├─ ✋ approval   → confirm repo · account, then "fix it?"
-   ├─ fix          → branch + minimal change + lint
-   ├─ self-check   → policy-checker + code-reviewer (parallel)
-   └─ PR           → created + reviewer + URL
+   ├─ loop 🔁      → implementer agent codes + lint/tests
+   │                 → policy-checker + code-reviewer (parallel)
+   │                 → ❌ findings? re-implement (max 3, configurable)
+   └─ PR           → commit after green + created + reviewer + URL
 ```
 
 More detail: [`docs/triage-workflow-guide.md`](docs/triage-workflow-guide.md).
@@ -107,6 +108,7 @@ dobiflow runs everything **on your machine**, so a few conditions must hold:
 - **Multi-repo** — infers the right repo from the issue (asks when unsure)
 - **Multi-account** — different GitHub account per repo; re-checks account right before writing
 - **Project rules first** — commit convention, policies, conventions follow the target project
+- **Implementation loop** — a dedicated implementer agent codes while reviewer agents judge; findings trigger automatic re-implementation until green (bounded — stops and reports instead of forcing a PR)
 - **Split self-check** — domain-policy check and general code review run separately (read-only agents)
 - **Code search** — symbol-level via Serena LSP when available, grep fallback otherwise
 
