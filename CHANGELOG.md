@@ -4,6 +4,24 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 [유의적 버전](https://semver.org/lang/ko/)을 사용합니다.
 
+## [0.8.0] - 2026-07-05
+
+### Added
+- **구현 루프** — 승인 후 5단계가 "메인 세션 직접 구현"에서 "루프 컨트롤러"로 바뀜.
+  매 반복: `implementer` 에이전트(신규, 쓰기 가능) 구현+lint·테스트 → policy-checker+code-reviewer 병렬 →
+  판정(APPROVE / REQUEST_CHANGES / 막힘). ❌ 지적이 나오면 지적사항을 들고 자동 재구현,
+  최대 `loop.max_iterations`회(기본 3, config 오버라이드). 소진·막힘 시 커밋·PR 없이 중단·보고(WIP 유지) (claude+codex)
+- `implementer` 에이전트 — 구현 전담. loop.md 완료 기준·반복 지시 기반 최소 편집, 실패 상태로 완료 보고 금지,
+  커밋/push/이슈/PR 금지(메인 세션 몫) (claude `agents/implementer.md` + codex `agents/implementer.toml`)
+- loop.md — `.claude/loops/<이슈번호>/loop.md` 일회용 작업 파일(완료 기준·검증 명령·반복 로그).
+  `.git/info/exclude`로 추적 제외, PR 후 삭제. 갱신은 메인 세션만
+- `triage.config.json`에 `loop.max_iterations` 필드 (triage-init 스키마 반영)
+
+### Changed
+- triage-fix/task-run 5단계·5.5단계 → "5단계 구현 루프"로 통합. 커밋·push는 APPROVE 후 1회로 제한
+- 가드 추가: 메인 세션 직접 구현 금지, 루프 안 커밋·push 금지
+- install.sh 에이전트 4개 설치, 워크플로우 가이드·README 흐름도 갱신
+
 ## [0.7.1] - 2026-06-22
 
 ### Fixed
