@@ -34,8 +34,11 @@ and installs into each home.
 git clone https://github.com/NariP/dobiflow
 cd dobiflow
 ./install.sh              # both claude & codex (whichever is detected)
-# ./install.sh --claude-only / --codex-only / --dry-run
+# ./install.sh --claude-only / --codex-only / --link / --dry-run
 ```
+
+> `--link` installs symlinks instead of copies — afterwards a plain `git pull` (or any local edit)
+> takes effect immediately, no reinstall. Only use it on machines where you keep the clone around.
 
 | Target | Install location |
 |--------|------------------|

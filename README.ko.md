@@ -32,8 +32,11 @@ claude --plugin-dir <클론 경로>
 git clone https://github.com/NariP/dobiflow
 cd dobiflow
 ./install.sh              # claude·codex 둘 다 (감지된 것만)
-# ./install.sh --claude-only / --codex-only / --dry-run
+# ./install.sh --claude-only / --codex-only / --link / --dry-run
 ```
+
+> `--link`는 복사 대신 심링크로 설치한다 — 이후엔 `git pull`(또는 로컬 수정)만으로 즉시 반영,
+> 재설치 불필요. 클론을 계속 둘 머신에서만 쓸 것 (클론을 지우면 설치가 깨짐).
 
 | 대상 | 설치 위치 |
 |------|----------|
