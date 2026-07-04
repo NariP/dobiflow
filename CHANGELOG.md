@@ -4,6 +4,12 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 [유의적 버전](https://semver.org/lang/ko/)을 사용합니다.
 
+## [0.8.1] - 2026-07-05
+
+### Added
+- `install.sh --link` — 복사 대신 심링크 설치. 클론에서 git pull/파일 수정만으로 즉시 반영(재설치 불필요).
+  기본은 복사 유지. 복사 모드는 기존 심링크 설치물을 먼저 제거 후 복사(원본 덮어쓰기 방지) — 모드 전환 양방향 안전
+
 ## [0.8.0] - 2026-07-05
 
 ### Added
