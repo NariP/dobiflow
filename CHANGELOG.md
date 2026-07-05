@@ -4,6 +4,21 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 [유의적 버전](https://semver.org/lang/ko/)을 사용합니다.
 
+## [0.10.0] - 2026-07-05
+
+### Added
+- **작업 생명주기 이벤트** — 구현 루프의 시작/진행/종료를 사용자 훅으로 발행. 여러 세션·레포에서
+  도는 작업을 외부 서비스로 모으는 용도 (`work-started` 등록 → `work-finished`/`work-stopped` 해제) (claude+codex):
+  - 신규 이벤트 4개: `work-started`(루프 진입) / `iteration-completed`(매 반복 판정) /
+    `work-finished`(PR 생성) / `work-stopped`(막힘·max 소진 중단)
+  - `scripts/dobiflow-emit.sh` 발행기 신설 — install.sh가 `~/.dobiflow/bin/dobiflow-emit`으로 설치.
+    `key=value` 인자를 `DOBIFLOW_<KEY>` 환경변수로 변환해 사용자 훅에 전달, 실패 비차단(항상 exit 0).
+    미설치면 스킬이 조용히 생략 (`test -x` 1회 확인)
+  - 사용자 훅 위치는 기존 이벤트 훅과 동일: `~/.dobiflow/hooks/on-<event>.sh`(전역) +
+    `<repo>/.claude/dobiflow-hooks/on-<event>.sh`(프로젝트)
+  - 예시 `hooks/examples/on-work-started.sh.example` (JSONL 장부 적재 + 외부 전송)
+  - triage-fix/task-run 5·6단계에 발행 시점 명시 + "이벤트 발행" 섹션. README 이벤트 표 추가
+
 ## [0.9.0] - 2026-07-05
 
 ### Changed
