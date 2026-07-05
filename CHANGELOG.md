@@ -18,6 +18,7 @@
     `<repo>/.claude/dobiflow-hooks/on-<event>.sh`(프로젝트)
   - 예시 `hooks/examples/on-work-started.sh.example` (JSONL 장부 적재 + 외부 전송)
   - triage-fix/task-run 5·6단계에 발행 시점 명시 + "이벤트 발행" 섹션. README 이벤트 표 추가
+  - 워크플로우 가이드에 반영: 특징 항목 + FAQ("여러 세션 작업 한곳에 모으기") + 구성 트리(hooks/·scripts/·프로젝트 dobiflow-hooks/). triage-init 4단계 보고에 훅 위치 한 줄 안내
 
 ## [0.9.0] - 2026-07-05
 

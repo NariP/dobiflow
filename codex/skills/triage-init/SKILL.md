@@ -60,6 +60,9 @@ Bash/Read/Glob로 수집:
 생성/갱신된 설정을 요약 표로 보여주고, "`/triage-fix <이슈>`로 바로 쓸 수 있어요" 안내.
 `serena=false`면 "이 프로젝트는 Serena LSP 미설정 — issue-triage가 grep으로 동작.
 정밀 탐색 원하면 Serena 등록 권장" 한 줄 덧붙인다.
+이벤트 훅(알림·작업 수집)을 쓰려면 전역 `~/.dobiflow/hooks/on-<event>.sh` 또는 프로젝트
+`.claude/dobiflow-hooks/on-<event>.sh`에 스크립트를 두면 된다고 **한 줄로만** 안내
+(상세는 README "이벤트 훅" — config에 넣는 값 아님, 파일 존재만으로 동작).
 
 ## 설정 스키마 예시
 
