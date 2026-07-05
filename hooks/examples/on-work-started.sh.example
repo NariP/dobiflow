@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# dobiflow 작업 시작 훅 — 예시
+#
+# 사용법: `.example` 빼고 아래 둘 중 한 곳에 복사 + chmod +x
+#   전역    : ~/.dobiflow/hooks/on-work-started.sh
+#   프로젝트: <repo>/.claude/dobiflow-hooks/on-work-started.sh
+#
+# dobiflow 구현 루프가 시작되면 자동 호출된다 (스킬 주도 발행 —
+# install.sh가 설치한 ~/.dobiflow/bin/dobiflow-emit 경유).
+# 짝 이벤트: iteration-completed / work-finished / work-stopped
+# (같은 방식으로 on-<event>.sh 를 만들면 된다). 환경변수:
+#   DOBIFLOW_EVENT     = "work-started"
+#   DOBIFLOW_SKILL     = triage-fix | task-run
+#   DOBIFLOW_REPO      = owner/name
+#   DOBIFLOW_ISSUE     = 이슈 번호
+#   DOBIFLOW_ISSUE_URL = 이슈 전체 URL
+#   DOBIFLOW_BRANCH    = 작업 브랜치
+#   DOBIFLOW_TITLE     = 이슈 제목
+#   DOBIFLOW_CWD       = 작업 디렉토리
+#
+# 이벤트별 추가 환경변수:
+#   iteration-completed : DOBIFLOW_ITERATION, DOBIFLOW_VERDICT (approve|request_changes|blocked)
+#   work-finished       : DOBIFLOW_PR_URL, DOBIFLOW_ITERATIONS
+#   work-stopped        : DOBIFLOW_REASON (blocked|max-iterations)
+
+set -euo pipefail
+
+# --- 예시: 진행 중 작업 장부 적재 (JSONL) ---
+printf '{"ts":"%s","event":"%s","skill":"%s","repo":"%s","issue":"%s","branch":"%s"}\n' \
+  "$(date '+%F %T')" "$DOBIFLOW_EVENT" "${DOBIFLOW_SKILL:-}" "${DOBIFLOW_REPO:-}" \
+  "${DOBIFLOW_ISSUE:-}" "${DOBIFLOW_BRANCH:-}" >> "$HOME/.dobiflow/tasks.jsonl"
+
+# --- 예시: 외부 서비스로 전송 ---
+# curl -s -X POST "https://your-service.example.com/dobiflow/events" \
+#   -H 'Content-Type: application/json' \
+#   -d "{\"event\":\"$DOBIFLOW_EVENT\",\"repo\":\"${DOBIFLOW_REPO:-}\",\"issue\":\"${DOBIFLOW_ISSUE:-}\"}" >/dev/null

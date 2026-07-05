@@ -7,6 +7,7 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_HOME="${CLAUDE_HOME:-$HOME/.claude}"
 CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
 AGENTS_HOME="${AGENTS_HOME:-$HOME/.agents}"   # Codex 신규 canonical 스킬 경로
+DOBIFLOW_HOME="${DOBIFLOW_HOME:-$HOME/.dobiflow}"   # 이벤트 발행기 + 사용자 훅 홈
 
 DO_CLAUDE=auto
 DO_CODEX=auto
@@ -31,8 +32,10 @@ dobiflow 설치 스크립트
           $CLAUDE_HOME/agents/{issue-triage,policy-checker,code-reviewer,implementer}.md
   Codex : $AGENTS_HOME/skills/<name>  +  $CODEX_HOME/skills/<name>  (양쪽 — 버전 호환)
           $CODEX_HOME/agents/<name>.toml
+  공용  : $DOBIFLOW_HOME/bin/dobiflow-emit  (작업 생명주기 이벤트 발행기)
 
-환경변수: CLAUDE_HOME(기본 ~/.claude), CODEX_HOME(기본 ~/.codex), AGENTS_HOME(기본 ~/.agents)
+환경변수: CLAUDE_HOME(기본 ~/.claude), CODEX_HOME(기본 ~/.codex), AGENTS_HOME(기본 ~/.agents),
+          DOBIFLOW_HOME(기본 ~/.dobiflow)
 EOF
 }
 
@@ -64,6 +67,13 @@ put_file() {  # <원본 파일> <설치 경로>
 SKILLS="work triage-fix task-run triage-status triage-init triage-help"
 AGENTS_MD="issue-triage policy-checker code-reviewer implementer"
 MODE_LABEL=$([ "$LINK" = yes ] && echo "심링크" || echo "복사")
+
+# ---- 공용: 이벤트 발행기 (CLI 무관 — 스킬들이 ~/.dobiflow/bin/dobiflow-emit 으로 호출) ----
+echo "== 공용 =="
+run mkdir -p "$DOBIFLOW_HOME/bin"
+put_file "$REPO/scripts/dobiflow-emit.sh" "$DOBIFLOW_HOME/bin/dobiflow-emit"
+[ "$LINK" = yes ] || run chmod +x "$DOBIFLOW_HOME/bin/dobiflow-emit"
+echo "  → 이벤트 발행기 설치: $DOBIFLOW_HOME/bin/dobiflow-emit ($MODE_LABEL)"
 
 # ---- Claude Code ----
 if [ "$DO_CLAUDE" != no ] && { [ "$DO_CLAUDE" = yes ] || command -v claude >/dev/null 2>&1; }; then

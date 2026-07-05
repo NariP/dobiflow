@@ -57,6 +57,7 @@ disable-model-invocation: true
   `<repo>/.claude/loops/<이슈번호>/loop.md` 생성 — 완료 기준은 이슈의 **"✅ 완료 기준"** 체크리스트를
   그대로 복사 (루프 중 수정 금지). **"관련 위치"에는 이슈 "📐 설계"의 변경 범위 + 2단계
   issue-triage가 찾은 파일:줄을 복사** (implementer 재탐색 방지). `.git/info/exclude`에 `.claude/loops/` 추가.
+  준비가 끝나면 **이벤트 발행**: `work-started` — 인자 `branch=<브랜치명> title="<이슈 제목>" issue_url=<이슈 전체 URL>` (§이벤트 발행).
 - **루프 (최대 `{loop.max_iterations}`회, 기본 3):**
   1. `implementer` 위임 — loop.md 경로 + 이번 반복 지시(1회차 = 4단계에서 승인된 **설계**,
      2회차부터 = 직전 지적사항) + config(`convention_doc`·`tech_stack`·`lint_command`·`test_command`·`serena`).
@@ -68,13 +69,17 @@ disable-model-invocation: true
      데이터 손실·보안 노출이면 ❌로 승격 가능(사유 loop.md 기록) / ❌없음 = **APPROVE** —
      `{loop.full_verify_command}` 있으면 여기서 1회 실행(풀 빌드 등, 실패 시 REQUEST_CHANGES로
      다음 반복), 통과하면 ⚠️는 PR 셀프체크에 기록하고 6단계로 / implementer **막힘** = 중단·보고.
+     판정을 loop.md에 기록한 직후 **이벤트 발행**: `iteration-completed` — 인자
+     `iteration=<회차> verdict=<approve|request_changes|blocked>` (§이벤트 발행).
 - max 소진 시 커밋·PR 없이 중단·보고(WIP 브랜치 유지). **루프 안 커밋·push 금지.**
+- 루프 중단 시(막힘·max 소진) 보고 전에 **이벤트 발행**: `work-stopped` — 인자 `reason=<blocked|max-iterations>` (§이벤트 발행).
 
 ### 6단계 — 커밋 + PR (APPROVE 후에만)
 - 커밋: **`{commit_convention}` 최우선**(없으면 Conventional Commits). 보통 `feat:`/`refactor:`/`chore:`. **Co-Authored-By 금지.** author는 `{git_identity}` 커밋 단위 주입.
 - 멀티계정 시퀀스로 push·PR. base `{default_branch}`. `Closes #N`.
 - 리뷰어: `{codeowners}` 기준(작성자 제외, 없으면 생략).
 - 이슈·PR **전체 URL을 클릭 가능하게** 보고. PR 후 `.claude/loops/<이슈번호>/` 삭제(일회용).
+- **이벤트 발행**: `work-finished` — 인자 `pr_url=<PR 전체 URL> iterations=<총 회차>` (§이벤트 발행).
 
 ---
 
@@ -133,6 +138,22 @@ Closes #<이슈번호>
 ```
 
 > 문구는 자연스러운 한국어로.
+
+---
+
+## 이벤트 발행 (선택 — 외부 수집·알림용)
+
+`triage-fix`와 동일한 구조. 5·6단계의 지정 시점마다 아래 한 줄을 실행:
+
+```
+~/.dobiflow/bin/dobiflow-emit <event> skill=task-run repo={repo} issue=<이슈번호> <시점별 추가 인자>
+```
+
+- 이벤트 4개: `work-started`(루프 진입) → `iteration-completed`(매 반복 판정) →
+  `work-finished`(PR 생성) 또는 `work-stopped`(막힘·max 소진 중단).
+- **루프 진입 전 존재 확인 1회**: `test -x ~/.dobiflow/bin/dobiflow-emit` — 없으면(미설치)
+  이번 작업의 모든 발행을 조용히 생략한다.
+- **부가기능이다** — 발행이 실패해도 무시하고 본 작업을 계속한다. 재시도·디버깅·별도 보고 금지.
 
 ---
 

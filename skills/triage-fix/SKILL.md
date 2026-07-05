@@ -86,6 +86,7 @@ disable-model-invocation: true
   **"관련 위치"는 이슈의 "🔍 원인 파악"(관련 위치·흐름)을 그대로 복사** — issue-triage가 이미
   찾아둔 파일:줄을 implementer가 재탐색하지 않게 하는 핸드오프다.
 - `.claude/loops/`가 커밋되지 않게 `.git/info/exclude`에 `.claude/loops/` 한 줄 추가(이미 있으면 생략).
+- **이벤트 발행**: `work-started` — 인자 `branch=<브랜치명> title="<이슈 제목>" issue_url=<이슈 전체 URL>` (§이벤트 발행).
 
 **루프 (최대 `{loop.max_iterations}`회, 기본 3):**
 1. **구현 — `implementer` 서브에이전트 위임.** 전달할 것: loop.md 경로, 이번 반복 지시
@@ -109,9 +110,13 @@ disable-model-invocation: true
      (풀 빌드 등 무거운 검증 — 매 반복 돌리지 않고 APPROVE 시점에만). 실패하면 실패 내용을
      지적사항 삼아 REQUEST_CHANGES로 다음 반복. 통과(또는 명령 없음)하면 ⚠️는 PR "## 셀프체크"용으로
      요약해 두고 루프 종료 → 6단계.
+   - 판정을 loop.md에 기록한 직후 **이벤트 발행**: `iteration-completed` — 인자
+     `iteration=<회차> verdict=<approve|request_changes|blocked>` (§이벤트 발행).
 
 - **max 소진 시**: 커밋·PR 없이 중단. WIP 브랜치는 유지하고, 마지막 지적사항 + 뭐가 안 풀리는지
   정리해 사용자에게 보고한다 (계속/방향 전환/직접 확인은 사용자 판단).
+- **루프 중단 시**(막힘·max 소진): 보고 전에 **이벤트 발행**: `work-stopped` — 인자
+  `reason=<blocked|max-iterations>` (§이벤트 발행).
 - 작은 수정(한두 파일·명백)은 보통 **1바퀴에 APPROVE로 끝난다** — 구조는 같고 반복만 안 생길 뿐.
 - **루프 안에서 커밋·push 금지** — APPROVE 후 6단계에서 1회.
 - **백엔드 수정이 필요한 부분은 프론트에서 임의로 우회하지 말고** 이슈/PR에 "백엔드 필요"로 남긴다.
@@ -129,6 +134,7 @@ disable-model-invocation: true
     남은 사람 없으면 생략. `{codeowners}`가 false면 리뷰어 단계 스킵.
 - `gh pr create`가 반환한 **PR 전체 URL을 클릭 가능하게 보고**. 마무리에 이슈 URL·PR URL **둘 다** 명시.
 - PR 생성 후 `.claude/loops/<이슈번호>/` **삭제** (loop.md는 일회용 — 기록은 이슈·PR에 남는다).
+- **이벤트 발행**: `work-finished` — 인자 `pr_url=<PR 전체 URL> iterations=<총 회차>` (§이벤트 발행).
 
 > **본문 윤문(humanize)은 선택 — 짧은 PR엔 기본 미적용.** 긴 보고/문서일 때만 `/humanize` 수동.
 
@@ -247,6 +253,22 @@ Closes #<이슈번호>
 
 - loop.md 갱신(반복 로그·체크박스)은 **메인 세션만** 한다. implementer는 읽기만.
 - 일회용 파일이다 — PR 후 폴더째 삭제. 영구 기록은 이슈·PR 본문이 담당.
+
+---
+
+## 이벤트 발행 (선택 — 외부 수집·알림용)
+
+5·6단계의 지정 시점마다 아래 한 줄을 실행해 작업 생명주기를 사용자 훅에 알린다:
+
+```
+~/.dobiflow/bin/dobiflow-emit <event> skill=triage-fix repo={repo} issue=<이슈번호> <시점별 추가 인자>
+```
+
+- 이벤트 4개: `work-started`(루프 진입) → `iteration-completed`(매 반복 판정) →
+  `work-finished`(PR 생성) 또는 `work-stopped`(막힘·max 소진 중단).
+- **루프 진입 전 존재 확인 1회**: `test -x ~/.dobiflow/bin/dobiflow-emit` — 없으면(미설치)
+  이번 작업의 모든 발행을 조용히 생략한다.
+- **부가기능이다** — 발행이 실패해도 무시하고 본 작업을 계속한다. 재시도·디버깅·별도 보고 금지.
 
 ---
 

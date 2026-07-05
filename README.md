@@ -117,21 +117,32 @@ dobiflow runs everything **on your machine**, so a few conditions must hold:
 
 ## Event hooks (optional)
 
-dobiflow fires a hook when it creates a GitHub issue or PR, so you can run
-**your own script** — Slack/Telegram notification, logging, Notion record, anything.
+dobiflow fires hooks at key moments while it works, so you can run **your own
+script** — Slack/Telegram notification, logging, collecting in-progress tasks
+across sessions and repos into an external service, anything.
+
+| Event | When | Key env vars (always: `DOBIFLOW_EVENT`, `DOBIFLOW_CWD`) |
+|---|---|---|
+| `issue-created` | GitHub issue created | `DOBIFLOW_URL`, `DOBIFLOW_COMMAND` |
+| `pr-created` | GitHub PR created | `DOBIFLOW_URL`, `DOBIFLOW_COMMAND` |
+| `work-started` | implementation loop entered | `DOBIFLOW_{SKILL,REPO,ISSUE,ISSUE_URL,BRANCH,TITLE}` |
+| `iteration-completed` | after each loop verdict | `DOBIFLOW_{SKILL,REPO,ISSUE,ITERATION,VERDICT}` |
+| `work-finished` | PR shipped | `DOBIFLOW_{SKILL,REPO,ISSUE,PR_URL,ITERATIONS}` |
+| `work-stopped` | loop aborted (blocked / max iterations) | `DOBIFLOW_{SKILL,REPO,ISSUE,REASON}` |
 
 Drop an executable script at either location (or both):
 
 ```
-~/.dobiflow/hooks/on-issue-created.sh          # global (all projects)
-~/.dobiflow/hooks/on-pr-created.sh
-<repo>/.claude/dobiflow-hooks/on-issue-created.sh   # per-project
-<repo>/.claude/dobiflow-hooks/on-pr-created.sh
+~/.dobiflow/hooks/on-<event>.sh                    # global (all projects)
+<repo>/.claude/dobiflow-hooks/on-<event>.sh        # per-project
 ```
 
-It receives the event via env vars: `DOBIFLOW_EVENT`, `DOBIFLOW_URL`,
-`DOBIFLOW_COMMAND`, `DOBIFLOW_CWD`. See `hooks/examples/` for templates.
-Hook failures never block dobiflow's main work. (requires `jq`)
+- `issue-created`/`pr-created` — auto-detected by a Claude Code PostToolUse hook
+  watching `gh` commands (requires `jq`).
+- `work-*`/`iteration-*` — work-lifecycle events, emitted by the skills via
+  `~/.dobiflow/bin/dobiflow-emit` (installed by install.sh — silently skipped
+  when absent; works for both Claude and Codex).
+- See `hooks/examples/` for templates. Hook failures never block dobiflow's main work.
 
 ## Dependencies (recommended)
 

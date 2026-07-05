@@ -111,21 +111,29 @@ dobiflow는 전부 **네 컴퓨터에서** 돌아가므로 몇 가지 조건이 
 
 ## 이벤트 훅 (선택)
 
-dobiflow가 GitHub 이슈·PR을 만들면 훅이 발동해서 **네가 정의한 스크립트**를 실행한다 —
-슬랙/텔레그램 알림, 로그, 노션 기록, 뭐든.
+dobiflow가 일하는 동안 시점별로 훅이 발동해서 **네가 정의한 스크립트**를 실행한다 —
+슬랙/텔레그램 알림, 로그, 진행 중 작업 수집(여러 세션·레포의 태스크를 외부 서비스로 모으기), 뭐든.
+
+| 이벤트 | 시점 | 주요 환경변수 (공통: `DOBIFLOW_EVENT`, `DOBIFLOW_CWD`) |
+|---|---|---|
+| `issue-created` | GitHub 이슈 생성 직후 | `DOBIFLOW_URL`, `DOBIFLOW_COMMAND` |
+| `pr-created` | GitHub PR 생성 직후 | `DOBIFLOW_URL`, `DOBIFLOW_COMMAND` |
+| `work-started` | 구현 루프 진입 | `DOBIFLOW_{SKILL,REPO,ISSUE,ISSUE_URL,BRANCH,TITLE}` |
+| `iteration-completed` | 루프 매 반복 판정 직후 | `DOBIFLOW_{SKILL,REPO,ISSUE,ITERATION,VERDICT}` |
+| `work-finished` | PR까지 완료 | `DOBIFLOW_{SKILL,REPO,ISSUE,PR_URL,ITERATIONS}` |
+| `work-stopped` | 막힘·max 소진으로 중단 | `DOBIFLOW_{SKILL,REPO,ISSUE,REASON}` |
 
 실행 가능한 스크립트를 아래 위치에 두면 된다(전역·프로젝트 둘 다 가능):
 
 ```
-~/.dobiflow/hooks/on-issue-created.sh          # 전역 (모든 프로젝트)
-~/.dobiflow/hooks/on-pr-created.sh
-<repo>/.claude/dobiflow-hooks/on-issue-created.sh   # 프로젝트별
-<repo>/.claude/dobiflow-hooks/on-pr-created.sh
+~/.dobiflow/hooks/on-<이벤트>.sh                    # 전역 (모든 프로젝트)
+<repo>/.claude/dobiflow-hooks/on-<이벤트>.sh        # 프로젝트별
 ```
 
-훅에는 환경변수로 정보가 들어온다: `DOBIFLOW_EVENT`, `DOBIFLOW_URL`,
-`DOBIFLOW_COMMAND`, `DOBIFLOW_CWD`. 템플릿은 `hooks/examples/` 참고.
-훅이 실패해도 dobiflow 본 작업은 막히지 않는다. (`jq` 필요)
+- `issue-created`/`pr-created` — Claude Code 훅(PostToolUse)이 `gh` 명령을 감지해 자동 발동 (`jq` 필요).
+- `work-*`/`iteration-*` — 작업 생명주기 이벤트. 스킬이 `~/.dobiflow/bin/dobiflow-emit`으로
+  직접 발행한다 (install.sh가 설치 — 없으면 조용히 생략, Claude·Codex 공통).
+- 템플릿은 `hooks/examples/` 참고. 훅이 실패해도 dobiflow 본 작업은 막히지 않는다.
 
 ## 의존성 (권장)
 
