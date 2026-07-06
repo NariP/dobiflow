@@ -129,6 +129,7 @@ cd dobiflow
 ```
 
 자세히는 [`docs/triage-workflow-guide.md`](docs/triage-workflow-guide.md).
+왜 이렇게 설계했나 (페이즈별 패턴 지도): [`docs/architecture.md`](docs/architecture.md).
 
 ## 도비의 약속 (동작 조건과 한계 — 꼭 읽기)
 

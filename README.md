@@ -132,6 +132,7 @@ Forgot how? `/triage-help` (Dobby will remind you).
 ```
 
 More detail: [`docs/triage-workflow-guide.md`](docs/triage-workflow-guide.md).
+Why it's built this way (phase-by-phase pattern map): [`docs/architecture.md`](docs/architecture.md).
 
 ## Dobby's promises (requirements & limits — read this)
 
