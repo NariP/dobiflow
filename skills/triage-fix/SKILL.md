@@ -12,7 +12,7 @@ disable-model-invocation: true
 
 입력은 노션 링크 / 슬랙 링크 / 그냥 텍스트 무엇이든 될 수 있다. 소스를 읽어 내용을 파악한다.
 
-> 이 스킬은 **전역**이다. 프로젝트 고유값(레포·정책문서·린트·계정 등)은 각 프로젝트의
+> 이 스킬은 **전역**이다. 프로젝트 고유값(레포·정책문서·린트 등)은 각 프로젝트의
 > `.claude/triage.config.json`에서 읽는다. 설정 파일은 `/triage-init`으로 생성한다.
 
 ---
@@ -20,7 +20,7 @@ disable-model-invocation: true
 ## 진행 순서 (이 순서를 지킬 것)
 
 ### 0단계 — 설정 로드
-- 대상 레포가 정해지면 그 레포의 `<repo>/.claude/triage.config.json`(+`triage.config.local.json`)을 읽는다.
+- 대상 레포가 정해지면 그 레포의 `<repo>/.claude/triage.config.json`을 읽는다.
 - 아직 레포 미정이면 1단계 후 1.5단계(레포 결정)에서 정한다. 현재 cwd가 작업 대상이면 cwd의 config를 먼저 읽어도 된다.
 - **config가 없으면 fallback**으로 동작 + "설정 없음 — `/triage-init` 권장" 한 줄 안내:
   - `repo` = `git remote get-url origin` 자동 감지
@@ -28,12 +28,11 @@ disable-model-invocation: true
   - `lint_command` = package.json scripts 감지 (`lint:fix`>`lint`>`format`), 없으면 생략
   - `policy_docs` = `.claude/docs/*.md` 글롭 (없으면 빈 목록)
   - `label_prefix` = `""` (접두사 없음)
-  - `account` = 미지정 → **계정 전환 안 함**(현재 active gh 계정 그대로)
   - `loop.max_iterations` = 미지정 → `3` (구현 루프 최대 반복)
   - `loop.full_verify_command` = 미지정 → 없음 (APPROVE 시점의 무거운 검증 생략 — 루프 검증은 lint·테스트만)
 - 이후 단계에서 `{repo}`, `{default_branch}`, `{lint_command}`, `{policy_docs}`,
-  `{label_prefix}`, `{branch_prefix}`, `{bug_label}`, `{codeowners}`, `{account}`,
-  `{git_identity}`, `{serena}`, `{convention_doc}`, `{tech_stack}`, `{loop}` 등을 config 값으로 쓴다.
+  `{label_prefix}`, `{branch_prefix}`, `{bug_label}`, `{codeowners}`,
+  `{serena}`, `{convention_doc}`, `{tech_stack}`, `{loop}` 등을 config 값으로 쓴다.
 
 ### 1단계 — 소스 읽기
 - **노션 링크** (`notion.so` / `notion.com`): `mcp__claude_ai_Notion__notion-fetch`로 페이지 내용 가져오기.
@@ -61,15 +60,15 @@ disable-model-invocation: true
 ### 3단계 — GitHub 이슈 생성 (먼저 만든다)
 - 아래 **이슈 템플릿**으로 본문을 채운다.
 - 제목: 원본 제목 + `{label_prefix}` 접두사(빈 값이면 접두사 없음). 라벨: `{bug_label}`(기본 `bug`).
-- **멀티계정 시퀀스(§멀티계정) 적용** 후 `GH_TOKEN=... gh issue create --repo {repo} ...`로 생성.
+- `gh issue create --repo {repo} ...`로 생성 (현재 로그인된 gh 계정 그대로 사용).
 - `gh issue create`는 **전체 URL을 stdout으로 반환**한다. 그 URL을 그대로 확보한다.
 
 ### 4단계 — 승인 받기 ✋ (필수 정지점)
 - 생성된 **이슈 내용(원인 파악 + 해결 방안)을 사용자에게 보여주고** 묻는다.
 - **이슈 생성 보고 시 `gh`가 반환한 전체 URL을 클릭 가능하게 명시**한다(`#N`만 쓰지 말 것).
-- **레포·계정·base 브랜치를 한 화면에서 함께 확인**한다 (오발송 방지). 예:
+- **레포·base 브랜치를 한 화면에서 함께 확인**한다 (오발송 방지). 예:
   > "이슈 #N 만들었어요: <전체 URL>
-  >  레포: {repo} / 계정: {account} / base: {default_branch}
+  >  레포: {repo} / base: {default_branch}
   >  승인하면 구현 루프(implementer 구현 → lint·테스트 → 자가체크, 최대 {loop.max_iterations}회)로 진행해요.
   >  이 방향으로 수정하고 PR 올릴까요?"
 - 사용자가 명시적으로 **OK/ㅇㅋ/진행** 하기 전에는 **절대 코드를 건드리지 않는다.**
@@ -125,9 +124,9 @@ disable-model-invocation: true
 - 커밋 메시지: **`{commit_convention}`(그 프로젝트 규칙)을 최우선으로 따른다.**
   config에 `commit_convention`이 있으면 그 rule·examples 형식대로(prefix·언어·이모지 등).
   없으면 Conventional Commits로 폴백. **어느 경우든 `Co-Authored-By` 트레일러 금지.**
-  author는 `{git_identity}`가 있으면 `git -c user.name=... -c user.email=... commit`으로 커밋 단위 주입(전역 안 건드림).
-- push: **멀티계정 시퀀스(§멀티계정)의 push 방식** 사용.
-- `gh pr create` (멀티계정 시퀀스 적용, `GH_TOKEN=...`):
+  author는 현재 git 설정(user.name·user.email)을 그대로 쓴다 — dobiflow는 계정을 건드리지 않는다.
+- push: `git push <branch>` (현재 인증 상태 그대로).
+- `gh pr create`:
   - 제목: 커밋 제목과 동일. base: `{default_branch}`.
   - 본문: 아래 **PR 템플릿**. `Closes #N`. 원본 노션/슬랙 링크 첨부.
   - **리뷰어**: `{codeowners}`가 경로면 매칭 코드오너에서 **작성자 본인 제외** → 남은 사람만 `--reviewer`.
@@ -140,30 +139,11 @@ disable-model-invocation: true
 
 ---
 
-## 멀티계정 시퀀스 (오발송 방지 — 쓰기 직전에만)
+## GitHub 계정 (참고)
 
-`{account}`가 비었거나 현재 active gh 계정과 같으면 **전환 안 함**(no-op, 그대로 진행).
-다를 때만 아래를 적용. **`GH_TOKEN` 주입** 방식 — 전역 계정 상태를 건드리지 않는다.
-
-```
-# 1. 토큰 추출 (로깅 금지)
-TOKEN=$(gh auth token --user {account})
-
-# 2. 오발송 게이트 — 쓰기 직전 실제 로그인 == {account} 재확인
-WHO=$(GH_TOKEN="$TOKEN" gh api user -q .login)
-# WHO != {account} 이면 즉시 중단·사용자 보고 (절대 쓰지 않는다)
-
-# 3. 확정 후에만 쓰기
-GH_TOKEN="$TOKEN" gh issue create --repo {repo} ...
-GH_TOKEN="$TOKEN" gh pr create   --repo {repo} ...
-```
-
-- **git push**: `GH_TOKEN`도 `http.extraHeader="...bearer..."`도 push 인증에 안 먹는다(invalid credentials).
-  **URL에 토큰을 끼워** 1회성으로 push한다(remote 설정·전역 상태 안 건드림):
-  `git push "https://x-access-token:${TOKEN}@github.com/{repo}.git" <branch>`
-  출력에 토큰이 찍힐 수 있으니 `| sed -E "s/${TOKEN}/***/g"`로 마스킹한다.
-- **커밋 author**: `{git_identity}`로 커밋 단위 주입(위 6단계).
-- **토큰은 절대 로그·출력에 노출하지 않는다.**
+dobiflow는 **현재 로그인된 gh 계정과 현재 git 설정을 그대로 신뢰**한다.
+계정 전환·멀티계정은 dobiflow의 책임이 아니다(예: `gitto` 같은 도구가 git 레벨에서 처리).
+`gh issue create` / `gh pr create` / `git push`를 인증 주입 없이 평범하게 실행한다.
 
 ---
 
@@ -283,5 +263,5 @@ Closes #<이슈번호>
 - **UI 임의 제거/숨김 금지** — 백엔드 미지원이어도 임의로 빼지 않는다.
 - **백엔드가 원인인 부분**은 프론트에서 억지로 우회하지 말고 이슈/PR에 명시한다.
 - **전부 로컬 실행** — GitHub Actions·자동 트리거 안 씀. 이슈/PR만 GitHub에, 파악·수정은 로컬.
-- **오발송 방지** — 멀티계정 시퀀스의 `gh api user` 게이트를 쓰기 직전 반드시 통과. 레포·계정 합동 확인. 토큰 로깅 금지.
+- **오발송 방지** — 쓰기 직전 대상 레포를 다시 확인한다. 계정은 현재 gh 로그인 상태를 그대로 신뢰(멀티계정은 dobiflow 밖에서 처리).
 - **약한 라우팅 매치는 자동 진행 금지** — 사용자 확인.

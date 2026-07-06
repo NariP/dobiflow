@@ -32,7 +32,7 @@ permission.**
 
   ✓ found the cause     Header.tsx:42 — <Logo /> has no onClick/href
   ✓ filed the issue     github.com/you/app/issues/128
-  ✋ Dobby stops here    checked repo · account. May Dobby fix it, master?
+  ✋ Dobby stops here    checked repo · base. May Dobby fix it, master?
 
 > ok
 
@@ -101,7 +101,7 @@ Forgot how? `/triage-help` (Dobby will remind you).
 | Touching code | Straight to editing | **Never touched until you say the word** (approval gate) |
 | Implementation quality | You review after it's all written | Dobby writes it, other Dobbys inspect it, and he **fixes himself** on findings |
 | Domain policy | Easy to forget | policy-checker catches project-policy violations |
-| Many repos / accounts | Easy to push to the wrong place | Picks the repo from the issue, re-checks account right before push |
+| Many repos | Easy to push to the wrong place | Picks the repo from the issue, re-checks it right before push |
 | When stuck | Force it to a finish somehow | Dobby **stops and reports honestly** ("Dobby cannot do it, master") |
 | When it's done | — | Dobby… is free 🧦 |
 
@@ -113,7 +113,7 @@ Forgot how? `/triage-help` (Dobby will remind you).
 | `/triage-fix` | Bug — root cause → issue → fix → PR |
 | `/task-run` | Feature/improvement/refactor — design → issue → build → PR (plan mode for big ones) |
 | `/triage-status` | List open issues & in-progress PRs (read-only) |
-| `/triage-init` | Generate per-project config (detects repo, lint, policy docs, commit rules, account) |
+| `/triage-init` | Generate per-project config (detects repo, lint, policy docs, commit rules) |
 | `/triage-help` | Usage guide |
 
 ## How Dobby works
@@ -123,7 +123,7 @@ Forgot how? `/triage-help` (Dobby will remind you).
    ├─ classify     → bug → triage-fix
    ├─ investigate  → issue-triage (read-only — Dobby won't fix on a whim)
    ├─ GitHub issue → created + URL reported
-   ├─ ✋ approval   → confirm repo · account, then "may Dobby fix it, master?"
+   ├─ ✋ approval   → confirm repo · base, then "may Dobby fix it, master?"
    ├─ loop 🔁      → implementer Dobby codes + lint/tests
    │                 → policy-checker + code-reviewer (Dobbys inspect in parallel)
    │                 → ❌ findings? Dobby fixes himself (max 3, configurable)
@@ -148,9 +148,10 @@ dobiflow runs everything **on your machine**, so Dobby keeps a few rules:
   legal copy, docs, ops) are out of scope; mixed requests are split (code part runs,
   non-code part is flagged).
 - **When unsure, Dobby asks.** If it's unsure which repo, it asks instead of guessing.
-- **Writes are gated.** Before creating an issue/PR Dobby re-checks the active GitHub
-  account (to avoid pushing to the wrong account), and you approve before any code
-  is touched.
+- **Writes are gated.** Before creating an issue/PR Dobby re-checks the target repo
+  (to avoid pushing to the wrong place), and you approve before any code is touched.
+  Dobby uses whatever GitHub account you're currently logged into — account switching
+  is out of scope (a tool like `gitto` handles that at the git level).
 
 ## What Dobby is good at
 
@@ -158,7 +159,6 @@ dobiflow runs everything **on your machine**, so Dobby keeps a few rules:
 - **Any input** — Notion link / Slack link / plain text
 - **Approval gate** — the issue gets created, but no code is touched until you say "ok"
 - **Multi-repo** — infers the right repo from the issue (asks when unsure)
-- **Multi-account** — different GitHub account per repo; re-checks account right before writing
 - **Project rules first** — commit convention, policies, conventions follow the target project
 - **Implementation loop** — an implementer Dobby codes while reviewer Dobbys judge; findings trigger automatic re-implementation until green (bounded — stops and reports instead of forcing a PR)
 - **Split self-check** — domain-policy check and general code review run separately (read-only Dobbys)

@@ -90,6 +90,19 @@ dobiflow의 올바른 진화 방향이다.
 
 ---
 
+## 부작용 경계 (side-effect boundary)
+
+dobiflow는 orchestrator-workers 패턴이라, **되돌리기 어렵거나 바깥으로 나가는 쓰기
+(이슈·커밋·push·PR)는 메인 세션(오케스트레이터)이 독점**한다. 서브에이전트는
+읽기·구현·판정만 하고 부작용을 내지 않는다 — 그래서 재시도해도 안전하고,
+승인 게이트가 실제로 작동한다.
+
+계정은 **현재 로그인된 gh 계정·현재 git 설정을 그대로 신뢰**한다. 계정 전환·멀티계정은
+dobiflow의 책임이 아니다(예: `gitto` 같은 도구가 git 레벨에서 처리). dobiflow는
+토큰 주입·계정 전환 로직을 두지 않고, `gh`/`git`을 평범하게 실행한다.
+
+---
+
 ## 근거 문헌
 
 - Anthropic — [Building effective agents](https://www.anthropic.com/research/building-effective-agents)

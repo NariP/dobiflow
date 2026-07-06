@@ -1,17 +1,19 @@
 ---
 name: triage-init
-description: 현재 프로젝트를 분석해 triage 워크플로우 설정파일(.claude/triage.config.json + .local.json)을 생성/갱신한다. 새 프로젝트에서 /triage-fix를 쓰기 전 1회 실행. 사용자가 /triage-init 으로 명시 호출할 때만.
+description: 현재 프로젝트를 분석해 triage 워크플로우 설정파일(.claude/triage.config.json)을 생성/갱신한다. 새 프로젝트에서 /triage-fix를 쓰기 전 1회 실행. 사용자가 /triage-init 으로 명시 호출할 때만.
 ---
 
 # triage-init — triage 설정 파일 생성
 
 현재 프로젝트(cwd)를 분석해 `/triage-fix`·`/triage-status`가 읽을 설정을 만든다.
-자동으로 감지할 수 있는 건 감지하고, **오발송 위험 있는 값(레포·계정)만 사용자에게 확인**한다.
+자동으로 감지할 수 있는 건 감지하고, **오발송 위험 있는 값(레포)만 사용자에게 확인**한다.
 **멱등** — 이미 있으면 덮어쓰지 말고 diff 보여주고 갱신(사용자 입력값 보존).
 
+> 계정은 config에 저장하지 않는다. dobiflow는 현재 로그인된 gh 계정과 현재 git 설정을
+> 그대로 신뢰한다(멀티계정은 `gitto` 같은 도구가 git 레벨에서 처리).
+
 ## 출력
-- `<cwd>/.claude/triage.config.json` — 공유 가능값 (커밋 OK)
-- `<cwd>/.claude/triage.config.local.json` — 민감값(account·git_identity). gitignore 대상.
+- `<cwd>/.claude/triage.config.json` — 프로젝트 설정 (커밋 OK)
 
 ---
 
@@ -41,19 +43,17 @@ Bash/Read/Glob로 수집:
 ## 2단계 — 사용자 확인 (AskUserQuestion)
 
 오발송 위험·취향값만 묻는다:
-- **`account`** — `gh auth status`의 계정 목록을 선택지로. 감지된 `repo`의 org로 후보 추천
-  ("`{owner}` org면 보통 `<계정>` 계정을 쓰시죠?"). 계정이 1개뿐이면 그걸로 확정(질문 생략 가능).
-- **`git_identity`** — 확정된 account의 push/commit용 name·email (기본값 추정 제시).
+- **`repo`** — 감지값이 맞는지 1회 확인(오발송 방지의 핵심).
 - **`label_prefix`** — 이슈 제목 접두사. 기본 빈 값. 프로젝트 구분 표시가 필요하면 입력(예 `[gr] `).
 - 1단계에서 **감지 실패/애매**한 값(정책문서 0개, CLAUDE.md 없음, lint 없음 등)만 추가 확인.
 
 ## 3단계 — 파일 쓰기
 
-- 공유값 → `triage.config.json`, 민감값(`account`, `git_identity`) → `triage.config.local.json`.
+- 모든 값 → `triage.config.json` 하나로. (민감값 분리 파일 `.local.json`은 더 이상 없다 — 계정을 저장하지 않으므로.)
 - **이미 존재하면**: 기존 값을 읽어 **변경점(diff)을 사용자에게 보여주고** 확인 후 갱신.
   자동 감지로 새로 잡힌 값은 추가/업데이트, **사용자가 직접 넣었던 값(label_prefix 등)은 보존**.
-- `triage.config.local.json`을 **`.gitignore`(또는 `.git/info/exclude`)에 추가**하도록 안내한다
-  (직접 추가는 사용자 승인 후). 토큰·계정 정보가 레포에 올라가면 안 된다.
+- 옛 `triage.config.local.json`이 남아 있으면(구버전) account·git_identity는 더 이상 안 쓴다고
+  안내하고, 사용자 승인 시 정리(삭제)를 제안한다.
 
 ## 4단계 — 보고
 
@@ -90,11 +90,9 @@ Bash/Read/Glob로 수집:
   "label_prefix": "",
   "keywords": ["검색", "지도", "결제"]
 }
-// triage.config.local.json  (gitignore)
-{ "account": "your-github-username", "git_identity": { "name": "...", "email": "..." } }
 ```
 
 ## 가드
-- **repo·account는 추측으로 확정 금지** — 항상 사용자 확인 1회(계정 1개뿐이면 예외).
+- **repo는 추측으로 확정 금지** — 항상 사용자 확인 1회.
 - 멱등 — 덮어쓰기 전 diff 확인. 사용자 입력값 보존.
-- `triage.config.local.json`은 gitignore. 토큰은 파일에 저장하지 않는다(account 이름만; 토큰은 `gh`가 보관).
+- 계정·토큰은 config에 저장하지 않는다 — dobiflow는 현재 gh 로그인·git 설정을 그대로 신뢰한다.
