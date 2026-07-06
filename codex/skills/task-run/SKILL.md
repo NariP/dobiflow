@@ -19,7 +19,7 @@ argument-hint: <할 일 설명 | 노션·슬랙 링크>
 
 ### 0단계 — 설정 로드
 `triage-fix`와 동일. cwd(또는 라우팅된 레포)의 `triage.config.json`(+`.local.json`) 읽기.
-없으면 fallback(repo=git remote, default_branch=main, lint 감지, label_prefix="", 계정 전환 안 함, loop.max_iterations=3, loop.full_verify_command 없음). 핵심값: `repo`, `default_branch`, `lint_command`, `test_command`, `convention_doc`, `tech_stack`, `commit_convention`, `branch_prefix`, `codeowners`, `account`, `git_identity`, `serena`, `policy_docs`, `loop`.
+없으면 fallback(repo=git remote, default_branch=main, lint 감지, label_prefix="", loop.max_iterations=3, loop.full_verify_command 없음). 핵심값: `repo`, `default_branch`, `lint_command`, `test_command`, `convention_doc`, `tech_stack`, `commit_convention`, `branch_prefix`, `codeowners`, `serena`, `policy_docs`, `loop`.
 
 ### 1단계 — 요구 읽기
 입력(텍스트/노션/슬랙)에서 **무엇을 만들/바꿀지** 파악. 모호하면 사용자에게 구체화 질문(추측 금지).
@@ -37,11 +37,12 @@ argument-hint: <할 일 설명 | 노션·슬랙 링크>
 - 설계엔 기존 패턴 재사용·config의 tech_stack·아키텍처를 반영한다.
 
 ### 4단계 — GitHub 이슈 생성 + 설계 승인 ✋ (필수 정지점)
-- 아래 **이슈 템플릿**으로 생성. 제목: `{label_prefix}` + 원본. 라벨: `enhancement`/`feature`(레포에 있으면, 없으면 라벨 생략 또는 기본).
-- 멀티계정 시퀀스(§) 적용해 `GH_TOKEN=... gh issue create --repo {repo}`.
+- **메인이 작성**: 아래 **이슈 템플릿**으로 본문·제목(`{label_prefix}` + 원본)·라벨(`enhancement`/`feature`, 없으면 생략) 확정.
+- **git-writer 위임**으로 생성: 완성값(`repo={repo}`·`issue_title`·`issue_body`·`labels`)만 넘기면
+  `gh issue create` 실행 후 **URL만 반환**(장황한 출력은 서브에 갇힘). 반환 URL 확보(§git-writer 위임).
 - **설계안을 보여주고 승인받는다** (버그보다 이 단계가 더 중요 — 방향이 갈리므로):
   > "이슈 #N 만들었어요: <전체 URL>
-  >  레포: {repo} / 계정: {account} / base: {default_branch}
+  >  레포: {repo} / base: {default_branch}
   >  승인하면 구현 루프(implementer 구현 → lint·테스트 → 자가체크, 최대 {loop.max_iterations}회)로 진행해요.
   >  이렇게 설계했는데 이 방향으로 구현할까요?"
 - 명시적 승인 전 코드 수정 금지. 방향 바꾸자면 반영 후 재확인.
@@ -62,8 +63,10 @@ argument-hint: <할 일 설명 | 노션·슬랙 링크>
      2회차부터 = 직전 지적사항) + config(`convention_doc`·`tech_stack`·`lint_command`·`test_command`·`serena`).
      **기존 패턴·컨벤션 준수**(새 추상화 남발 금지)를 지시에 명시. lint·테스트 통과가 완료의 전제.
   2. 자가체크 — `policy-checker`+`code-reviewer` 병렬(읽기 전용). `{policy_docs}`·`{convention_doc}`·`{tech_stack}`·`{serena}` 전달.
-     **1회차 = 전체 diff 검사, 2회차부터 = 재검증 모드** — 직전 지적사항 + 이번 회차 변경 파일
-     diff(델타)만 전달해 "지적 해소 여부 + 델타의 새 위반"만 본다 (풀 리체크 금지).
+     **변경 파일 경로 목록만 전달**한다(implementer 보고의 "변경 파일" 필드). **`git diff` 전문을
+     프롬프트에 넣지 말 것** — diff가 필요하면 checker가 자기 Read로 해당 파일을 연다(컨텍스트 절약).
+     **1회차 = 전체 검사, 2회차부터 = 재검증 모드** — 직전 지적사항 + 이번 회차 **변경 파일 경로**만
+     전달해 "지적 해소 여부 + 변경의 새 위반"만 본다 (풀 리체크 금지).
   3. 판정 — ❌위반 = **REQUEST_CHANGES**(지적사항 loop.md 기록 후 재위임) / ⚠️뿐이어도 실질 회귀·
      데이터 손실·보안 노출이면 ❌로 승격 가능(사유 loop.md 기록) / ❌없음 = **APPROVE** —
      `{loop.full_verify_command}` 있으면 여기서 1회 실행(풀 빌드 등, 실패 시 REQUEST_CHANGES로
@@ -73,23 +76,27 @@ argument-hint: <할 일 설명 | 노션·슬랙 링크>
 - max 소진 시 커밋·PR 없이 중단·보고(WIP 브랜치 유지). **루프 안 커밋·push 금지.**
 - 루프 중단 시(막힘·max 소진) 보고 전에 **이벤트 발행**: `work-stopped` — 인자 `reason=<blocked|max-iterations>` (§이벤트 발행).
 
-### 6단계 — 커밋 + PR (APPROVE 후에만)
-- 커밋: **`{commit_convention}` 최우선**(없으면 Conventional Commits). 보통 `feat:`/`refactor:`/`chore:`. **Co-Authored-By 금지.** author는 `{git_identity}` 커밋 단위 주입.
-- 멀티계정 시퀀스로 push·PR. base `{default_branch}`. `Closes #N`.
-- 리뷰어: `{codeowners}` 기준(작성자 제외, 없으면 생략).
-- 이슈·PR **전체 URL을 클릭 가능하게** 보고. PR 후 `.claude/loops/<이슈번호>/` 삭제(일회용).
+### 6단계 — 커밋 + PR (APPROVE 후에만 · git-writer 위임)
+**메인이 판단·작성**하고 실행은 git-writer가 한다.
+- **메인이 작성**: 커밋 메시지(**`{commit_convention}` 최우선**, 없으면 Conventional Commits — 보통 `feat:`/`refactor:`/`chore:`, **Co-Authored-By 금지**), PR 제목/본문(`Closes #N`), 리뷰어 목록(`{codeowners}` 기준·작성자 제외·없으면 빈 목록), 스테이징 지시(보통 `all`).
+- **git-writer 위임**: 위 완성값 + `repo={repo}`·`branch`·`base_branch={default_branch}`를 넘긴다.
+  git-writer가 `add→commit→push→gh pr create` 실행, **PR URL만 반환**. author는 현재 git 설정 그대로.
+  git-writer는 log/diff/코드를 읽지 않는다(메인이 다 완성해 넘겼으므로). 실패 보고 시 억지 재시도 없이 사용자에게.
+- 반환된 이슈·PR **전체 URL을 클릭 가능하게** 보고. PR 후 `.claude/loops/<이슈번호>/` 삭제(일회용).
 - **이벤트 발행**: `work-finished` — 인자 `pr_url=<PR 전체 URL> iterations=<총 회차>` (§이벤트 발행).
 
 ---
 
-## 멀티계정 시퀀스 (오발송 방지)
-`triage-fix`와 **완전히 동일**. 쓰기 직전에만, `{account}`가 active와 다를 때만:
-```
-TOKEN=$(gh auth token --user {account})
-WHO=$(GH_TOKEN="$TOKEN" gh api user -q .login)   # == {account} 게이트, 불일치 중단
-GH_TOKEN="$TOKEN" gh issue create / pr create --repo {repo} ...
-```
-push는 URL 토큰 주입 `git push "https://x-access-token:${TOKEN}@github.com/{repo}.git" <branch>` (extraHeader/bearer 방식은 invalid credentials로 실패). 출력은 `| sed -E "s/${TOKEN}/***/g"`로 마스킹, 토큰 로깅 금지.
+## git-writer 위임 (쓰기 실행)
+`triage-fix`와 동일. 이슈 생성(4단계)·커밋+PR(6단계)의 **실행**은 `git-writer` 서브에이전트가 한다 —
+`git log`/`diff`/`gh` 출력을 메인에 쌓지 않고 서브에 가둬 **컨텍스트를 아낀다**.
+- **메인이 판단·작성**(커밋 메시지·PR 본문·리뷰어·스테이징 결정), **git-writer는 실행만**.
+  git-writer는 코드·log·diff를 읽지 않는다 — 완성값을 메인이 넘겼으므로.
+- 넘기는 값: (이슈) `repo`·`issue_title`·`issue_body`·`labels` / (PR) `repo`·`branch`·`base_branch`·`commit_message`·`pr_title`·`pr_body`·`reviewers`·`stage`. 받는 값: URL만.
+
+## GitHub 계정 (참고)
+dobiflow는 **현재 로그인된 gh 계정과 현재 git 설정을 그대로 신뢰**한다.
+계정 전환·멀티계정은 dobiflow 밖(예: `gitto`)에서 처리 — git-writer가 인증 주입 없이 평범하게 실행한다.
 
 ## 이슈 템플릿 (4단계)
 
@@ -164,6 +171,6 @@ Closes #<이슈번호>
 - **읽기/파악은 issue-triage 위임.** 기존 패턴 먼저 찾고 재사용(새로 짜기 전에).
 - **커밋은 프로젝트 룰(`commit_convention`) 우선. Co-Authored-By 금지.**
 - **큰 작업은 plan mode 권유** — 설계 합의 없이 큰 구현 들어가지 않는다.
-- **오발송 방지** — `gh api user` 게이트, 레포·계정 합동 확인, 토큰 로깅 금지.
+- **오발송 방지** — 쓰기 직전 대상 레포 재확인. 계정은 현재 gh 로그인 상태 신뢰(멀티계정은 dobiflow 밖).
 - 약한 라우팅 매치 자동 진행 금지.
 - 전부 로컬 실행(GitHub Actions 안 씀).

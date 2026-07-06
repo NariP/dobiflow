@@ -4,6 +4,44 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 [유의적 버전](https://semver.org/lang/ko/)을 사용합니다.
 
+## [0.11.1] - 2026-07-06
+
+### Changed
+- **메인↔서브에이전트 토큰 낭비 개선** (#1) — issue-triage로 워크플로우를 감사해 찾은
+  낭비 지점을 정리 (claude+codex):
+  - **자가체크 diff 전달 단일화** — "변경 파일 목록 또는 `git diff` 전달"에서 OR을 없애고
+    **변경 파일 경로 목록만** 전달. `git diff` 전문을 프롬프트에 넣지 않는다(메인이 diff를
+    자기 컨텍스트에 올려 policy-checker·code-reviewer 프롬프트로 복제하던 3벌 낭비 제거).
+    diff가 필요하면 checker가 자기 Read로 해당 파일을 연다. 델타 재검증 개념은 유지.
+  - **implementer 보고에 "변경 파일" 필드 추가** — 메인이 diff를 스스로 뜨지 않고 이 목록만 넘긴다.
+  - **convention_doc 부분 읽기 확산** — code-reviewer·implementer도 문서 전체가 아니라
+    변경 관련 섹션만 Read(기존 policy-checker 패턴을 확산).
+  - **자가체크 통과 시 규칙 나열 금지** — 통과 항목을 나열하지 않고 "위반 없음" 한 줄로 끝낸다.
+  - checker 입력 설명도 "경로만 받는다(diff 전문 없음)"로 정합화. 미러(codex) 대칭 유지.
+  - 안 건드림: git-writer 전체, 델타 재검증 개념, porcelain 예외.
+
+## [0.11.0] - 2026-07-06
+
+### Added
+- **`git-writer` 서브에이전트 — 쓰기 실행 위임(멍청한 손)** — 이슈 생성·커밋·push·PR 생성의
+  *실행*을 전담하는 에이전트. 목적은 **컨텍스트 절약** (claude+codex):
+  - **역할 경계**: 메인 세션이 판단·작성(커밋 메시지·PR 본문·리뷰어·라벨·스테이징)을 다 끝내고,
+    git-writer는 완성값을 받아 `gh`/`git`에 넣어 실행만 한다. **URL만 반환**.
+  - **읽지 않음**: git-writer는 `git log`/`diff`/`status`/코드를 읽어 무언가 추론하지 않는다 —
+    필요한 값은 메인이 전부 넘겼으므로. 장황한 gh/git 출력이 메인 세션에 안 쌓인다.
+  - triage-fix(3·6단계)·task-run(4·6단계)이 이슈/PR 시점에 git-writer로 위임하도록 갱신.
+  - `agents/git-writer.md`(Claude) + `codex/agents/git-writer.toml`(Codex) 신설, install.sh 설치 목록 추가.
+  - architecture.md에 side-effect boundary(판단은 메인 독점, 실행은 손에 위임, 읽기는 안 함) 반영.
+
+### Changed
+- **멀티계정 지원 제거 — 현재 gh 로그인·git 설정을 그대로 신뢰** — 계정 전환은 `gitto` 같은
+  도구가 git 레벨에서 처리하므로 dobiflow에서 멀티계정 로직 전부 제거 (claude+codex):
+  - `GH_TOKEN` 추출·`x-access-token` URL push 주입·`WHO` 오발송 게이트·멀티계정 시퀀스 섹션 삭제.
+  - config에서 `account`·`git_identity` 키 제거, `triage.config.local.json` 폐지(단일 config로).
+  - 커밋 author 주입 제거 → 현재 git 설정 그대로. `gh`/`git`을 인증 주입 없이 평범하게 실행.
+  - triage-init: account/git_identity 감지·질문 제거, 구버전 `.local.json` 정리 안내 추가.
+  - README(양쪽)·워크플로우 가이드·architecture.md에서 멀티계정 서술 정리.
+
 ## [0.10.0] - 2026-07-05
 
 ### Added

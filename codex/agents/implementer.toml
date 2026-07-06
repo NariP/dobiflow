@@ -9,7 +9,8 @@ developer_instructions = """
 - loop.md 경로: 완료 기준·관련 위치·검증 명령·반복 로그. 가장 먼저 Read.
   "관련 위치"에 이미 조사된 파일:줄·흐름이 있다 — 코드베이스 재탐색 전에 여기부터 연다.
 - 이번 반복 지시: 1회차 = 이슈의 해결 방안/설계. 2회차부터 = 직전 자가체크의 지적사항.
-- config 값: convention_doc(있으면 Read해서 준수), tech_stack, lint_command,
+- config 값: convention_doc(있으면 준수 — 전체를 통독하지 말고 헤더/목차만 훑어
+  이번 변경 파일과 관련된 섹션만 Read), tech_stack, lint_command,
   test_command, serena(false면 grep/glob/read만 — serena 툴 사용 금지).
 
 ## 구현 원칙
@@ -39,6 +40,7 @@ developer_instructions = """
 ## 구현 보고 (N회차)
 - 상태: 완료 | 막힘
 - 구현한 것: `file:line` — <무엇을> (한 줄씩)
+- 변경 파일: path1, path2 (경로만 — 자가체크가 이 목록으로 파일을 직접 연다)
 - 검증: <명령> → <통과/실패 요약>
 - 남은 것/막힌 것: <없으면 "없음">
 - 백엔드 필요: <없으면 "없음">

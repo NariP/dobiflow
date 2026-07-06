@@ -29,7 +29,7 @@ dobiflow 설치 스크립트
 
 설치 위치:
   Claude: $CLAUDE_HOME/skills/{work,triage-fix,task-run,triage-status,triage-init,triage-help}
-          $CLAUDE_HOME/agents/{issue-triage,policy-checker,code-reviewer,implementer}.md
+          $CLAUDE_HOME/agents/{issue-triage,policy-checker,code-reviewer,implementer,git-writer}.md
   Codex : $AGENTS_HOME/skills/<name>  +  $CODEX_HOME/skills/<name>  (양쪽 — 버전 호환)
           $CODEX_HOME/agents/<name>.toml
   공용  : $DOBIFLOW_HOME/bin/dobiflow-emit  (작업 생명주기 이벤트 발행기)
@@ -65,7 +65,7 @@ put_file() {  # <원본 파일> <설치 경로>
 }
 
 SKILLS="work triage-fix task-run triage-status triage-init triage-help"
-AGENTS_MD="issue-triage policy-checker code-reviewer implementer"
+AGENTS_MD="issue-triage policy-checker code-reviewer implementer git-writer"
 MODE_LABEL=$([ "$LINK" = yes ] && echo "심링크" || echo "복사")
 
 # ---- 공용: 이벤트 발행기 (CLI 무관 — 스킬들이 ~/.dobiflow/bin/dobiflow-emit 으로 호출) ----
