@@ -1,7 +1,8 @@
 # 🧦 dobiflow
 
-<!-- 여기에 히어로 스크린샷: /work 한 줄 → 이슈 → 승인 → PR 흐름이 한 화면에 담긴 터미널 캡처 -->
-<!-- ![dobiflow 히어로](docs/assets/hero.png) -->
+<p align="center">
+  <img src="docs/assets/hero.png" alt="dobiflow — 집요정 도비가 한 줄을 받아 task → 조사 → 이슈 → 승인 → 수정 → 검사 → PR까지" width="100%">
+</p>
 
 <!-- 여기에 demo.gif: 실제로 도비가 이슈 만들고 → 승인받고 → 고치고 → PR 올리는 30초 클립 -->
 <!-- ![dobiflow 데모 — 한 줄 던지면 도비가 PR까지](docs/assets/demo.gif) -->

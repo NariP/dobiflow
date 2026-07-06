@@ -1,7 +1,8 @@
 # 🧦 dobiflow
 
-<!-- Hero screenshot here: a terminal capture showing one /work line → issue → approval → PR in a single frame -->
-<!-- ![dobiflow hero](docs/assets/hero.png) -->
+<p align="center">
+  <img src="docs/assets/hero.png" alt="dobiflow — a little house-elf takes one line from task → investigate → issue → approve → fix → check → PR" width="100%">
+</p>
 
 <!-- demo.gif here: a 30s clip of Dobby filing the issue → getting approval → fixing → opening the PR -->
 <!-- ![dobiflow demo — throw one line, Dobby takes it to a PR](docs/assets/demo.gif) -->
