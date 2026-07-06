@@ -19,7 +19,7 @@ disable-model-invocation: true
 ## 진행 순서
 
 ### 0단계 — 설정 로드
-`triage-fix`와 동일. cwd(또는 라우팅된 레포)의 `triage.config.json`(+`.local.json`) 읽기.
+`triage-fix`와 동일. cwd(또는 라우팅된 레포)의 `triage.config.json` 읽기.
 없으면 fallback(repo=git remote, default_branch=main, lint 감지, label_prefix="", loop.max_iterations=3, loop.full_verify_command 없음). 핵심값: `repo`, `default_branch`, `lint_command`, `test_command`, `convention_doc`, `tech_stack`, `commit_convention`, `branch_prefix`, `codeowners`, `serena`, `policy_docs`, `loop`.
 
 ### 1단계 — 요구 읽기
@@ -57,7 +57,8 @@ disable-model-invocation: true
 - **준비**: 브랜치 `{branch_prefix.feat}<슬러그>`(기본 `feat/`, 리팩토링이면 적절한 prefix).
   `<repo>/.claude/loops/<이슈번호>/loop.md` 생성 — 완료 기준은 이슈의 **"✅ 완료 기준"** 체크리스트를
   그대로 복사 (루프 중 수정 금지). **"관련 위치"에는 이슈 "📐 설계"의 변경 범위 + 2단계
-  issue-triage가 찾은 파일:줄을 복사** (implementer 재탐색 방지). `.git/info/exclude`에 `.claude/loops/` 추가.
+  issue-triage가 반환한 파일:줄 원본을 직접 복사** (이슈 본문은 요약이라 깎일 수 있으니 issue-triage 반환 전문을
+  넣는다 — 메인이 이미 갖고 있어 추가 토큰 0, implementer 재탐색 방지). `.git/info/exclude`에 `.claude/loops/` 추가.
   준비가 끝나면 **이벤트 발행**: `work-started` — 인자 `branch=<브랜치명> title="<이슈 제목>" issue_url=<이슈 전체 URL>` (§이벤트 발행).
 - **루프 (최대 `{loop.max_iterations}`회, 기본 3):**
   1. `implementer` 위임 — loop.md 경로 + 이번 반복 지시(1회차 = 4단계에서 승인된 **설계**,

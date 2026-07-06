@@ -86,8 +86,9 @@ disable-model-invocation: true
 - `{default_branch}`에서 새 브랜치: `{branch_prefix.fix}<짧은-영문-슬러그>` (기본 `fix/`).
 - **loop.md 생성**: `<repo>/.claude/loops/<이슈번호>/loop.md` — 아래 **loop.md 템플릿**대로.
   완료 기준은 이슈의 "해결 방안"·"기대 동작"에서 그대로 가져온다 (**루프 중 수정 금지**).
-  **"관련 위치"는 이슈의 "🔍 원인 파악"(관련 위치·흐름)을 그대로 복사** — issue-triage가 이미
-  찾아둔 파일:줄을 implementer가 재탐색하지 않게 하는 핸드오프다.
+  **"관련 위치"는 2단계 issue-triage가 반환한 관련 위치·흐름 원본을 그대로 복사** — 이슈 본문(🔍 원인 파악)은
+  사용자용 요약이라 파일:줄이 깎일 수 있으니, loop.md엔 **issue-triage 반환 전문**을 넣는다(메인이 이미 갖고 있어
+  추가 토큰 0). implementer가 재탐색하지 않게 하는 핸드오프다 — 상세할수록 재탐색이 준다.
 - `.claude/loops/`가 커밋되지 않게 `.git/info/exclude`에 `.claude/loops/` 한 줄 추가(이미 있으면 생략).
 - **이벤트 발행**: `work-started` — 인자 `branch=<브랜치명> title="<이슈 제목>" issue_url=<이슈 전체 URL>` (§이벤트 발행).
 
@@ -242,7 +243,7 @@ Closes #<이슈번호>
 ## 완료 기준 (이슈에서 복사 — 루프 중 수정 금지)
 - [ ] <기대 동작 / 해결 방안 항목>
 
-## 관련 위치 (이슈 🔍 원인 파악에서 복사 — implementer는 재탐색 전에 여기부터)
+## 관련 위치 (2단계 issue-triage 반환 원본에서 복사 — implementer는 재탐색 전에 여기부터)
 - `path/to/file:line` — <역할>
 - 흐름: <진입점 → ... → 문제 지점>
 

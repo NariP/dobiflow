@@ -4,6 +4,22 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 [유의적 버전](https://semver.org/lang/ko/)을 사용합니다.
 
+## [0.11.2] - 2026-07-06
+
+### Fixed
+- **문서 정합성 뒷정리** — 최근 큰 변경(멀티계정 제거·git-writer 신설) 이후 남은 불일치 정리 (claude+codex):
+  - `install.sh` 설치 로그 "에이전트 4개" → "5개"(git-writer 반영. 실제 설치 목록은 이미 5개였음).
+  - `triage-workflow-guide.md`(+codex 미러) agents 나열에 `git-writer (쓰기 실행 전담)` 추가.
+  - README 배지 버전 `0.10.0` → `0.11.2`(양쪽).
+  - `plugin.json`·`marketplace.json` 설명에서 제거된 "멀티계정" 문구 삭제, marketplace 흐름도를 "구현 루프"로 정합화.
+  - `task-run` 0단계의 폐지된 `.local.json` 읽기 잔재 제거(+codex 미러).
+
+### Changed
+- **loop.md 핸드오프 누수 개선** — implementer 재탐색으로 인한 토큰 낭비 감소 (claude+codex):
+  - loop.md "관련 위치"를 이슈 본문(사용자용 요약, 파일:줄이 깎임) 대신 **2단계 issue-triage 반환 원본에서
+    직접 복사**하도록 변경. 메인이 이미 갖고 있는 값이라 추가 토큰 0. 핸드오프가 상세할수록 implementer가
+    코드베이스를 재탐색할 필요가 줄어 메인↔서브 왕복 낭비가 감소한다. (triage-fix·task-run 4개 파일)
+
 ## [0.11.1] - 2026-07-06
 
 ### Changed

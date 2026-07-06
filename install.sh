@@ -85,7 +85,7 @@ if [ "$DO_CLAUDE" != no ] && { [ "$DO_CLAUDE" = yes ] || command -v claude >/dev
   for a in $AGENTS_MD; do
     put_file "$REPO/agents/$a.md" "$CLAUDE_HOME/agents/$a.md"
   done
-  echo "  → Claude 스킬 6개 + 에이전트 4개 설치 ($MODE_LABEL)"
+  echo "  → Claude 스킬 6개 + 에이전트 5개 설치 ($MODE_LABEL)"
 else
   echo "== Claude Code 건너뜀 (미설치 또는 --codex-only) =="
 fi
@@ -102,7 +102,7 @@ if [ "$DO_CODEX" != no ] && { [ "$DO_CODEX" = yes ] || command -v codex >/dev/nu
   for a in $AGENTS_MD; do
     put_file "$REPO/codex/agents/$a.toml" "$CODEX_HOME/agents/$a.toml"
   done
-  echo "  → Codex 스킬 6개(신규+레거시 경로) + 에이전트 4개(toml) 설치 ($MODE_LABEL)"
+  echo "  → Codex 스킬 6개(신규+레거시 경로) + 에이전트 5개(toml) 설치 ($MODE_LABEL)"
   echo "  ℹ️  Serena LSP 쓰려면 $CODEX_HOME/config.toml 에 [mcp_servers.serena] 등록 필요"
 else
   echo "== Codex CLI 건너뜀 (미설치 또는 --claude-only) =="
