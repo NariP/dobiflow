@@ -38,8 +38,9 @@ disable-model-invocation: true
 - 설계엔 기존 패턴 재사용·config의 tech_stack·아키텍처를 반영한다.
 
 ### 4단계 — GitHub 이슈 생성 + 설계 승인 ✋ (필수 정지점)
-- 아래 **이슈 템플릿**으로 생성. 제목: `{label_prefix}` + 원본. 라벨: `enhancement`/`feature`(레포에 있으면, 없으면 라벨 생략 또는 기본).
-- `gh issue create --repo {repo}` (현재 로그인된 gh 계정 그대로).
+- **메인이 작성**: 아래 **이슈 템플릿**으로 본문·제목(`{label_prefix}` + 원본)·라벨(`enhancement`/`feature`, 없으면 생략) 확정.
+- **git-writer 위임**으로 생성: 완성값(`repo={repo}`·`issue_title`·`issue_body`·`labels`)만 넘기면
+  `gh issue create` 실행 후 **URL만 반환**(장황한 출력은 서브에 갇힘). 반환 URL 확보(§git-writer 위임).
 - **설계안을 보여주고 승인받는다** (버그보다 이 단계가 더 중요 — 방향이 갈리므로):
   > "이슈 #N 만들었어요: <전체 URL>
   >  레포: {repo} / base: {default_branch}
@@ -74,18 +75,27 @@ disable-model-invocation: true
 - max 소진 시 커밋·PR 없이 중단·보고(WIP 브랜치 유지). **루프 안 커밋·push 금지.**
 - 루프 중단 시(막힘·max 소진) 보고 전에 **이벤트 발행**: `work-stopped` — 인자 `reason=<blocked|max-iterations>` (§이벤트 발행).
 
-### 6단계 — 커밋 + PR (APPROVE 후에만)
-- 커밋: **`{commit_convention}` 최우선**(없으면 Conventional Commits). 보통 `feat:`/`refactor:`/`chore:`. **Co-Authored-By 금지.** author는 현재 git 설정 그대로(dobiflow는 계정 안 건드림).
-- `git push <branch>` + `gh pr create`(인증 주입 없이). base `{default_branch}`. `Closes #N`.
-- 리뷰어: `{codeowners}` 기준(작성자 제외, 없으면 생략).
-- 이슈·PR **전체 URL을 클릭 가능하게** 보고. PR 후 `.claude/loops/<이슈번호>/` 삭제(일회용).
+### 6단계 — 커밋 + PR (APPROVE 후에만 · git-writer 위임)
+**메인이 판단·작성**하고 실행은 git-writer가 한다.
+- **메인이 작성**: 커밋 메시지(**`{commit_convention}` 최우선**, 없으면 Conventional Commits — 보통 `feat:`/`refactor:`/`chore:`, **Co-Authored-By 금지**), PR 제목/본문(`Closes #N`), 리뷰어 목록(`{codeowners}` 기준·작성자 제외·없으면 빈 목록), 스테이징 지시(보통 `all`).
+- **git-writer 위임**: 위 완성값 + `repo={repo}`·`branch`·`base_branch={default_branch}`를 넘긴다.
+  git-writer가 `add→commit→push→gh pr create` 실행, **PR URL만 반환**. author는 현재 git 설정 그대로.
+  git-writer는 log/diff/코드를 읽지 않는다(메인이 다 완성해 넘겼으므로). 실패 보고 시 억지 재시도 없이 사용자에게.
+- 반환된 이슈·PR **전체 URL을 클릭 가능하게** 보고. PR 후 `.claude/loops/<이슈번호>/` 삭제(일회용).
 - **이벤트 발행**: `work-finished` — 인자 `pr_url=<PR 전체 URL> iterations=<총 회차>` (§이벤트 발행).
 
 ---
 
+## git-writer 위임 (쓰기 실행)
+`triage-fix`와 동일. 이슈 생성(4단계)·커밋+PR(6단계)의 **실행**은 `git-writer` 서브에이전트가 한다 —
+`git log`/`diff`/`gh` 출력을 메인에 쌓지 않고 서브에 가둬 **컨텍스트를 아낀다**.
+- **메인이 판단·작성**(커밋 메시지·PR 본문·리뷰어·스테이징 결정), **git-writer는 실행만**.
+  git-writer는 코드·log·diff를 읽지 않는다 — 완성값을 메인이 넘겼으므로.
+- 넘기는 값: (이슈) `repo`·`issue_title`·`issue_body`·`labels` / (PR) `repo`·`branch`·`base_branch`·`commit_message`·`pr_title`·`pr_body`·`reviewers`·`stage`. 받는 값: URL만.
+
 ## GitHub 계정 (참고)
-`triage-fix`와 동일. dobiflow는 **현재 로그인된 gh 계정과 현재 git 설정을 그대로 신뢰**한다.
-계정 전환·멀티계정은 dobiflow 밖(예: `gitto`)에서 처리 — `gh issue/pr create`·`git push`를 인증 주입 없이 평범하게 실행한다.
+dobiflow는 **현재 로그인된 gh 계정과 현재 git 설정을 그대로 신뢰**한다.
+계정 전환·멀티계정은 dobiflow 밖(예: `gitto`)에서 처리 — git-writer가 인증 주입 없이 평범하게 실행한다.
 
 ## 이슈 템플릿 (4단계)
 

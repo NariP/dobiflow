@@ -4,6 +4,28 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 [유의적 버전](https://semver.org/lang/ko/)을 사용합니다.
 
+## [0.11.0] - 2026-07-06
+
+### Added
+- **`git-writer` 서브에이전트 — 쓰기 실행 위임(멍청한 손)** — 이슈 생성·커밋·push·PR 생성의
+  *실행*을 전담하는 에이전트. 목적은 **컨텍스트 절약** (claude+codex):
+  - **역할 경계**: 메인 세션이 판단·작성(커밋 메시지·PR 본문·리뷰어·라벨·스테이징)을 다 끝내고,
+    git-writer는 완성값을 받아 `gh`/`git`에 넣어 실행만 한다. **URL만 반환**.
+  - **읽지 않음**: git-writer는 `git log`/`diff`/`status`/코드를 읽어 무언가 추론하지 않는다 —
+    필요한 값은 메인이 전부 넘겼으므로. 장황한 gh/git 출력이 메인 세션에 안 쌓인다.
+  - triage-fix(3·6단계)·task-run(4·6단계)이 이슈/PR 시점에 git-writer로 위임하도록 갱신.
+  - `agents/git-writer.md`(Claude) + `codex/agents/git-writer.toml`(Codex) 신설, install.sh 설치 목록 추가.
+  - architecture.md에 side-effect boundary(판단은 메인 독점, 실행은 손에 위임, 읽기는 안 함) 반영.
+
+### Changed
+- **멀티계정 지원 제거 — 현재 gh 로그인·git 설정을 그대로 신뢰** — 계정 전환은 `gitto` 같은
+  도구가 git 레벨에서 처리하므로 dobiflow에서 멀티계정 로직 전부 제거 (claude+codex):
+  - `GH_TOKEN` 추출·`x-access-token` URL push 주입·`WHO` 오발송 게이트·멀티계정 시퀀스 섹션 삭제.
+  - config에서 `account`·`git_identity` 키 제거, `triage.config.local.json` 폐지(단일 config로).
+  - 커밋 author 주입 제거 → 현재 git 설정 그대로. `gh`/`git`을 인증 주입 없이 평범하게 실행.
+  - triage-init: account/git_identity 감지·질문 제거, 구버전 `.local.json` 정리 안내 추가.
+  - README(양쪽)·워크플로우 가이드·architecture.md에서 멀티계정 서술 정리.
+
 ## [0.10.0] - 2026-07-05
 
 ### Added

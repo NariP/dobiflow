@@ -122,12 +122,12 @@ Forgot how? `/triage-help` (Dobby will remind you).
 /work "the dashboard logo doesn't go anywhere when clicked"
    ├─ classify     → bug → triage-fix
    ├─ investigate  → issue-triage (read-only — Dobby won't fix on a whim)
-   ├─ GitHub issue → created + URL reported
+   ├─ GitHub issue → git-writer Dobby files it (execution only) + URL reported
    ├─ ✋ approval   → confirm repo · base, then "may Dobby fix it, master?"
    ├─ loop 🔁      → implementer Dobby codes + lint/tests
    │                 → policy-checker + code-reviewer (Dobbys inspect in parallel)
    │                 → ❌ findings? Dobby fixes himself (max 3, configurable)
-   └─ PR           → commit after green + created + reviewer + URL
+   └─ PR           → main writes the message/body, git-writer Dobby runs commit+push+PR → URL
                      → 🧦 Dobby is free!
 ```
 
@@ -162,6 +162,7 @@ dobiflow runs everything **on your machine**, so Dobby keeps a few rules:
 - **Project rules first** — commit convention, policies, conventions follow the target project
 - **Implementation loop** — an implementer Dobby codes while reviewer Dobbys judge; findings trigger automatic re-implementation until green (bounded — stops and reports instead of forcing a PR)
 - **Split self-check** — domain-policy check and general code review run separately (read-only Dobbys)
+- **Context-thrifty writes** — a `git-writer` Dobby runs issue/commit/push/PR as pure execution; main writes the message/body, git-writer just runs `gh`/`git` and returns the URL, so verbose `git log`/`diff`/`gh` output never piles up in the main session
 - **Code search** — symbol-level via Serena LSP when available, grep fallback otherwise
 
 ## Event hooks (optional)

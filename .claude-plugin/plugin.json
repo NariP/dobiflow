@@ -1,6 +1,6 @@
 {
   "name": "dobiflow",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "이슈/작업을 받아 파악 → GitHub 이슈 → 승인 → 구현 루프(구현→검증→자가체크) → PR까지 로컬에서 자동화하는 워크플로우. 버그(triage-fix)·기능(task-run) 라우팅, 멀티레포·멀티계정, 프로젝트별 설정 자동 생성.",
   "author": {
     "name": "narip"

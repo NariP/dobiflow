@@ -18,17 +18,20 @@
   │                  Routing
   │
   ├─ [순차]          1. 원인·영향 파악 (issue-triage 위임, 읽기 전용)
-  │                  2. GitHub 이슈 생성
+  │                  2. GitHub 이슈 생성 (git-writer 위임 — 실행만)
   │                  3. ✋ 승인 정지점
   │                  4. 설계(기능) / 해결 방안(버그)
   │                  Prompt chaining — 앞 단계 결과가 있어야 뒤가 돈다
   │
-  └─ [evaluator 루프] 5. 구현 루프 (최대 3회)
-        │            implementer 구현 → 검증 → 판정 → 재구현
-        │            Evaluator–optimizer
-        │
-        └─ ⊃ [fan-out]  자가체크: policy-checker + code-reviewer 병렬 (격리)
-                        Parallelization / sectioning
+  ├─ [evaluator 루프] 5. 구현 루프 (최대 3회)
+  │     │            implementer 구현 → 검증 → 판정 → 재구현
+  │     │            Evaluator–optimizer
+  │     │
+  │     └─ ⊃ [fan-out]  자가체크: policy-checker + code-reviewer 병렬 (격리)
+  │                     Parallelization / sectioning
+  │
+  └─ [손 위임]        6. 커밋 + push + PR (git-writer 위임 — 실행만)
+                     메인이 메시지·본문 완성 → git-writer가 gh/git 실행 → URL만 반환
 ```
 
 | 페이즈 | 쓰는 패턴 | 왜 이 패턴인가 |
@@ -93,9 +96,16 @@ dobiflow의 올바른 진화 방향이다.
 ## 부작용 경계 (side-effect boundary)
 
 dobiflow는 orchestrator-workers 패턴이라, **되돌리기 어렵거나 바깥으로 나가는 쓰기
-(이슈·커밋·push·PR)는 메인 세션(오케스트레이터)이 독점**한다. 서브에이전트는
-읽기·구현·판정만 하고 부작용을 내지 않는다 — 그래서 재시도해도 안전하고,
-승인 게이트가 실제로 작동한다.
+(이슈·커밋·push·PR)의 판단·작성은 메인 세션(오케스트레이터)이 독점**한다. 검사·구현
+서브에이전트(issue-triage·implementer·policy-checker·code-reviewer)는 읽기·구현·판정만
+하고 부작용을 내지 않는다 — 그래서 재시도해도 안전하고, 승인 게이트가 실제로 작동한다.
+
+**단, "실행"만은 `git-writer` 서브에이전트에 위임한다.** 이건 판단이 아니라 손이다:
+메인이 커밋 메시지·PR 본문·리뷰어를 **완성해서** 넘기면, git-writer는 그걸 `git`/`gh`에
+넣어 실행하고 **URL만 반환**한다. 목적은 컨텍스트 절약 — `git log`/`diff`/`gh`의 장황한
+출력을 메인에 쌓지 않고 서브에 가둔다. **git-writer는 코드·log·diff를 읽지 않는다**
+(필요한 값은 메인이 전부 넘겼으므로). 즉 "판단은 메인이 독점, 실행은 손에 위임,
+읽기는 안 함"으로 안전성과 토큰 절약을 동시에 얻는다.
 
 계정은 **현재 로그인된 gh 계정·현재 git 설정을 그대로 신뢰**한다. 계정 전환·멀티계정은
 dobiflow의 책임이 아니다(예: `gitto` 같은 도구가 git 레벨에서 처리). dobiflow는
