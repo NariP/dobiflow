@@ -63,8 +63,10 @@ argument-hint: <할 일 설명 | 노션·슬랙 링크>
      2회차부터 = 직전 지적사항) + config(`convention_doc`·`tech_stack`·`lint_command`·`test_command`·`serena`).
      **기존 패턴·컨벤션 준수**(새 추상화 남발 금지)를 지시에 명시. lint·테스트 통과가 완료의 전제.
   2. 자가체크 — `policy-checker`+`code-reviewer` 병렬(읽기 전용). `{policy_docs}`·`{convention_doc}`·`{tech_stack}`·`{serena}` 전달.
-     **1회차 = 전체 diff 검사, 2회차부터 = 재검증 모드** — 직전 지적사항 + 이번 회차 변경 파일
-     diff(델타)만 전달해 "지적 해소 여부 + 델타의 새 위반"만 본다 (풀 리체크 금지).
+     **변경 파일 경로 목록만 전달**한다(implementer 보고의 "변경 파일" 필드). **`git diff` 전문을
+     프롬프트에 넣지 말 것** — diff가 필요하면 checker가 자기 Read로 해당 파일을 연다(컨텍스트 절약).
+     **1회차 = 전체 검사, 2회차부터 = 재검증 모드** — 직전 지적사항 + 이번 회차 **변경 파일 경로**만
+     전달해 "지적 해소 여부 + 변경의 새 위반"만 본다 (풀 리체크 금지).
   3. 판정 — ❌위반 = **REQUEST_CHANGES**(지적사항 loop.md 기록 후 재위임) / ⚠️뿐이어도 실질 회귀·
      데이터 손실·보안 노출이면 ❌로 승격 가능(사유 loop.md 기록) / ❌없음 = **APPROVE** —
      `{loop.full_verify_command}` 있으면 여기서 1회 실행(풀 빌드 등, 실패 시 REQUEST_CHANGES로
