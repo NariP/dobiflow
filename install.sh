@@ -78,14 +78,18 @@ echo "  → 이벤트 발행기 설치: $DOBIFLOW_HOME/bin/dobiflow-emit ($MODE_
 # ---- Claude Code ----
 if [ "$DO_CLAUDE" != no ] && { [ "$DO_CLAUDE" = yes ] || command -v claude >/dev/null 2>&1; }; then
   echo "== Claude Code =="
-  run mkdir -p "$CLAUDE_HOME/skills" "$CLAUDE_HOME/agents"
+  run mkdir -p "$CLAUDE_HOME/skills" "$CLAUDE_HOME/agents" "$CLAUDE_HOME/docs"
   for s in $SKILLS; do
     put_dir "$REPO/skills/$s" "$CLAUDE_HOME/skills/$s"
   done
   for a in $AGENTS_MD; do
     put_file "$REPO/agents/$a.md" "$CLAUDE_HOME/agents/$a.md"
   done
-  echo "  → Claude 스킬 6개 + 에이전트 5개 설치 ($MODE_LABEL)"
+  # 스킬이 ${CLAUDE_PLUGIN_ROOT}/docs/*.md 로 참조하는 공용 문서 (dobi-persona 등)
+  for d in "$REPO"/docs/*.md; do
+    [ -e "$d" ] && put_file "$d" "$CLAUDE_HOME/docs/$(basename "$d")"
+  done
+  echo "  → Claude 스킬 6개 + 에이전트 5개 + 공용 문서 설치 ($MODE_LABEL)"
 else
   echo "== Claude Code 건너뜀 (미설치 또는 --codex-only) =="
 fi

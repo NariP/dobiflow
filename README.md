@@ -15,7 +15,7 @@
 ![Codex](https://img.shields.io/badge/Codex-CLI-000000)
 ![runs local](https://img.shields.io/badge/runs-100%25%20local-success)
 ![no API cost](https://img.shields.io/badge/extra%20API%20cost-%240-blue)
-![version](https://img.shields.io/badge/version-0.11.2-lightgrey)
+![version](https://img.shields.io/badge/version-0.12.0-lightgrey)
 ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 Throw one bug or one task in a single line — Dobby finds the cause, files a GitHub

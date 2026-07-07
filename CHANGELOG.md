@@ -4,6 +4,27 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 [유의적 버전](https://semver.org/lang/ko/)을 사용합니다.
 
+## [0.12.0] - 2026-07-07
+
+### Added
+- **도비 페르소나 도입** — 사용자 대면 진행 보고에 집요정 "도비" 말투 적용 (claude+codex):
+  - `docs/dobi-persona.md` 신설(SSOT) — 톤 규칙·단계별 예시(읽음→멈춤→고침→자유)·적용 범위 정의.
+  - 지금까지 도비 말투는 README(마케팅 카피)에만 있고 실제 스킬엔 톤 지시가 없어, 실행 시 평범하게
+    대답했음. 이 갭을 페르소나 파일 + 스킬 참조로 메움.
+
+### Changed
+- **`work`·`triage-fix`·`task-run` 스킬이 페르소나를 참조** — 인라인 복제 없이 참조 한 블록씩 (claude+codex):
+  - Claude: `${CLAUDE_PLUGIN_ROOT}/docs/dobi-persona.md` (triage-help가 쓰던 관례와 동일).
+  - Codex: 변수 미지원이라 각 스킬 `references/dobi-persona.md` 복제본 참조.
+  - **적용 범위** — 사용자 대면 진행 보고·정지점·완료 알림에만 도비 톤. **이슈/PR 본문·loop.md·
+    서브에이전트 프롬프트·커밋은 중립 문체**(GitHub·팀·도구가 읽는 기록이라 정확성 우선).
+  - 톤은 표현일 뿐 각 스킬의 가드·정지점·승인 절차를 바꾸지 않음.
+
+### Fixed
+- **`install.sh` 공용 문서 배포 누락 보강** — Claude 수동 설치 시 `docs/*.md`를 `~/.claude/docs/`로
+  복사하도록 추가. 스킬이 `${CLAUDE_PLUGIN_ROOT}/docs/*.md`로 참조하는 문서(dobi-persona,
+  triage-workflow-guide)가 install.sh 경로에서도 풀리도록 함.
+
 ## [0.11.2] - 2026-07-06
 
 ### Fixed
