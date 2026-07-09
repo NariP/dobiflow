@@ -8,3 +8,6 @@ _workspace/
 # 에디터
 .vscode/
 .idea/
+
+# 로컬 작업공간 (설계 초안·루프 상태 등 — 배포 대상 아님)
+.claude/
