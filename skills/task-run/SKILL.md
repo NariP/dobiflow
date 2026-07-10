@@ -65,14 +65,15 @@ disable-model-invocation: true
   준비가 끝나면 **이벤트 발행**: `work-started` — 인자 `branch=<브랜치명> title="<이슈 제목>" issue_url=<이슈 전체 URL>` (§이벤트 발행).
 - **루프 (최대 `{loop.max_iterations}`회, 기본 3):**
   1. `implementer` 위임 — loop.md 경로 + 이번 반복 지시(1회차 = 4단계에서 승인된 **설계**,
-     2회차부터 = 직전 지적사항) + config(`convention_doc`·`tech_stack`·`lint_command`·`test_command`·`serena`).
-     **기존 패턴·컨벤션 준수**(새 추상화 남발 금지)를 지시에 명시. **완료 기준을 만족하는 테스트를 작성**하고
-     lint를 통과시켜 보고(테스트 실행·판정은 qa 몫).
+     2회차부터 = 직전 지적사항) + config(`convention_doc`·`tech_stack`·`lint_command`·`test_command`·`serena`)
+     + **`change_map_path`**(loop.md 폴더의 `change-map.md`). **기존 패턴·컨벤션 준수**(새 추상화 남발 금지)를 지시에 명시.
+     **완료 기준을 만족하는 테스트를 작성**하고 lint를 통과시켜 보고 + **change-map을 그 경로에 1회 남긴다**(테스트 실행·판정은 qa 몫).
   2. 자가체크 — `policy-checker`+`code-reviewer`+`qa` **3개 병렬**(읽기 전용). `{policy_docs}`·`{convention_doc}`·`{tech_stack}`·`{serena}` 전달,
      qa엔 **완료기준(loop.md)+`{test_command}`** 전달(테스트 감사·실행·판정, verify.log). `{models}` 있으면 각 모델로 스폰.
-     **변경 파일 경로 목록만 전달**한다(implementer 보고의 "변경 파일" 필드). **`git diff` 전문을
+     **변경 파일 경로 목록 + `change_map_path`를 전달**한다(implementer 보고의 "변경 파일" 필드 + change-map 경로).
+     3축은 **change-map을 먼저 읽고 의심 지점만 원본 확인**한다. **`git diff` 전문을
      프롬프트에 넣지 말 것** — diff가 필요하면 checker가 자기 Read로 해당 파일을 연다(컨텍스트 절약).
-     **1회차 = 전체 검사, 2회차부터 = 재검증 모드** — 직전 지적사항 + 이번 회차 **변경 파일 경로**만
+     **1회차 = 전체 검사, 2회차부터 = 재검증 모드** — 직전 지적사항 + 이번 회차 **변경 파일 경로**(+갱신된 change_map_path)만
      전달해 "지적 해소 여부 + 변경의 새 위반"만 본다 (풀 리체크 금지). qa 불통과(테스트 실패·부실)도 REQUEST_CHANGES.
   3. 판정 — ❌위반 = **REQUEST_CHANGES**(지적사항 loop.md 기록 후 재위임) / ⚠️뿐이어도 실질 회귀·
      데이터 손실·보안 노출이면 ❌로 승격 가능(사유 loop.md 기록) / ❌없음 = **APPROVE** —

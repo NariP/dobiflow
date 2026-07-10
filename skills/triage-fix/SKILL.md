@@ -101,13 +101,14 @@ disable-model-invocation: true
 **루프 (최대 `{loop.max_iterations}`회, 기본 3):**
 1. **구현 — `implementer` 서브에이전트 위임.** 전달할 것: loop.md 경로, 이번 반복 지시
    (1회차 = 이슈의 해결 방안, 2회차부터 = 직전 REQUEST_CHANGES 지적사항),
-   config(`convention_doc`·`tech_stack`·`lint_command`·`test_command`·`serena`).
-   implementer는 최소 편집으로 구현하고 **완료 기준을 만족하는 테스트를 작성**한 뒤 **lint를 통과**시켜
-   보고한다(변경 파일 목록 포함). **테스트 실행·통과 판정은 qa가 한다**(아래 자가체크) — implementer는
-   테스트를 짜되 "green이어야 완료 보고"는 qa 몫. 못 풀면 "막힘"으로 보고(실패 상태로 완료 보고 금지).
-2. **자가체크 — 서브에이전트 3개 병렬 (읽기 전용).** **변경 파일 경로 목록만 전달**한다
-   (implementer 보고의 "변경 파일" 필드). **`git diff` 전문을 프롬프트에 넣지 말 것** — diff가
-   필요하면 checker가 자기 Read로 해당 파일의 현재 상태를 연다(컨텍스트 절약).
+   config(`convention_doc`·`tech_stack`·`lint_command`·`test_command`·`serena`),
+   **`change_map_path`**(loop.md 폴더의 `change-map.md`). implementer는 최소 편집으로 구현하고
+   **완료 기준을 만족하는 테스트를 작성**한 뒤 **lint를 통과**시켜 보고하고, **change-map을 그 경로에 1회 남긴다**
+   (파일별 변경 의도·위험·테스트 연결 — 자가체크 3축이 먼저 읽음). **테스트 실행·통과 판정은 qa가 한다**(아래 자가체크) —
+   implementer는 테스트를 짜되 "green이어야 완료 보고"는 qa 몫. 못 풀면 "막힘"으로 보고(실패 상태로 완료 보고 금지).
+2. **자가체크 — 서브에이전트 3개 병렬 (읽기 전용).** **변경 파일 경로 목록 + `change_map_path`를 전달**한다
+   (implementer 보고의 "변경 파일" 필드 + change-map 경로). 3축은 **change-map을 먼저 읽고 의심 지점만 원본 확인**한다.
+   **`git diff` 전문을 프롬프트에 넣지 말 것** — diff가 필요하면 checker가 자기 Read로 해당 파일의 현재 상태를 연다(컨텍스트 절약).
    - **`policy-checker`** — 도메인 정책 위반. **`{policy_docs}` 목록을 인자로 전달**(비면 "정책 문서 없음" 통과).
    - **`code-reviewer`** — 일반 코드 품질. **`{convention_doc}`+`{tech_stack}`를 전달**(없으면 범용 베스트프랙티스).
    - **`qa`** — 완료기준 테스트 검증. **완료기준(loop.md)+`{test_command}`를 전달.** qa가 완료기준 테스트가
@@ -115,7 +116,7 @@ disable-model-invocation: true
      껍데기·해피패스만·엣지 누락이면 불통과로 지적. **테스트 통과 = 완료의 객관적 게이트**.
    - 셋 다 `{serena}` 값도 전달(false면 grep 폴백). `{models}` 있으면 각각 그 모델로 스폰.
    - **1회차 = 전체 검사** (이번 작업 변경 파일 전체). **2회차부터 = 재검증 모드** — 풀 리체크 금지.
-     전달할 것: ① 직전 지적사항 목록 ② 이번 회차 implementer가 보고한 **변경 파일 경로**.
+     전달할 것: ① 직전 지적사항 목록 ② 이번 회차 implementer가 보고한 **변경 파일 경로**(+갱신된 `change_map_path`).
      검사 질문은 둘뿐 — "지적이 해소됐나 + 변경이 새 위반을 만들었나" (전체는 1회차에 이미 봤다).
 3. **판정 (메인 세션):**
    - implementer가 **막힘** 보고 → 루프 즉시 중단, 사용자에게 보고 (커밋·PR 없음).
@@ -267,6 +268,7 @@ Closes #<이슈번호>
 ## 검증 명령
 - lint: `<lint_command>` / test: `<test_command>` (없으면 "없음")
 - APPROVE 시 1회: `<loop.full_verify_command>` (없으면 "없음" — 루프 안에서는 돌리지 않는다)
+- change-map: `<loop.md 폴더>/change-map.md` (implementer가 매 반복 남김 → 자가체크 3축이 먼저 읽음)
 
 ## 반복 로그
 ### 1회차
