@@ -64,8 +64,8 @@ put_file() {  # <원본 파일> <설치 경로>
   if [ "$LINK" = yes ]; then run ln -sfn "$1" "$2"; else run rm -f "$2" && run cp "$1" "$2"; fi
 }
 
-SKILLS="work triage-fix task-run triage-status triage-init triage-help"
-AGENTS_MD="issue-triage policy-checker code-reviewer implementer git-writer"
+SKILLS="work milestone triage-fix task-run triage-status triage-init triage-help"
+AGENTS_MD="issue-triage planner qa policy-checker code-reviewer implementer git-writer"
 MODE_LABEL=$([ "$LINK" = yes ] && echo "심링크" || echo "복사")
 
 # ---- 공용: 이벤트 발행기 (CLI 무관 — 스킬들이 ~/.dobiflow/bin/dobiflow-emit 으로 호출) ----
@@ -89,7 +89,7 @@ if [ "$DO_CLAUDE" != no ] && { [ "$DO_CLAUDE" = yes ] || command -v claude >/dev
   for d in "$REPO"/docs/*.md; do
     [ -e "$d" ] && put_file "$d" "$CLAUDE_HOME/docs/$(basename "$d")"
   done
-  echo "  → Claude 스킬 6개 + 에이전트 5개 + 공용 문서 설치 ($MODE_LABEL)"
+  echo "  → Claude 스킬 7개 + 에이전트 7개 + 공용 문서 설치 ($MODE_LABEL)"
 else
   echo "== Claude Code 건너뜀 (미설치 또는 --codex-only) =="
 fi
@@ -106,7 +106,7 @@ if [ "$DO_CODEX" != no ] && { [ "$DO_CODEX" = yes ] || command -v codex >/dev/nu
   for a in $AGENTS_MD; do
     put_file "$REPO/codex/agents/$a.toml" "$CODEX_HOME/agents/$a.toml"
   done
-  echo "  → Codex 스킬 6개(신규+레거시 경로) + 에이전트 5개(toml) 설치 ($MODE_LABEL)"
+  echo "  → Codex 스킬 7개(신규+레거시 경로) + 에이전트 7개(toml) 설치 ($MODE_LABEL)"
   echo "  ℹ️  Serena LSP 쓰려면 $CODEX_HOME/config.toml 에 [mcp_servers.serena] 등록 필요"
 else
   echo "== Codex CLI 건너뜀 (미설치 또는 --claude-only) =="

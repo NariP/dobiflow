@@ -15,7 +15,7 @@
 ![Codex](https://img.shields.io/badge/Codex-CLI-000000)
 ![runs local](https://img.shields.io/badge/runs-100%25%20local-success)
 ![no API cost](https://img.shields.io/badge/extra%20API%20cost-%240-blue)
-![version](https://img.shields.io/badge/version-0.12.0-lightgrey)
+![version](https://img.shields.io/badge/version-0.13.0-lightgrey)
 ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 Throw one bug or one task in a single line — Dobby finds the cause, files a GitHub
@@ -113,6 +113,7 @@ Forgot how? `/triage-help` (Dobby will remind you).
 | `/work` | Entry point — classifies input (bug/feature) and routes to the right flow |
 | `/triage-fix` | Bug — root cause → issue → fix → PR |
 | `/task-run` | Feature/improvement/refactor — design → issue → build → PR (plan mode for big ones) |
+| `/milestone` | Big work — split into tasks, group them (a group = one dev), run groups in parallel → per-group PRs → final PR |
 | `/triage-status` | List open issues & in-progress PRs (read-only) |
 | `/triage-init` | Generate per-project config (detects repo, lint, policy docs, commit rules) |
 | `/triage-help` | Usage guide |
@@ -162,6 +163,7 @@ dobiflow runs everything **on your machine**, so Dobby keeps a few rules:
 - **Multi-repo** — infers the right repo from the issue (asks when unsure)
 - **Project rules first** — commit convention, policies, conventions follow the target project
 - **Implementation loop** — an implementer Dobby codes while reviewer Dobbys judge; findings trigger automatic re-implementation until green (bounded — stops and reports instead of forcing a PR)
+- **Milestones for big work** — when a request is too big for one PR, Dobby splits it into tasks, groups related ones (a group = one dev), and runs groups in parallel (git worktrees) with per-group PRs merged behind a merge-queue-style verify, then a final PR to main — always human-merged. A planner Dobby plans, a qa Dobby runs the tests
 - **Split self-check** — domain-policy check and general code review run separately (read-only Dobbys)
 - **Context-thrifty writes** — a `git-writer` Dobby runs issue/commit/push/PR as pure execution; main writes the message/body, git-writer just runs `gh`/`git` and returns the URL, so verbose `git log`/`diff`/`gh` output never piles up in the main session
 - **Code search** — symbol-level via Serena LSP when available, grep fallback otherwise

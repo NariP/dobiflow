@@ -4,6 +4,43 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 [유의적 버전](https://semver.org/lang/ko/)을 사용합니다.
 
+## [0.13.0] - 2026-07-10
+
+### Added
+- **마일스톤 — 큰 업무를 개발팀처럼 나눠 실행** (claude+codex):
+  - `/milestone` 스킬 신설 — 큰 업무를 작은 태스크로 쪼개고, 관련끼리 **그룹**(=개발자 1명)으로 묶어
+    **그룹은 병렬·그룹 내는 순차**로 실행. 흐름 ①파악·분할 → ②파일계획 → ③그룹핑 → ④순서 →
+    ⑤승인(계획+실행모드 단일 정지점) → ⑥이슈·Milestone → ⑦브랜치·worktree →
+    ⑧그룹 실행(정식 loop.md 재사용) → ⑨그룹 PR 머지 전 검증(merge-queue식) → ⑩최종 main PR(사람 머지).
+  - `planner` 에이전트 신설 — 태스크 분할·파일계획·완료기준(테스트로)·그룹핑(ownership matrix로 겹침 검사)·
+    순서까지 계획만 담당하는 읽기 전용. evidence packet 소비.
+  - `qa` 에이전트 신설 — 완료기준 테스트 감사 + 테스트·full_verify **실행·통과 판정**. 자가체크 3번째 축.
+  - **브랜치 3계층** `main → milestone/<슬러그> → group/<슬러그>-<그룹>` (태스크별 브랜치 없음).
+  - **막힘·통합 깨짐 = 새 이슈**(중복 마커), 성공한 태스크만 커밋. main 머지는 항상 사람 관문.
+
+### Changed
+- **`git-writer` 확장** — 기존 "이슈 생성 / 커밋+PR"에 마일스톤 op 추가(claude+codex):
+  `create-branch`·`add-worktree`·`remove-worktree`·`create-milestone`·`prepare-merge`(임시 검증 worktree에서 커밋 M 생성·SHA 반환)·
+  `merge`(검증한 SHA 그대로 ff-only + 검증 worktree 정리)·`close-issue`·`cleanup-branch`. "브랜치 생성 금지" 가드는 **마일스톤 op 한정** 해제. 실패 시 구조화 반환.
+- **자가체크 2축 → 3축(qa 추가)** — triage-fix·task-run 구현 루프와 PR 셀프체크에 qa(테스트 실행·판정) 편입.
+  완료기준을 **테스트로** 쓰고(implementer 작성), 테스트 실행 책임을 implementer → **qa로 이관**(claude+codex).
+- **loop base 브랜치 파라미터화** — 단일 흐름은 기존대로 default_branch, 마일스톤은 그룹 브랜치 주입(claude+codex).
+- **`triage-init` config 확장** — `milestone`(base_branch·max_issues·max_parallel)·`models`(진영별 모델 매핑)·
+  `branch_prefix`(milestone/group) 블록 신설. 스킬→서브에이전트 model 오버라이드 배선(claude+codex).
+- **`work` 라우팅에 규모 축 추가** — 종류(버그/기능)와 별개로 작다/크다 판단, "크다"면 확인 후 `/milestone`
+  라우팅. 작업 분해 시 ⓐ마일스톤/ⓑ각각/ⓒ하나로 선택 제공(claude+codex).
+- **`install.sh`** — SKILLS에 `milestone`, AGENTS_MD에 `planner qa` 추가. 설치 로그 "스킬 7개 + 에이전트 7개".
+
+### 설계 리뷰 반영 (토큰·정합성)
+- **커밋 M 생성 위치 명시** — 머지 전 검증할 "합친 커밋 M"을 **임시 검증 worktree**에서 만들도록 명확화
+  (git-writer `op=prepare-merge`). 메인 레포·그룹 worktree를 안 건드리고, 검증한 SHA를 그대로 ff-only 머지(claude+codex).
+- **full_verify 실행은 하위 모델로** — qa의 두 역할 중 ⑨⑩ 실행·판정은 감사가 아니므로 하위 모델 스폰 허용(토큰 절약).
+- **worktree 의존성 준비 단계** — 새 worktree는 node_modules가 없어 테스트가 안 도니 `install_command`(config 신규) 실행.
+- **verify.log 크기 규율** — 실패 로그 전문 대신 **구조화 요약**(pass/fail·실패명·tail)만, 원문은 경로만(검증자 컨텍스트 폭발 방지).
+- **재진입 절차** — 컴팩션·세션 사망 후 plan.md → 태스크 산출물 → git/gh 상태로 위치 재구성, 커밋된 성공 태스크는 재실행 안 함.
+- **탐색 캐시 hit 계측** — `cache_hits`/`cache_misses`를 누적해 최종 PR에 히트율 기록(캐시 실효성 데이터화).
+- **컨트롤러 실행 규칙 명확화** — "어떤 커맨드도 금지"가 아니라 **git·gh·테스트만 위임**, 상태 파일 읽기·쓰기와 가벼운 조회는 컨트롤러 직접.
+
 ## [0.12.0] - 2026-07-07
 
 ### Added
