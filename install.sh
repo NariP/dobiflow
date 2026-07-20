@@ -30,8 +30,8 @@ dobiflow 설치 스크립트
 설치 위치:
   Claude: $CLAUDE_HOME/skills/{work,triage-fix,task-run,triage-status,triage-init,triage-help}
           $CLAUDE_HOME/agents/{issue-triage,policy-checker,code-reviewer,implementer,git-writer}.md
-  Codex : $AGENTS_HOME/skills/<name>  +  $CODEX_HOME/skills/<name>  (양쪽 — 버전 호환)
-          $CODEX_HOME/agents/<name>.toml
+  Codex : 스킬은 플러그인으로 설치(자동 시도) — codex plugin marketplace add <클론> + codex plugin add
+          $CODEX_HOME/agents/<name>.toml  (서브에이전트는 플러그인 미지원이라 여기서 복사)
   공용  : $DOBIFLOW_HOME/bin/dobiflow-emit  (작업 생명주기 이벤트 발행기)
 
 환경변수: CLAUDE_HOME(기본 ~/.claude), CODEX_HOME(기본 ~/.codex), AGENTS_HOME(기본 ~/.agents),
@@ -97,16 +97,35 @@ fi
 # ---- Codex CLI ----
 if [ "$DO_CODEX" != no ] && { [ "$DO_CODEX" = yes ] || command -v codex >/dev/null 2>&1; }; then
   echo "== Codex CLI =="
-  # 스킬: 신규(~/.agents/skills) + 레거시(~/.codex/skills) 양쪽 (버전 호환)
-  run mkdir -p "$AGENTS_HOME/skills" "$CODEX_HOME/skills" "$CODEX_HOME/agents"
-  for s in $SKILLS; do
-    put_dir "$REPO/codex/skills/$s" "$AGENTS_HOME/skills/$s"
-    put_dir "$REPO/codex/skills/$s" "$CODEX_HOME/skills/$s"
-  done
+  # 서브에이전트(toml)만 복사 — Codex 플러그인 매니페스트가 agents를 지원하지 않는다
+  # (skills·mcpServers·apps·hooks만 지원, 에이전트는 config 레이어 $CODEX_HOME/agents/ 전용).
+  run mkdir -p "$CODEX_HOME/agents"
   for a in $AGENTS_MD; do
     put_file "$REPO/codex/agents/$a.toml" "$CODEX_HOME/agents/$a.toml"
   done
-  echo "  → Codex 스킬 7개(신규+레거시 경로) + 에이전트 7개(toml) 설치 ($MODE_LABEL)"
+  echo "  → Codex 에이전트 7개(toml) 설치 ($MODE_LABEL)"
+
+  # 구버전(≤0.13)이 홈에 복사해 둔 스킬 제거 — 플러그인 스킬과 중복 방지
+  for s in $SKILLS; do
+    if [ -e "$AGENTS_HOME/skills/$s" ] || [ -e "$CODEX_HOME/skills/$s" ]; then
+      run rm -rf "$AGENTS_HOME/skills/$s" "$CODEX_HOME/skills/$s"
+      echo "  → 구버전 홈 스킬 복사본 제거: $s"
+    fi
+  done
+
+  # 스킬은 플러그인으로 (0.14.0+, dobiflow: 네임스페이스로 노출)
+  if command -v codex >/dev/null 2>&1 && codex plugin --help >/dev/null 2>&1; then
+    if codex plugin list 2>/dev/null | grep -q "dobiflow@dobiflow"; then
+      echo "  → Codex 플러그인 이미 설치됨 (dobiflow@dobiflow) — 갱신은: codex plugin marketplace upgrade dobiflow"
+    else
+      run codex plugin marketplace add "$REPO"
+      run codex plugin add dobiflow@dobiflow
+      echo "  → Codex 플러그인 설치 (스킬 7개, dobiflow: 네임스페이스)"
+    fi
+  else
+    echo "  ⚠️  codex plugin 미지원 버전 — Codex CLI 업데이트 후 다음을 실행:"
+    echo "      codex plugin marketplace add \"$REPO\" && codex plugin add dobiflow@dobiflow"
+  fi
   echo "  ℹ️  Serena LSP 쓰려면 $CODEX_HOME/config.toml 에 [mcp_servers.serena] 등록 필요"
 else
   echo "== Codex CLI 건너뜀 (미설치 또는 --claude-only) =="

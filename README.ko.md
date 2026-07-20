@@ -59,9 +59,24 @@
 claude --plugin-dir <클론 경로>
 ```
 
+### Codex CLI (플러그인)
+
+```bash
+git clone https://github.com/NariP/dobiflow
+cd dobiflow
+codex plugin marketplace add "$(pwd)"
+codex plugin add dobiflow@dobiflow
+./install.sh --codex-only   # 서브에이전트(toml) — Codex 플러그인은 에이전트를 못 날라요
+```
+
+스킬은 `dobiflow:` 네임스페이스로 보여요 (`dobiflow:work`, `dobiflow:milestone`, …).
+서브에이전트(`~/.codex/agents/*.toml`)는 여전히 `install.sh` 담당 — Codex 플러그인
+매니페스트가 skills/MCP/hooks만 지원하고 에이전트 role은 지원하지 않아서예요.
+
 ### Claude Code + Codex CLI (스크립트)
 
 클론 후 `install.sh` 하나면 설치된 CLI(claude/codex)를 자동 감지해 각 홈에 설치해요.
+Codex 쪽은 CLI가 지원하면 플러그인 등록까지 자동으로 해줘요.
 
 ```bash
 git clone https://github.com/NariP/dobiflow
@@ -76,7 +91,7 @@ cd dobiflow
 | 대상 | 설치 위치 |
 |------|----------|
 | Claude | `~/.claude/skills/*`, `~/.claude/agents/*.md` |
-| Codex | `~/.agents/skills/*` + `~/.codex/skills/*` (버전 호환), `~/.codex/agents/*.toml` |
+| Codex | 스킬은 플러그인(`codex plugin add dobiflow@dobiflow`), `~/.codex/agents/*.toml`은 install.sh |
 
 > Codex에서 Serena LSP를 쓰려면 `~/.codex/config.toml`에 `[mcp_servers.serena]`를 등록하세요(선택 — 없으면 grep으로 동작).
 

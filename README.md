@@ -60,10 +60,25 @@ Test locally without installing:
 claude --plugin-dir <clone path>
 ```
 
+### Codex CLI (plugin)
+
+```bash
+git clone https://github.com/NariP/dobiflow
+cd dobiflow
+codex plugin marketplace add "$(pwd)"
+codex plugin add dobiflow@dobiflow
+./install.sh --codex-only   # subagents (toml) — Codex plugins can't carry agents
+```
+
+Skills are exposed under the `dobiflow:` namespace (`dobiflow:work`, `dobiflow:milestone`, …).
+Subagents (`~/.codex/agents/*.toml`) still go through `install.sh` — the Codex plugin
+manifest supports skills/MCP/hooks but not agent roles.
+
 ### Claude Code + Codex CLI (script)
 
 After cloning, `install.sh` auto-detects which CLIs (claude/codex) are present
-and installs into each home.
+and installs into each home. On the Codex side it also registers the plugin
+automatically when the CLI supports it.
 
 ```bash
 git clone https://github.com/NariP/dobiflow
@@ -78,7 +93,7 @@ cd dobiflow
 | Target | Install location |
 |--------|------------------|
 | Claude | `~/.claude/skills/*`, `~/.claude/agents/*.md` |
-| Codex | `~/.agents/skills/*` + `~/.codex/skills/*` (version-compat), `~/.codex/agents/*.toml` |
+| Codex | skills via plugin (`codex plugin add dobiflow@dobiflow`), `~/.codex/agents/*.toml` via install.sh |
 
 > To use Serena LSP on Codex, register `[mcp_servers.serena]` in `~/.codex/config.toml`
 > (optional — falls back to grep if absent).
