@@ -41,6 +41,13 @@
 - **탐색 캐시 hit 계측** — `cache_hits`/`cache_misses`를 누적해 최종 PR에 히트율 기록(캐시 실효성 데이터화).
 - **컨트롤러 실행 규칙 명확화** — "어떤 커맨드도 금지"가 아니라 **git·gh·테스트만 위임**, 상태 파일 읽기·쓰기와 가벼운 조회는 컨트롤러 직접.
 
+### Fixed
+- **change-map 배선 완결** — 스펙(§9·§10·§17-7)엔 있으나 구현에서 끊겨 있던 산출물 연결 (claude+codex):
+  - `implementer`에 "change-map 생산" 섹션 신설 — 구현 후 파일별 변경 의도·위험·테스트 연결을 `change_map_path`에 1회 작성.
+  - `code-reviewer`·`policy-checker`·`qa` 입력에 `change_map_path` 추가 — 먼저 읽고 의심 지점만 원본 확인(3축이 같은 diff를 각자 통독하던 낭비 제거).
+  - `triage-fix`·`task-run`이 스폰 시 `change_map_path` 전달, loop.md 템플릿에 change-map.md 경로 명시.
+  - 단일 루프에도 적용 — 규모 무관하게 3축 중복 읽기를 막음. 마일스톤 태스크 루프는 스킬 재사용으로 자동 적용.
+
 ## [0.12.0] - 2026-07-07
 
 ### Added
