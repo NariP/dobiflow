@@ -4,6 +4,22 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 [유의적 버전](https://semver.org/lang/ko/)을 사용합니다.
 
+## [0.14.0] - 2026-07-20
+
+### Added
+- **Codex 스킬 플러그인화** — Codex CLI(0.144+) 플러그인 시스템으로 배포 방식 통일:
+  - `.codex-plugin/plugin.json` 신설 — `skills: ./codex/skills/` 지정. 매니페스트 디스커버리 순서가
+    `.codex-plugin → .claude-plugin`이라 Claude 플러그인과 한 레포에서 공존.
+  - 마켓플레이스는 기존 `.claude-plugin/marketplace.json`을 Codex가 레거시 경로로 그대로 읽음(중복 파일 없음).
+  - 설치: `codex plugin marketplace add <클론>` + `codex plugin add dobiflow@dobiflow` —
+    스킬 7개가 `dobiflow:` 네임스페이스로 노출(Claude와 동일한 UX).
+
+### Changed
+- **`install.sh` Codex 섹션 축소** — 스킬 홈 복사(`~/.agents/skills`·`~/.codex/skills`) 제거,
+  구버전 복사본 자동 정리. 서브에이전트(toml)만 계속 복사 — Codex 플러그인 매니페스트가
+  skills·mcpServers·apps·hooks만 지원하고 **에이전트 role은 미지원**(config 레이어 `~/.codex/agents/` 전용).
+  CLI가 플러그인을 지원하면 마켓플레이스 등록·설치까지 자동 시도.
+
 ## [0.13.0] - 2026-07-10
 
 ### Added
