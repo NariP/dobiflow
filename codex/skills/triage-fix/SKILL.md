@@ -29,9 +29,11 @@ argument-hint: <노션링크 | 슬랙링크 | 이슈 설명 텍스트>
   - `label_prefix` = `""` (접두사 없음)
   - `loop.max_iterations` = 미지정 → `3` (구현 루프 최대 반복)
   - `loop.full_verify_command` = 미지정 → 없음 (APPROVE 시점의 무거운 검증 생략 — 루프 검증은 lint·테스트만)
-- 이후 단계에서 `{repo}`, `{default_branch}`, `{lint_command}`, `{policy_docs}`,
+- 이후 단계에서 `{repo}`, `{default_branch}`, `{lint_command}`, `{test_command}`, `{policy_docs}`,
   `{label_prefix}`, `{branch_prefix}`, `{bug_label}`, `{codeowners}`,
-  `{serena}`, `{convention_doc}`, `{tech_stack}`, `{loop}` 등을 config 값으로 쓴다.
+  `{serena}`, `{convention_doc}`, `{tech_stack}`, `{loop}`, `{models}` 등을 config 값으로 쓴다.
+- **서브에이전트 스폰 시 모델 오버라이드:** `{models}`가 있으면 각 서브에이전트를 `config.models[<agent>]`의
+  모델로 띄운다(예: `models.implementer`, `models.qa`). 없으면 세션 모델 상속(기존 동작).
 
 ### 1단계 — 소스 읽기
 - **노션 링크** (`notion.so` / `notion.com`): `mcp__claude_ai_Notion__notion-fetch`로 페이지 내용 가져오기.
@@ -82,7 +84,10 @@ argument-hint: <노션링크 | 슬랙링크 | 이슈 설명 텍스트>
 (반복 관리·판정·loop.md 갱신). 구현은 매 반복 `implementer` 서브에이전트가 한다.
 
 **준비 (루프 진입 전 1회):**
-- `{default_branch}`에서 새 브랜치: `{branch_prefix.fix}<짧은-영문-슬러그>` (기본 `fix/`).
+- **base 브랜치 결정**: `{base_branch}`가 주입됐으면 그것에서, 아니면 `{default_branch}`에서 브랜치를 딴다.
+  - **단일 작업(기본)**: `{base_branch}` 없음 → `{default_branch}`에서 새 브랜치 `{branch_prefix.fix}<짧은-영문-슬러그>` (기본 `fix/`).
+  - **마일스톤 모드**: 호출자(/milestone)가 `{base_branch}=그룹 브랜치`를 주입 → 그 그룹 브랜치 위에서 작업(태스크는
+    그룹 브랜치에 커밋으로 쌓임). 이 경우 **새 이슈 브랜치·PR을 만들지 않는다**(6단계 마일스톤 가드 참조).
 - **loop.md 생성**: `<repo>/.claude/loops/<이슈번호>/loop.md` — 아래 **loop.md 템플릿**대로.
   완료 기준은 이슈의 "해결 방안"·"기대 동작"에서 그대로 가져온다 (**루프 중 수정 금지**).
   **"관련 위치"는 2단계 issue-triage가 반환한 관련 위치·흐름 원본을 그대로 복사** — 이슈 본문(🔍 원인 파악)은
@@ -94,21 +99,26 @@ argument-hint: <노션링크 | 슬랙링크 | 이슈 설명 텍스트>
 **루프 (최대 `{loop.max_iterations}`회, 기본 3):**
 1. **구현 — `implementer` 서브에이전트 위임.** 전달할 것: loop.md 경로, 이번 반복 지시
    (1회차 = 이슈의 해결 방안, 2회차부터 = 직전 REQUEST_CHANGES 지적사항),
-   config(`convention_doc`·`tech_stack`·`lint_command`·`test_command`·`serena`).
-   implementer는 최소 편집으로 구현하고 **lint·테스트까지 통과시켜** 보고한다
-   (실패 상태로 완료 보고 금지 — 못 풀면 "막힘"으로 보고).
-2. **자가체크 — 서브에이전트 2개 병렬 (읽기 전용).** **변경 파일 경로 목록만 전달**한다
-   (implementer 보고의 "변경 파일" 필드). **`git diff` 전문을 프롬프트에 넣지 말 것** — diff가
+   config(`convention_doc`·`tech_stack`·`lint_command`·`test_command`·`serena`),
+   **`change_map_path`**(loop.md 폴더의 `change-map.md`). implementer는 최소 편집으로 구현하고
+   **완료 기준을 만족하는 테스트를 작성**한 뒤 **lint를 통과**시켜 보고하고, **change-map을 그 경로에 1회 남긴다**
+   (파일별 변경 의도·위험·테스트 연결 — 자가체크 3축이 먼저 읽음). **테스트 실행·통과 판정은 qa가 한다**(아래 자가체크). 못 풀면 "막힘"으로 보고(실패 상태로 완료 보고 금지).
+2. **자가체크 — 서브에이전트 3개 병렬 (읽기 전용).** **변경 파일 경로 목록 + `change_map_path`를 전달**한다
+   (implementer 보고의 "변경 파일" 필드 + change-map 경로). 3축은 **change-map을 먼저 읽고 의심 지점만 원본 확인**한다.
+   **`git diff` 전문을 프롬프트에 넣지 말 것** — diff가
    필요하면 checker가 자기 Read로 해당 파일의 현재 상태를 연다(컨텍스트 절약).
    - **`policy-checker`** — 도메인 정책 위반. **`{policy_docs}` 목록을 인자로 전달**(비면 "정책 문서 없음" 통과).
    - **`code-reviewer`** — 일반 코드 품질. **`{convention_doc}`+`{tech_stack}`를 전달**(없으면 범용 베스트프랙티스).
-   - 둘 다 `{serena}` 값도 전달(false면 grep 폴백).
+   - **`qa`** — 완료기준 테스트 검증. **완료기준(loop.md)+`{test_command}`를 전달.** 테스트가 기준을
+     실제 검증하는지 감사하고 **실행해 통과 여부 판정**(verify.log). 껍데기·해피패스만·엣지 누락이면 불통과.
+   - 셋 다 `{serena}` 값도 전달(false면 grep 폴백). `{models}` 있으면 각 모델로 스폰.
    - **1회차 = 전체 검사** (이번 작업 변경 파일 전체). **2회차부터 = 재검증 모드** — 풀 리체크 금지.
-     전달할 것: ① 직전 지적사항 목록 ② 이번 회차 implementer가 보고한 **변경 파일 경로**.
+     전달할 것: ① 직전 지적사항 목록 ② 이번 회차 implementer가 보고한 **변경 파일 경로**(+갱신된 `change_map_path`).
      검사 질문은 둘뿐 — "지적이 해소됐나 + 변경이 새 위반을 만들었나" (전체는 1회차에 이미 봤다).
 3. **판정 (메인 세션):**
    - implementer가 **막힘** 보고 → 루프 즉시 중단, 사용자에게 보고 (커밋·PR 없음).
-   - ❌ **위반 있음** → **REQUEST_CHANGES**: 지적사항을 loop.md 반복 로그에 기록하고 다음 반복으로.
+   - ❌ **위반 있음(policy·code) 또는 qa 불통과(테스트 실패·테스트 부실)** → **REQUEST_CHANGES**:
+     지적사항을 loop.md 반복 로그에 기록하고 다음 반복으로. (qa "테스트 부실"이면 implementer가 테스트 보강.)
    - ⚠️뿐이어도 **실질 회귀·데이터 손실·보안 노출**로 판단되면 ❌로 승격해 REQUEST_CHANGES 할 수 있다
      — 승격 사유를 loop.md에 기록 (checker가 심각도를 낮게 분류했을 때의 안전망).
    - ❌ 없음(⚠️/💡만) → **APPROVE**: `{loop.full_verify_command}`가 있으면 **여기서 1회 실행**
@@ -127,6 +137,9 @@ argument-hint: <노션링크 | 슬랙링크 | 이슈 설명 텍스트>
 - **백엔드 수정이 필요한 부분은 프론트에서 임의로 우회하지 말고** 이슈/PR에 "백엔드 필요"로 남긴다.
 
 ### 6단계 — 커밋 + PR (APPROVE 후에만 · git-writer 위임)
+> **마일스톤 모드에선 이 단계를 건너뛴다.** 태스크는 그룹 브랜치에 커밋만 쌓고(PR·이슈 브랜치 생성 안 함),
+> 그룹 PR·최종 PR은 `/milestone`이 그룹 단위로 만든다. 아래는 **단일 작업(비-마일스톤)** 전용.
+
 **메인이 판단·작성**을 다 끝내고, 실행은 git-writer에 위임한다.
 
 **메인이 작성/결정하는 것 (완성해서 넘길 값):**
@@ -138,7 +151,7 @@ argument-hint: <노션링크 | 슬랙링크 | 이슈 설명 텍스트>
   남은 사람 없거나 `{codeowners}`가 false면 빈 목록(리뷰어 생략).
 - **스테이징 지시** — 보통 `all`(작업 브랜치의 변경 전체). 특정 파일만이면 파일 목록.
 
-**git-writer에 위임해 실행:** 위 완성값 + `repo={repo}` `branch=<작업브랜치>` `base_branch={default_branch}`를
+**git-writer에 위임해 실행:** 위 완성값 + `repo={repo}` `branch=<작업브랜치>` `base_branch={base_branch|default_branch}`(단일=`{default_branch}`)를
 넘긴다. git-writer가 `git add → commit → push → gh pr create`를 실행하고 **PR URL만 반환**한다.
 - author는 현재 git 설정 그대로(dobiflow는 계정 안 건드림). 인증 주입 없음.
 - **git-writer는 log/diff/코드를 읽지 않는다** — 커밋 메시지·PR 본문을 메인이 이미 완성해 넘겼으므로.
@@ -220,6 +233,7 @@ Closes #<이슈번호>
 - 루프: <N>회차에 APPROVE
 - 정책: <policy-checker 요약>
 - 코드: <code-reviewer 요약>
+- 테스트: <qa 요약 — 완료기준 테스트 통과, 실행 명령>
 
 ## 리뷰 포인트
 - [ ] 로컬에서 <재현 절차>로 동작 확인
@@ -239,8 +253,9 @@ Closes #<이슈번호>
 - 브랜치: <브랜치명>
 - 최대 반복: <loop.max_iterations>
 
-## 완료 기준 (이슈에서 복사 — 루프 중 수정 금지)
-- [ ] <기대 동작 / 해결 방안 항목>
+## 완료 기준 (이슈에서 복사 — 루프 중 수정 금지, 가능하면 테스트로 표현)
+- [ ] <기대 동작 / 해결 방안 항목 — "테스트: <검증 방법>" 형태로. implementer가 이 테스트를 짜고 qa가 실행·판정>
+- (테스트로 못 담는 주관·시각 항목은 "PR 셀프체크:"로 표시해 사람이 최종 PR에서 확인)
 
 ## 관련 위치 (2단계 issue-triage 반환 원본에서 복사 — implementer는 재탐색 전에 여기부터)
 - `path/to/file:line` — <역할>
@@ -249,6 +264,7 @@ Closes #<이슈번호>
 ## 검증 명령
 - lint: `<lint_command>` / test: `<test_command>` (없으면 "없음")
 - APPROVE 시 1회: `<loop.full_verify_command>` (없으면 "없음" — 루프 안에서는 돌리지 않는다)
+- change-map: `<loop.md 폴더>/change-map.md` (implementer가 매 반복 남김 → 자가체크 3축이 먼저 읽음)
 
 ## 반복 로그
 ### 1회차

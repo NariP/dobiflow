@@ -36,10 +36,12 @@ Bash/Read/Glob로 수집:
 | `codeowners` | `.github/CODEOWNERS` 또는 `CODEOWNERS` 존재 시 경로, 없으면 `false` |
 | `serena` | `.serena/` 존재 또는 serena MCP 등록 확인 시 `true`, 아니면 `false` |
 | `bug_label` | `gh label list --repo {repo}`에 `bug` 있으면 `bug`, 없으면 첫 버그류 라벨/기본 `bug` |
-| `branch_prefix` | `CLAUDE.md`에 "브랜치:" 규칙 있으면 파싱, 없으면 `{fix:"fix/", feat:"feat/"}` |
+| `branch_prefix` | `CLAUDE.md`에 "브랜치:" 규칙 있으면 파싱, 없으면 `{fix:"fix/", feat:"feat/", milestone:"milestone/", group:"group/"}` (마일스톤·그룹 접두사 기본 포함) |
 | `commit_convention` | **그 프로젝트의 커밋 규칙.** ① `CLAUDE.md`/`CONTRIBUTING.md`의 "커밋"/"Commit" 섹션 파싱(prefix·언어·이모지 규칙). ② 없으면 `git log --oneline -30`에서 실제 패턴 추론(Conventional? gitmoji? 한글? prefix 종류?). 결과를 한 줄 규칙 + 예시 1~2개로 저장 |
 | `keywords` | (선택) `CLAUDE.md` 첫 줄/README 제목에서 도메인 키워드 몇 개 추출 (라우팅 매칭용) |
 | `loop` | `max_iterations`: 감지 아님 — 기본 `3` (구현 루프 최대 반복, 취향껏 수정). `full_verify_command`: `package.json` scripts에 `build` 있으면 `{pm} build` 제안, 없으면 필드 생략 — **APPROVE 시점에만 1회 도는 무거운 검증**(풀 빌드·코드 생성 등). 루프 안 반복 검증은 lint·test만이라 여기 넣은 명령은 매 반복 돌지 않는다 |
+| `milestone` | 마일스톤 기능값. `base_branch`: 미지정 시 `default_branch`(최종 PR 대상). `max_issues`: 기본 `10`(최대 태스크 수). `max_parallel`: 기본 `3`(병렬 그룹 폭 — worktree 비용 제한, 1이면 순차). `install_command`: `package.json` 있으면 `{pm} install` 제안(새 worktree 의존성 준비용), 불필요 스택이면 생략 |
+| `models` | **진영 감지 후 provider별 기본값 생성.** 어느 진영인지: `~/.codex/` 또는 codex 실행 흔적이면 **Codex 진영**, 아니면 **Claude 진영**(기본). 매핑 원칙 = 계획·판단·검증류=상위 모델 / 커밋 등 단순 실행=하위 모델. Claude: `{planner:"opus", implementer:"opus", issue-triage:"opus", code-reviewer:"opus", policy-checker:"opus", qa:"opus", git-writer:"sonnet"}`. Codex: 같은 원칙을 그 시점 가용 gpt 계열 상·하위 등급으로(모델명은 생성 시점 확정). **에이전트 파일은 `model: inherit` 유지 — 이 config가 오버라이드(opt-in). 미지정·config 없음이면 inherit** |
 
 ## 2단계 — 사용자 확인 (AskUserQuestion)
 
@@ -82,8 +84,15 @@ Bash/Read/Glob로 수집:
   "codeowners": ".github/CODEOWNERS",
   "serena": true,
   "bug_label": "bug",
-  "branch_prefix": { "fix": "fix/", "feat": "feat/" },
+  "branch_prefix": { "fix": "fix/", "feat": "feat/", "milestone": "milestone/", "group": "group/" },
   "loop": { "max_iterations": 3, "full_verify_command": "pnpm build" },
+  "milestone": { "base_branch": "main", "max_issues": 10, "max_parallel": 3, "install_command": "pnpm install" },
+  "models": {
+    // 에이전트 파일은 model: inherit 유지, 이 블록이 오버라이드(opt-in). 미지정이면 inherit.
+    // 계획·판단·검증류=상위 모델 / 단순 실행=하위. (아래는 Claude 진영 예 — Codex 진영은 gpt 상·하위)
+    "planner": "opus", "implementer": "opus", "issue-triage": "opus",
+    "code-reviewer": "opus", "policy-checker": "opus", "qa": "opus", "git-writer": "sonnet"
+  },
   "commit_convention": {
     "rule": "Conventional Commits (feat/fix/chore/refactor/docs/test). 제목 한국어/영어 혼용 OK. Co-Authored-By 금지.",
     "examples": ["fix(hub): 대시보드 로고 이동 수정", "feat(gr-map): 후보지 검색 필터 추가"]

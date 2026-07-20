@@ -1,0 +1,122 @@
+---
+name: milestone
+description: 큰 업무를 여러 태스크로 쪼개 개발팀처럼 병렬 실행하는 워크플로우 — 계획(태스크 분할·파일계획·완료기준·그룹핑) → 승인 → 이슈·Milestone·브랜치·worktree → 그룹 병렬 실행(그룹 내 순차) → 그룹 PR 머지 전 검증 → 최종 PR. 작은 작업은 triage-fix/task-run으로 충분; work가 "크다"고 판단했거나 사용자가 /milestone 로 명시 호출할 때만.
+argument-hint: <큰 업무 설명 | 노션·슬랙 링크>
+---
+
+# milestone — 큰 업무를 개발팀처럼 나눠 실행
+
+큰 업무를 받아 **작은 태스크로 쪼개고, 관련끼리 그룹으로 묶어(그룹=개발자 1명), 그룹은 병렬·
+그룹 내는 순차로** 실행해 최종 PR까지 올린다. 입력: `$ARGUMENTS`
+
+**정신 모델 — 개발팀 협업.** 애매하면 "실제 개발팀이면?"으로 판단한다.
+
+> 전역 스킬. 프로젝트 고유값은 `<repo>/.claude/triage.config.json`(없으면 `/triage-init`)에서 읽는다.
+> 특히 `{milestone}`(base_branch·max_issues·max_parallel), `{models}`, `{branch_prefix}`(milestone/group)를 쓴다.
+
+## 핵심 원칙 (역할 분리)
+
+- **컨트롤러(메인)는 판단하고 시킨다. 실행은 서브가 한다.**
+  - 판단·상태파일 쓰기(plan.md 등)·서브에 넘길 값 조립 = 컨트롤러.
+  - **git/gh 실행(브랜치·worktree·PR·머지·close·정리) = `git-writer`.** **테스트·full_verify 실행 = `qa`.**
+    컨트롤러는 이런 무겁고·부작용 있고·원문 뱉는 실행을 직접 안 한다. 단 상태 파일(plan.md·search-cache) 읽기·쓰기와
+    가벼운 로컬 조회(SHA·브랜치명 확인)는 컨트롤러가 직접 한다 — 위임할 만큼 무겁지도 원문을 쌓지도 않으니까.
+- **컨트롤러 컨텍스트에 원문(diff·로그·파일 전문)을 쌓지 않는다.** 에이전트 간 공유는 구조화 산출물로
+  (result JSON·evidence packet·change-map·verify.log·search-cache).
+- **막히거나 깨지면 새 이슈로 남기고 계속.** 추정으로 뚫고 가지 않는다. 성공한 태스크만 커밋된다.
+- **각 태스크는 정식 loop.md 루프**(triage-fix/task-run의 5단계)를 재사용한다. base 브랜치로 그룹 브랜치를 주입하고, 마일스톤 모드라 태스크 루프는 PR·이슈 브랜치를 만들지 않는다.
+
+## 상태 파일 (메인 레포 중앙 — 컨트롤러만 씀, 코드만 worktree)
+
+`<repo>/.claude/loops/<마일스톤슬러그>/` (`.git/info/exclude`에 `.claude/loops/` 추가, 마일스톤 종료 후 삭제):
+- `plan.md` — 마일스톤 전체 계획(살아있는 문서, 조정 시 갱신).
+- `search-cache.json` — 탐색 결과 맵(`키워드/심볼 → [위치]` + `file→producing_sha` 메타). 컨트롤러가 직렬 병합.
+- `groups/<그룹>/tasks/<이슈#N>/{loop.md, change-map.md, verify.log}` — 각 태스크 산출물(경로가 그룹·이슈별이라 race 없음).
+
+그룹 워커는 **코드만 자기 worktree에서** 작업하고, 상태 산출물은 위 **메인 레포 절대경로**에 쓴다.
+
+## 재진입 (컴팩션·세션 사망 후)
+
+마일스톤은 규모가 커서 한 세션이 컴팩션·종료를 맞을 수 있다. 상태가 전부 외부화돼 있으니 새 세션에서 이어간다.
+**아래 순서로 현재 위치를 재구성**한다: ① `plan.md`(태스크·그룹·순서·모드·이슈#N) → ② `groups/<그룹>/tasks/<이슈#N>/`
+산출물 유무 → ③ git·gh 상태(그룹 브랜치 커밋·그룹 PR·통합/막힘 이슈·마일스톤 HEAD).
+**완료 판정은 추정 말고 사실로**: 태스크 완료 = 그룹 브랜치에 그 태스크 commit_sha 존재 / 그룹 완료 = 그룹 PR 머지됨 /
+막힘 = 막힘 이슈(`[milestone:<슬러그>][task:<이슈#N>]`) 열림. **이미 커밋된 성공 태스크는 다시 돌리지 않고**, 미완료·막힘부터 이어서 실행한다.
+
+## 진행 순서
+
+### 0단계 — 설정 로드
+triage-fix와 동일 + `{milestone}`·`{models}`·`{branch_prefix.milestone|group}` 확보. `{models}` 있으면 각 서브에이전트를 그 모델로 스폰.
+
+### ① 파악·분할 (issue-triage → planner)
+- 입력(링크면 소스 읽기) 파악. **issue-triage로 evidence packet** 생산(관련 파일:줄·심볼·의심원인).
+- **planner 위임**: evidence packet + config(`convention_doc`·`tech_stack`·`serena`) 전달. planner가 태스크 분할.
+
+### ② 파일 계획 · ③ 그룹핑 (planner)
+- planner가 각 태스크의 파일 계획 + **완료기준(테스트로)** 작성, 관련·의존 태스크를 **같은 그룹**으로 묶고,
+  **ownership matrix**로 그룹 간 파일 겹침을 기계 검사(겹치면 합치기/경고). 공통부는 이득일 때만 별도 태스크로.
+- planner 출력을 `plan.md`에 기록. 태스크 수가 `{milestone.max_issues}` 초과면 "여러 마일스톤으로 쪼갤까요/진행할까요" 확인.
+
+### ④ 순서 (planner)
+- 그룹 내 태스크 순서 결정(그룹 간은 독립).
+
+### ⑤ 승인 ✋ (단일 정지점 — 계획 + 모드)
+- 계획(태스크·파일계획·완료기준·그룹 + **겹침 리포트**)을 사용자에게 보여주고, 그 자리에서
+  **실행 모드[중지/바이패스]**를 1회 확정한다. 정지점을 두 번 만들지 않는다.
+  - **중지**: 태스크마다 사람 승인 + 그룹 PR 사람 리뷰·머지. **항상 순차**(병렬 끔).
+  - **바이패스**: 자동 진행, 그룹 PR green이면 자동 머지(이력 남김). 병렬(§⑧). **막힌 건 새 이슈로.**
+- 어느 모드든 **최종 main PR(⑩)은 항상 정지** — 사람이 머지.
+
+### ⑥ 이슈 생성 (git-writer)
+- **GitHub Milestone 생성**(git-writer `op=create-milestone` — 동명 있으면 재사용).
+- 태스크별 **이슈 생성**(git-writer). **이슈 번호(#N)를 태스크 안정 키로 plan.md에 고정**(재계획해도 보존).
+
+### ⑦ 브랜치 · worktree (git-writer)
+- **마일스톤 브랜치** `{branch_prefix.milestone}<슬러그>`를 `{milestone.base_branch|default_branch}`에서 생성.
+- **그룹 브랜치** `{branch_prefix.group}<슬러그>-<그룹>`을 마일스톤 브랜치에서 생성.
+- 바이패스+병렬이면 그룹마다 **worktree**(`op=add-worktree`). 중지 모드(순차)면 worktree 없이 순차 처리 가능.
+- **worktree 의존성 준비**: 새 worktree는 `node_modules` 등 의존성이 없어 테스트·빌드가 바로 안 돈다.
+  worktree 생성 직후 **의존성 설치**(`{install_command}` 있으면, 예 `pnpm install`)를 실행한다. pnpm/yarn은 store
+  공유로 대개 저렴. install 명령이 없거나 불필요한 스택이면 생략(config에 없으면 안 돌림).
+
+### ⑧ 실행 (그룹=병렬, 그룹 내=순차)
+- **병렬 폭 `{milestone.max_parallel}`**(중지 모드면 1=순차). 각 그룹은 자기 worktree에서 태스크를 **순차**로:
+  - 각 태스크 = **정식 loop.md 루프**(triage-fix=버그/task-run=기능). 넘길 것: loop.md 경로, planner 계획,
+    `base_branch=그룹 브랜치`, config(`test_command`·`serena`·`models`…). 마일스톤 모드라 태스크 루프는 **PR·이슈 브랜치 안 만듦**.
+  - implementer 구현+완료기준 테스트 작성 → **커밋 후보 diff 기준 change-map** 생성 → 자가체크(code-reviewer+policy-checker+qa).
+  - **자가체크 green이면 git-writer가 그룹 브랜치에 커밋**. 실패(막힘/max_iter/qa 불통과)면 **커밋 안 함 + 새 이슈**(중복 마커 `[milestone:<슬러그>][task:<이슈#N>]`, 생성 전 같은 키 확인) + 다음 태스크. 실패 태스크 원 이슈는 열어둠.
+  - 중지 모드면 태스크마다 4단계 승인 정지.
+- **탐색 캐시**: 서브가 탐색하면 cache_delta를 result JSON으로 반환 → 컨트롤러가 `search-cache.json`에 직렬 병합. 파일 변경(SHA) 시 그 파일 엔트리 무효화.
+  - **hit 계측**: 서브는 result JSON에 `cache_hits`·`cache_misses`도 담는다. 컨트롤러가 누적해 `search-cache.json`의 `_stats`
+    (`total_hits`·`total_misses`·`hit_rate`)에 기록하고, ⑩ 최종 PR 본문(또는 로그)에 히트율을 남긴다 — 캐시가 실제 이득인지 데이터로 남긴다.
+
+### ⑨ 그룹 PR + 머지 전 검증 (qa 검증 · git-writer 실행)
+그룹의 태스크가 다 끝나면:
+- git-writer가 그룹 브랜치 → 마일스톤으로 **PR** 생성.
+- **커밋 M 생성**: git-writer `op=prepare-merge`(임시 검증 worktree에서 [마일스톤 최신+그룹] 합침) → **M의 SHA 반환**.
+  머지 충돌이면 여기서 failed → 아래 red 처리.
+- **머지 전 검증(qa)**: 반환된 M(검증 worktree)에서 `{loop.full_verify_command}` 실행(merge queue식).
+  이 qa는 **테스트 실행·판정만** 하므로(감사 아님) `{models.qa}` 대신 **하위 모델(예: `{models.git-writer}` 급)로 스폰 가능** — 토큰 절약.
+  - **green** → (중지=사람 머지 승인 후 / 바이패스=즉시) git-writer `op=merge`로 **검증한 그 M을 그대로**
+    마일스톤 HEAD로 ff-only 확정(재머지 아님) + 검증 worktree 정리. 이어 **머지 후 정리**: 성공 태스크 이슈만 `op=close-issue`, 그룹 브랜치·worktree `op=cleanup-branch`/`remove-worktree`.
+  - **red/충돌** → 머지 안 함 + 검증 worktree 정리(`op=remove-worktree`) + **통합 이슈** 생성 + 그룹 PR 열어둠 + 최종 PR에 "미머지" 표시.
+- 다른 그룹이 먼저 머지돼 마일스톤이 전진했으면 M을 다시 만들어(prepare-merge 재실행) 재검증(stale이면 반복).
+
+### ⑩ 최종 PR ✋
+- 모든 그룹이 머지되었거나 미머지로 확정 표기된 후, git-writer가 마일스톤 브랜치 → main **PR 남기고 정지**.
+- 최종 `full_verify`(qa) 1회 더. 미머지 그룹 있으면 draft.
+- PR 본문: 완료 태스크 / 미완료·통합·미머지 목록 / 실행 중 결정 요약.
+- **어느 모드든 main 머지는 사람이 한다.** 최종 PR 머지 후 `.claude/loops/<슬러그>/` 삭제.
+
+## 이벤트 발행 (선택 — §triage-fix와 동일 발행기)
+work-* 이벤트에 파라미터 추가: `work_type=milestone`·`milestone=<슬러그>`·`scope=issue|milestone`·`group=<그룹>`.
+태스크 종료는 `scope=issue`(그룹 PR 전이면 pr_url 생략), 최종 PR은 `scope=milestone`.
+
+## 가드 (어기지 말 것)
+- **⑤ 승인 전 이슈·브랜치·코드 생성 금지.** 계획까지만, 그다음 정지.
+- **컨트롤러는 git/gh/테스트 직접 실행 금지** — git-writer/qa 위임. 원문 diff·로그를 컨텍스트에 쌓지 않는다.
+  (상태 파일 읽기·쓰기와 가벼운 로컬 조회(SHA·브랜치명)는 예외 — 컨트롤러가 직접.)
+- **막힘·통합 깨짐 = 새 이슈**(뚫고 가기 금지). 성공한 태스크만 커밋.
+- **머지 전 검증(qa) green이어야 마일스톤에 머지.** 깨진 게 마일스톤 브랜치에 안 들어간다.
+- **main 머지는 자동 금지** — 최종 PR에서 항상 사람 관문.
+- **마일스톤별 폴더·브랜치 슬러그로 격리** — 여러 마일스톤 동시 실행 OK(전역 락 불필요).
