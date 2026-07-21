@@ -73,6 +73,11 @@ codex plugin add dobiflow@dobiflow
 서브에이전트(`~/.codex/agents/*.toml`)는 여전히 `install.sh` 담당 — Codex 플러그인
 매니페스트가 skills/MCP/hooks만 지원하고 에이전트 role은 지원하지 않아서예요.
 
+**업데이트:** Codex는 스킬을 캐시 스냅샷에서 로드하고, `.codex-plugin/plugin.json`의
+버전이 바뀌면 다음 세션에서 자동 갱신해요 — 버전만 올리면 돼요. 버전 그대로 강제 갱신은
+`codex plugin remove dobiflow@dobiflow && codex plugin add dobiflow@dobiflow`.
+(`codex plugin marketplace upgrade`는 Git 마켓플레이스 전용이라 로컬 소스엔 안 먹혀요.)
+
 ### Claude Code + Codex CLI (스크립트)
 
 클론 후 `install.sh` 하나면 설치된 CLI(claude/codex)를 자동 감지해 각 홈에 설치해요.
