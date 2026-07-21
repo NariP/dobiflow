@@ -74,6 +74,11 @@ Skills are exposed under the `dobiflow:` namespace (`dobiflow:work`, `dobiflow:m
 Subagents (`~/.codex/agents/*.toml`) still go through `install.sh` — the Codex plugin
 manifest supports skills/MCP/hooks but not agent roles.
 
+**Updating:** Codex loads skills from a cache snapshot and refreshes it when the version
+in `.codex-plugin/plugin.json` changes — bump the version and the next session picks it up.
+To force-refresh without a bump: `codex plugin remove dobiflow@dobiflow && codex plugin add dobiflow@dobiflow`.
+(`codex plugin marketplace upgrade` only refreshes Git marketplaces, not local ones.)
+
 ### Claude Code + Codex CLI (script)
 
 After cloning, `install.sh` auto-detects which CLIs (claude/codex) are present

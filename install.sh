@@ -116,7 +116,9 @@ if [ "$DO_CODEX" != no ] && { [ "$DO_CODEX" = yes ] || command -v codex >/dev/nu
   # 스킬은 플러그인으로 (0.14.0+, dobiflow: 네임스페이스로 노출)
   if command -v codex >/dev/null 2>&1 && codex plugin --help >/dev/null 2>&1; then
     if codex plugin list 2>/dev/null | grep -q "dobiflow@dobiflow"; then
-      echo "  → Codex 플러그인 이미 설치됨 (dobiflow@dobiflow) — 갱신은: codex plugin marketplace upgrade dobiflow"
+      echo "  → Codex 플러그인 이미 설치됨 (dobiflow@dobiflow)"
+      echo "     갱신: .codex-plugin/plugin.json 버전을 올리면 다음 세션에서 자동 반영."
+      echo "     버전 그대로 강제 갱신: codex plugin remove dobiflow@dobiflow && codex plugin add dobiflow@dobiflow"
     else
       run codex plugin marketplace add "$REPO"
       run codex plugin add dobiflow@dobiflow
