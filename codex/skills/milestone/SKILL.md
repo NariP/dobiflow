@@ -116,6 +116,7 @@ triage-fix와 동일 + `{milestone}`·`{models}`·`{branch_prefix.milestone|grou
   - implementer 구현+완료기준 테스트 작성 → **커밋 후보 diff 기준 change-map** 생성 → 자가체크(code-reviewer+policy-checker+qa).
   - **자가체크 green이면 git-writer가 그룹 브랜치에 커밋**. 실패(막힘/max_iter/qa 불통과)면 **커밋 안 함 + 새 이슈**(중복 마커 `[milestone:<슬러그>][task:<이슈#N>]`, 생성 전 같은 키 확인) + 다음 태스크. 실패 태스크 원 이슈는 열어둠.
   - 중지 모드면 태스크마다 4단계 승인 정지.
+  - **태스크 단계에선 부채 테스트 감사를 하지 않는다** — 추가된 테스트는 후속 태스크의 회귀 그물로 남기고, 감사는 ⑩에서 일괄.
 - **탐색 캐시**: 서브가 탐색하면 cache_delta를 result JSON으로 반환 → 컨트롤러가 `search-cache.json`에 직렬 병합. 파일 변경(SHA) 시 그 파일 엔트리 무효화.
   - **hit 계측**: 서브는 result JSON에 `cache_hits`·`cache_misses`도 담는다. 컨트롤러가 누적해 `search-cache.json`의 `_stats`
     (`total_hits`·`total_misses`·`hit_rate`)에 기록하고, ⑩ 최종 PR 본문(또는 로그)에 히트율을 남긴다 — 캐시가 실제 이득인지 데이터로 남긴다.
@@ -133,10 +134,13 @@ triage-fix와 동일 + `{milestone}`·`{models}`·`{branch_prefix.milestone|grou
 - 다른 그룹이 먼저 머지돼 마일스톤이 전진했으면 M을 다시 만들어(prepare-merge 재실행) 재검증(stale이면 반복).
 
 ### ⑩ 최종 PR ✋
-- 모든 그룹이 머지되었거나 미머지로 확정 표기된 후, git-writer가 마일스톤 브랜치 → main **PR 남기고 정지**
-  (적층이면 base는 main이 아니라 A 브랜치 — §마일스톤 적층 ③).
-- 최종 `full_verify`(qa) 1회 더. 미머지 그룹 있으면 draft.
-- PR 본문: 완료 태스크 / 미완료·통합·미머지 목록 / 실행 중 결정 요약.
+- 모든 그룹이 머지되었거나 미머지로 확정 표기된 후, 최종 `full_verify`(qa) 1회.
+- **부채 테스트 감사(최종 full_verify green 후 · 최종 PR 생성 전)** — 마일스톤 전체가 추가한 테스트만
+  "깨지면 버그인가, 리팩토링인가" 기준으로 분류(기존 테스트 제안 금지), 부채 제거는 **정리 커밋**
+  (마일스톤 브랜치, git-writer)으로 → `full_verify` 재확인(red면 제거 롤백·유지). 부채 0건이면 그대로 진행.
+- git-writer가 마일스톤 브랜치 → main **PR 남기고 정지**
+  (적층이면 base는 main이 아니라 A 브랜치 — §마일스톤 적층 ③). 미머지 그룹 있으면 draft.
+- PR 본문: 완료 태스크 / 미완료·통합·미머지 목록 / 정리된 테스트 내역 / 실행 중 결정 요약.
 - **어느 모드든 main 머지는 사람이 한다.** 최종 PR 머지 후 `.claude/loops/<슬러그>/` 삭제.
 
 ## 이벤트 발행 (선택 — §triage-fix와 동일 발행기)
