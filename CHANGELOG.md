@@ -4,6 +4,28 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 [유의적 버전](https://semver.org/lang/ko/)을 사용합니다.
 
+## [0.17.0] - 2026-07-22
+
+### Added
+- **부채 테스트 감사(5.5단계)** — `triage-fix`·`task-run`에 APPROVE 후·커밋 전 단계 신설:
+  이번 루프가 추가한 테스트만 **"깨지면 버그인가, 리팩토링인가"** 기준으로 분류해 구현 세부 결합·
+  자명(tautological)·중복 테스트는 제거(implementer), 남은 테스트 1회 재실행 green 확인(red면 롤백·유지),
+  제거 내역은 PR 셀프체크 "정리된 테스트"에 기록. 기존 테스트는 제거 제안 금지 —
+  main에 부채 테스트가 안 들어간다(claude+codex).
+- **`milestone` ⑩ 최종 PR 전 일괄 감사** — 태스크 단계에선 감사하지 않고(추가 테스트는 후속 태스크의
+  회귀 그물, ⑧에 명시), 최종 full_verify green 후·최종 PR 생성 전에 마일스톤 전체 추가 테스트를 감사 →
+  정리 커밋(마일스톤 브랜치, git-writer) → full_verify 재확인 → PR. 정리 내역은 최종 PR 본문에 기록(claude+codex).
+- **"머지 후 정리" 7단계(선택)** — `triage-fix`·`task-run`에 신설. PR 머지 후 사용자의
+  "머지했어/정리해줘" 발화로만 진입: 사실 확인(fetch로 머지 커밋 실재, 미머지면 중단) →
+  태깅(레포 관례 시, git-writer) → 로컬 sweep(머지된 로컬 브랜치 전부 `-d` 삭제·prunable worktree·
+  좀비 loops 폴더 — 미머지는 자동 보호). 테스트 감사는 여기서 안 함(5.5단계에서 머지 전 완료)(claude+codex).
+- **가이드에 두 절차 요약** — 특징 섹션에 "부채 테스트 감사"·"머지 후 정리" 요약 추가(claude+codex).
+
+### Changed
+- **`docs/architecture.md` 현행화** — 자가체크 2축 → 3축(policy-checker·code-reviewer·qa) 교정,
+  마일스톤 모드 패턴 섹션 신설(planner 계획 → 그룹 fan-out → 머지 전 검증), 0단계 마일스톤 감지·
+  5.5단계 부채 테스트 감사·7단계 머지 후 정리를 다이어그램·표에 반영. README 버전 배지 0.15.0 → 0.17.0.
+
 ## [0.16.0] - 2026-07-22
 
 ### Added
