@@ -4,6 +4,15 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 [유의적 버전](https://semver.org/lang/ko/)을 사용합니다.
 
+## [0.17.1] - 2026-07-22
+
+### Fixed
+- **`milestone` ⑩ 정상 종료 시 GitHub Milestone close 누락** — 기존 "loops 삭제" 한 줄을 **머지 후 정리**
+  3항목으로 확장: loops 삭제 → **GitHub Milestone close**(git-writer `op=close-milestone` 신설 —
+  열린 이슈(미완 태스크·통합·막힘)가 남았으면 닫기 전 확인 ✋ ⓐ이관 후 close/ⓑ열어둠, 0건이면 바로 close,
+  자동 close 금지) → 브랜치 정리(`op=cleanup-branch`, 머지된 것만). 적층 ⑥의 B 정리도 같은 op를 참조.
+  git-writer 2벌에 `op=close-milestone`(입력 `repo`·`milestone_number`, `gh api -X PATCH … state=closed`) 추가(claude+codex).
+
 ## [0.17.0] - 2026-07-22
 
 ### Added

@@ -2,7 +2,7 @@
 name: git-writer
 description: >-
   이슈 생성·커밋·push·PR 생성, 그리고 마일스톤 모드의 브랜치·worktree·머지·이슈 close·
-  브랜치 정리 같은 GitHub/git 쓰기 작업만 실행하는 "손" 에이전트. 메인 세션이 이미 판단·작성을
+  Milestone close·브랜치 정리 같은 GitHub/git 쓰기 작업만 실행하는 "손" 에이전트. 메인 세션이 이미 판단·작성을
   끝낸 완성된 값(커밋 메시지·PR 본문·브랜치명·머지 대상 등)을 받아 그대로 gh/git 명령에 넣어
   실행하고, 결과 URL/구조화 결과만 반환한다. 스스로 판단하지 않고, 커밋 메시지를 짓거나
   코드·diff·log를 읽어 무언가를 알아내지 않는다. triage-fix/task-run의 이슈·PR 시점, 그리고
@@ -49,6 +49,7 @@ model: inherit
 - `op=add-worktree`: `worktree_path`, `branch`, `base`. 그룹 병렬 실행용 worktree 생성.
 - `op=remove-worktree`: `worktree_path`. worktree 제거.
 - `op=create-milestone`: `repo`, `milestone_title`. GitHub Milestone 생성(있으면 재사용 — 동명 확인).
+- `op=close-milestone`: `repo`, `milestone_number`(없으면 `milestone_title`로 조회). GitHub Milestone close(열린 이슈 확인·이관 판단은 메인이 끝냄).
 - `op=prepare-merge`: `verify_worktree_path`, `target_branch`(마일스톤), `group_branch`. **임시 검증 worktree**에서
   [마일스톤 최신 + 그룹]을 합친 **커밋 M을 만들고 그 SHA를 반환**한다. qa가 이 worktree·SHA에서 full_verify를 돈다.
   (검증할 M을 "어디서" 만드는지가 이 op — 메인 레포·그룹 worktree를 안 건드림.)
@@ -86,6 +87,7 @@ create-branch:   git branch <branch> <base>              # 또는 git push origi
 add-worktree:    git worktree add <worktree_path> -b <branch> <base>
 remove-worktree: git worktree remove <worktree_path>
 create-milestone: gh api repos/<repo>/milestones -f title="<milestone_title>"   # 동명 있으면 재사용
+close-milestone: gh api -X PATCH repos/<repo>/milestones/<number> -f state=closed   # number 없으면 milestones 목록에서 title로 조회
 prepare-merge:   git worktree add <verify_worktree_path> <target_branch>       # 임시 검증 worktree(마일스톤 최신 기준)
                  cd <verify_worktree_path> && git merge --no-ff --no-edit <group_branch>  # 합친 커밋 M 생성
                  git rev-parse HEAD                                            # → 이 SHA(M)를 반환. qa가 여기서 full_verify
