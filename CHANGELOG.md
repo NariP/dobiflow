@@ -4,6 +4,20 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 [유의적 버전](https://semver.org/lang/ko/)을 사용합니다.
 
+## [0.16.0] - 2026-07-22
+
+### Added
+- **`milestone`에 "마일스톤 적층" 소절** — 미머지 마일스톤 A 위에 후속 마일스톤 C를 시작하는 절차 ①~⑥:
+  ①base=A 브랜치로 시작 → ②흡수할 B의 살릴 태스크는 체리픽(태스크당 1커밋, 연속 구간은 범위 체리픽) +
+  직후 full_verify 1회(A+B 조합 green 관문) → ③C 최종 PR base는 main이 아니라 A(diff 오염 방지,
+  A 머지 시 자동 retarget) → ④A 전진 시 C에 주기적 머지-인(stale 방지) → ⑤수렴은 A→main 먼저 →
+  ⑥흡수된 B 정리(Milestone close·이슈 이관·미완 태스크 재등록·브랜치 정리 — 체리픽 SHA 변경으로 끊기는
+  완료 추적 장부 정리). base 선택은 ⑤ 승인 정지점에 합류 — 정지점 추가 없음. ⑦·⑩ base 서술에 적층 참조 연결(claude+codex).
+- **`work` 0단계 복수 마일스톤 분기** — 진행 중 plan.md가 2개 이상이면 목록 제시 후
+  ⓐ이 중 하나에 태스크로 추가/ⓑ별도 작업/ⓒ마일스톤 합치기(→ `/milestone` "마일스톤 적층" 라우팅) 확인.
+  단일 감지 시 기존 ⓐ/ⓑ 유지(claude+codex).
+- **가이드에 적층 구조도** — 마일스톤 섹션에 ASCII 구조도(번호가 적층 절차 ①~⑥과 대응) + 요약 추가(claude+codex).
+
 ## [0.15.0] - 2026-07-22
 
 ### Added
