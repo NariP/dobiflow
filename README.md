@@ -15,7 +15,7 @@
 ![Codex](https://img.shields.io/badge/Codex-CLI-000000)
 ![runs local](https://img.shields.io/badge/runs-100%25%20local-success)
 ![no API cost](https://img.shields.io/badge/extra%20API%20cost-%240-blue)
-![version](https://img.shields.io/badge/version-0.13.0-lightgrey)
+![version](https://img.shields.io/badge/version-0.15.0-lightgrey)
 ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 Throw one bug or one task in a single line — Dobby finds the cause, files a GitHub
@@ -142,6 +142,7 @@ Forgot how? `/triage-help` (Dobby will remind you).
 
 ```text
 /work "the dashboard logo doesn't go anywhere when clicked"
+   ├─ detect       → ongoing milestone? ✋ "add as a task, master?" (yes → milestone re-entry)
    ├─ classify     → bug → triage-fix
    ├─ investigate  → issue-triage (read-only — Dobby won't fix on a whim)
    ├─ GitHub issue → git-writer Dobby files it (execution only) + URL reported
