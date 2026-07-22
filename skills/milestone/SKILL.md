@@ -54,6 +54,24 @@ disable-model-invocation: true
 ④ **git-writer로 새 이슈 생성**·#N을 plan.md에 고정(§⑥ 관례) → ⑤ 해당 그룹에서 **정식 태스크 루프**(§⑧)로 실행,
 이후 그룹 PR → 최종 PR 흐름에 합류(최종 PR이 이미 열려 있으면 갱신).
 
+## 마일스톤 적층 (미머지 마일스톤 위에 후속 마일스톤)
+
+A(미머지 마일스톤)가 main 머지를 기다리는 동안 후속 마일스톤 C를 시작하거나, 다른 마일스톤 B를
+C로 흡수할 때(예: `/work` 0단계 복수 감지 ⓒ) 적용한다. base 선택은 §⑤ 승인에서 함께 확정한다(정지점 추가 없음).
+① **시작** — 진행 순서는 건너뛰지 않고 §①부터 정상 진행(⑤ 승인 경유). 적층에서 달라지는 건
+  §⑦ 브랜치 생성 시 C의 base(`{milestone.base_branch}`)가 A 브랜치가 되는 것뿐이다.
+② **B 흡수** — 살릴 태스크만 **체리픽**으로 선별(태스크당 1커밋이라 태스크 단위 선별 가능, 연속 구간은
+  `git cherry-pick <시작>..<끝>` 범위로 한 번에. 머지+revert는 "넣었다 뺀" 흔적이 이력에 남아 쓰지 않는다).
+  선별 내역(살릴/버릴 B 태스크)은 §⑤ 승인 자료에 포함한다.
+  얹은 직후 **full_verify 1회** — A·B가 각자 green이어도 조합은 깨질 수 있고, 이 관문 없이는 깨진 베이스 위에 태스크가 쌓인다.
+③ **C 최종 PR base = A 브랜치**(main 아님) — main으로 열면 diff에 A 변경이 통째로 섞여 리뷰 불가.
+  A가 main 머지·브랜치 삭제되면 GitHub이 C PR을 main으로 자동 retarget.
+④ **A 전진 추적** — A가 전진하면 C에 주기적으로 머지-인(§⑨ 재검증 원칙과 동일). 건너뛰면 C가 stale 상태로 검증을 통과한다.
+⑤ **수렴** — A → main 먼저, 그다음 C → main. 사실상 한 몸이면 C를 A에 머지해 main 관문을 A 최종 PR 하나로 수렴.
+⑥ **B 정리** — GitHub Milestone close, 살아남은 태스크 이슈는 C에서 close 연결, 미완 태스크는 C `plan.md`에 재등록,
+  B 브랜치·worktree·상태 폴더 정리. 체리픽은 SHA가 바뀌어 B 쪽 완료 추적("그룹 브랜치에 commit_sha 존재")이 끊기므로,
+  이 장부 정리를 건너뛰면 완료 판정이 어긋난다.
+
 ## 진행 순서
 
 ### 0단계 — 설정 로드
@@ -76,6 +94,8 @@ triage-fix와 동일 + `{milestone}`·`{models}`·`{branch_prefix.milestone|grou
   **실행 모드[중지/바이패스]**를 1회 확정한다(`AskUserQuestion`). 정지점을 두 번 만들지 않는다.
   - **중지**: 태스크마다 사람 승인 + 그룹 PR 사람 리뷰·머지. **항상 순차**(병렬 끔).
   - **바이패스**: 자동 진행, 그룹 PR green이면 자동 머지(이력 남김). 병렬(§⑧). **막힌 건 새 이슈로.**
+- **진행 중 마일스톤이 감지되면 base 선택도 같은 질문에 합친다**: `{default_branch}`(독립) /
+  진행 중 `<A>` 브랜치(적층 — §마일스톤 적층 적용). 적층이면 ⑦ 브랜치 base·⑩ 최종 PR base가 A 브랜치가 된다.
 - 어느 모드든 **최종 main PR(⑩)은 항상 정지** — 사람이 머지.
 
 ### ⑥ 이슈 생성 (git-writer)
@@ -83,7 +103,8 @@ triage-fix와 동일 + `{milestone}`·`{models}`·`{branch_prefix.milestone|grou
 - 태스크별 **이슈 생성**(git-writer). **이슈 번호(#N)를 태스크 안정 키로 plan.md에 고정**(재계획해도 보존).
 
 ### ⑦ 브랜치 · worktree (git-writer)
-- **마일스톤 브랜치** `{branch_prefix.milestone}<슬러그>`를 `{milestone.base_branch|default_branch}`에서 생성.
+- **마일스톤 브랜치** `{branch_prefix.milestone}<슬러그>`를 `{milestone.base_branch|default_branch}`에서 생성
+  (적층이면 ⑤에서 고른 A 브랜치 — §마일스톤 적층).
 - **그룹 브랜치** `{branch_prefix.group}<슬러그>-<그룹>`을 마일스톤 브랜치에서 생성.
 - 바이패스+병렬이면 그룹마다 **worktree**(`op=add-worktree`). 중지 모드(순차)면 worktree 없이 순차 처리 가능.
 - **worktree 의존성 준비**: 새 worktree는 `node_modules` 등 의존성이 없어 테스트·빌드가 바로 안 돈다.
@@ -114,7 +135,8 @@ triage-fix와 동일 + `{milestone}`·`{models}`·`{branch_prefix.milestone|grou
 - 다른 그룹이 먼저 머지돼 마일스톤이 전진했으면 M을 다시 만들어(prepare-merge 재실행) 재검증(stale이면 반복).
 
 ### ⑩ 최종 PR ✋
-- 모든 그룹이 머지되었거나 미머지로 확정 표기된 후, git-writer가 마일스톤 브랜치 → main **PR 남기고 정지**.
+- 모든 그룹이 머지되었거나 미머지로 확정 표기된 후, git-writer가 마일스톤 브랜치 → main **PR 남기고 정지**
+  (적층이면 base는 main이 아니라 A 브랜치 — §마일스톤 적층 ③).
 - 최종 `full_verify`(qa) 1회 더. 미머지 그룹 있으면 draft.
 - PR 본문: 완료 태스크 / 미완료·통합·미머지 목록 / 실행 중 결정 요약.
 - **어느 모드든 main 머지는 사람이 한다.** 최종 PR 머지 후 `.claude/loops/<슬러그>/` 삭제.
