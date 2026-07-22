@@ -15,7 +15,7 @@
 ![Codex](https://img.shields.io/badge/Codex-CLI-000000)
 ![로컬 실행](https://img.shields.io/badge/실행-100%25%20로컬-success)
 ![API 비용](https://img.shields.io/badge/추가%20API%20비용-0원-blue)
-![version](https://img.shields.io/badge/version-0.12.0-lightgrey)
+![version](https://img.shields.io/badge/version-0.15.0-lightgrey)
 ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 이슈 하나, 작업 하나를 한 줄로 던지면 — 도비가 원인을 파악하고, GitHub 이슈를 만들고,
@@ -138,6 +138,7 @@ cd dobiflow
 
 ```text
 /work 대시보드 로고 눌렀는데 안 감
+   ├─ 마일스톤 감지 → 진행 중이면 ✋ "태스크로 추가할까요, 주인님?" (ⓐ면 마일스톤 재진입)
    ├─ 분류        → 버그 → triage-fix
    ├─ 원인 파악    → issue-triage (읽기 전용 — 도비는 함부로 안 고쳐요)
    ├─ GitHub 이슈  → git-writer 도비가 생성(실행만) + URL 보고
