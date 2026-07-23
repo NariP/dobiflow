@@ -189,6 +189,7 @@ dobiflow runs everything **on your machine**, so Dobby keeps a few rules:
 - **Debt-test audit** — right before the PR, Dobby audits only the tests this loop added ("if it breaks, is it a bug or a refactor?") — only tests with regression value reach main
 - **Post-merge cleanup** — say "merged" and Dobby tags (if the repo does tags) and sweeps merged local branches, worktrees and leftover loop folders — unmerged ones are never touched
 - **Context-thrifty writes** — a `git-writer` Dobby runs issue/commit/push/PR as pure execution; main writes the message/body, git-writer just runs `gh`/`git` and returns the URL, so verbose `git log`/`diff`/`gh` output never piles up in the main session
+- **Update notice** — once a day at session start, Dobby checks the latest dobiflow release and prints how to update (Claude: plugin marketplace / Codex: auto) — 24h cache, network failures stay silent
 - **Code search** — symbol-level via Serena LSP when available, grep fallback otherwise
 
 ## Event hooks (optional)

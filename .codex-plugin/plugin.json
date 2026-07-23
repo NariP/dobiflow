@@ -12,6 +12,7 @@
     "automation"
   ],
   "skills": "./codex/skills/",
+  "hooks": "./hooks/hooks.json",
   "interface": {
     "displayName": "dobiflow",
     "shortDescription": "이슈 → 승인 → 구현 루프 → PR 자동화 (도비가 일합니다)",
