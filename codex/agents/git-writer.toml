@@ -82,7 +82,7 @@ developer_instructions = """
   close-issue:     gh issue close <N> --repo <repo>   # 각 번호마다
   cleanup-branch:  git branch -d <branch> && git push origin --delete <branch>
   tag:             git tag <tag_name> <target_sha>
-                   git push origin <tag_name>         # push=true일 때만 — 인증은 호출자 지시 따름
+                   git push origin refs/tags/<tag_name>  # push=true일 때만 — 인증은 호출자 지시 따름
 - op=merge는 검증된 head_sha를 그대로 확정한다. 재머지·rebase·재계산하지 않는다(검증 SHA=머지 SHA).
 - 각 op가 실패하면 재시도 없이 구조화 결과로 보고(아래 보고 형식).
 
