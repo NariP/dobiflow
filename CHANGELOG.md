@@ -4,6 +4,26 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 [유의적 버전](https://semver.org/lang/ko/)을 사용합니다.
 
+## [0.20.0] - 2026-07-24
+
+### Changed
+- **스킬 문서 다이어트 — 호출당 토큰 비용 절감(#22)** — 의미·실행 가드를 잃지 않고 표현 중복만 로컬 압축하고,
+  판단 없는 서브에이전트의 저가 모델 권장을 문서화. Codex 계획 검토 2라운드(PROCEED-WITH-CHANGES) 반영 —
+  "참조로 중복 제거"는 가드 소실 위험으로 폐기하고 **같은 파일 안에서 표현만 축약**(실행 시 전부 로드).
+  - **A. 로컬 압축** — `/work` 도식·분류 원칙·분류 기준·동작 산문, triage-fix/task-run의 5.5단계 부채 감사
+    요약(fast-path 2개·판별·범위·절차 전부 유지), loop.md 템플릿을 필드 스키마형으로 축약 (claude+codex 미러).
+  - **B. agents 첫 문단 축약** — 7개 에이전트(claude .md + codex .toml)의 본문 첫 문단 역할 소개가 frontmatter
+    description과 중복되던 것만 제거. **frontmatter description은 보존**(스폰 라우팅 계약), git-writer op 계약·명령·금지 조항은 제외.
+  - **C. 다운시프트 문서화** — triage-init `models` config에 "판단 없는 손(git-writer)=하위 모델 / qa는 판정자라
+    강모델 유지" 근거와 "git-writer Haiku 추가 하향은 op 시나리오 평가 통과 시에만" 조건 명시 (claude+codex 미러).
+    코드 변경 없이 문서·권장까지(실제 저가 모델 실행 평가는 별도 후속).
+  - **가드 무손실 검증** — 압축 전 가드 인벤토리(실행 가드·정지점·명령·제어흐름 분기) 목록화 후 압축본 전량 잔존 대조 +
+    시나리오 6개(미머지 PR·dirty worktree·열린 milestone 이슈·병렬 Serena·활성화 실패·테스트 제거 후 red) 처리 확인.
+  - **관측 줄 수(목표 아닌 관측치)** — skills(claude): work 114→91·triage-fix 377→369·task-run 239→236·
+    milestone 188(불변)·triage-init 111→112(C 근거 추가) = 합계 1029→996(−33). skills(codex): 1021→987(−34).
+    agents: 첫 문단 중복 제거로 파일당 1~2줄·반복 문구 축소(claude 571→570, codex 434). 절감 핵심은 표면 줄 수보다
+    **호출·스폰당 반복 로드되는 중복 문구 제거**(SKILL=슬래시 호출마다 로드, agents=스폰마다 로드).
+
 ## [0.19.1] - 2026-07-23
 
 ### Fixed
