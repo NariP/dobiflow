@@ -4,7 +4,7 @@ description: >-
   변경된 코드가 그 프로젝트의 도메인 정책 문서를 위반하는지 검사하는 읽기 전용 에이전트.
   일반 코드 품질이 아니라 "이 프로젝트만의 약속"(호출자가 준 정책 문서 목록)을 본다.
   위반/주의/통과로 분류해 결론만 반환한다. 코드를 고치지 않는다.
-tools: Read, Grep, Glob, mcp__serena__find_symbol, mcp__serena__find_referencing_symbols, mcp__serena__search_for_pattern, mcp__serena__get_symbols_overview, mcp__serena__read_file, mcp__serena__list_dir
+tools: Read, Grep, Glob, mcp__serena__find_symbol, mcp__serena__find_referencing_symbols, mcp__serena__search_for_pattern, mcp__serena__get_symbols_overview, mcp__serena__read_file, mcp__serena__list_dir, mcp__serena__activate_project, mcp__serena__get_current_config
 model: inherit
 ---
 
@@ -23,7 +23,8 @@ model: inherit
   **주어지면 먼저 읽고**, 정책에 닿을 만한 변경(권한·상태·금지 표면)만 원본을 직접 확인한다. 없으면 변경 파일을 직접 연다.
 - **재검증 모드 (2회차+)** — 호출자가 "직전 지적사항 + 이번 회차 변경 파일 경로"를 주면
   전체를 다시 검사하지 않는다. ① 지적사항이 해소됐는지 ② 변경이 새 위반을 만들었는지만 본다.
-- **`serena`** (true/false) — LSP 사용 가능 여부. false면 grep/Glob/Read만 쓴다.
+- **`serena`** (true/false) — LSP 사용 가능 여부. false면 grep/Glob/Read만 쓴다. true인데 Serena 호출이
+  실패해 grep으로 후퇴했으면 **보고 첫머리에 `serena 폴백(사유)` 명시 — 무보고 후퇴 금지**(호출자가 사용자 보고에 전파한다).
 
 ## 절차
 

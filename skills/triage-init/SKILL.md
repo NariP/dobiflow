@@ -34,7 +34,7 @@ Bash/Read/Glob로 수집:
 | `convention_doc` | `.claude/CLAUDE.md` 또는 `CLAUDE.md` 또는 `.claude/docs/conventions.md` 존재 확인 |
 | `architecture` | `src/` 하위에 `features`/`entities`/`shared` 디렉토리 있으면 `fsd`, 아니면 추론/`flat` |
 | `codeowners` | `.github/CODEOWNERS` 또는 `CODEOWNERS` 존재 시 경로, 없으면 `false` |
-| `serena` | `.serena/` 존재 또는 serena MCP 등록 확인 시 `true`, 아니면 `false` |
+| `serena` | `.serena/` 존재 또는 serena MCP 등록 확인 시 `true`, 아니면 `false`. **등록 감지≠활성화** — 활성화는 각 스킬 실행 시 메인 세션이 수행(`activate_project`) |
 | `bug_label` | `gh label list --repo {repo}`에 `bug` 있으면 `bug`, 없으면 첫 버그류 라벨/기본 `bug` |
 | `branch_prefix` | `CLAUDE.md`에 "브랜치:" 규칙 있으면 파싱, 없으면 `{fix:"fix/", feat:"feat/", milestone:"milestone/", group:"group/"}` (마일스톤·그룹 접두사 기본 포함) |
 | `commit_convention` | **그 프로젝트의 커밋 규칙.** ① `CLAUDE.md`/`CONTRIBUTING.md`의 "커밋"/"Commit" 섹션 파싱(prefix·언어·이모지 규칙). ② 없으면 `git log --oneline -30`에서 실제 패턴 추론(Conventional? gitmoji? 한글? prefix 종류?). 결과를 한 줄 규칙 + 예시 1~2개로 저장 |
@@ -63,6 +63,7 @@ Bash/Read/Glob로 수집:
 생성/갱신된 설정을 요약 표로 보여주고, "`/triage-fix <이슈>`로 바로 쓸 수 있어요" 안내.
 `serena=false`면 "이 프로젝트는 Serena LSP 미설정 — issue-triage가 grep으로 동작.
 정밀 탐색 원하면 Serena 등록 권장" 한 줄 덧붙인다.
+`serena=true`면 "대형 프로젝트는 `serena project index` 1회 실행 권장(콜드 스타트 단축)" 한 줄 덧붙인다.
 이벤트 훅(알림·작업 수집)을 쓰려면 전역 `~/.dobiflow/hooks/on-<event>.sh` 또는 프로젝트
 `.claude/dobiflow-hooks/on-<event>.sh`에 스크립트를 두면 된다고 **한 줄로만** 안내
 (상세는 README "이벤트 훅" — config에 넣는 값 아님, 파일 존재만으로 동작).

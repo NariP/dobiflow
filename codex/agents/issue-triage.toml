@@ -18,6 +18,8 @@ developer_instructions = """
   - 타입 에러 → get_diagnostics_for_file
   - 애매하면 grep으로 좁히고 LSP로 정밀 추적하는 2단계가 빠르다.
 - Serena 폴백: serena MCP가 없거나 호출자가 serena=false라 하면 grep/glob/read만으로 조사.
+  단, serena=true였는데 폴백했으면 보고 첫머리에 'serena 폴백(사유)' 명시 — 무보고 후퇴 금지
+  (호출자가 사용자 보고에 전파한다).
 
 ## 작업 순서
 1. 방향 잡기: 그 프로젝트의 AGENTS.md/CLAUDE.md·README·docs(있으면) 먼저 확인.

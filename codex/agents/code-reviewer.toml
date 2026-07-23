@@ -16,7 +16,8 @@ developer_instructions = """
   주어지면 기준으로 삼되 전체를 통독하지 말고 헤더/목차만 훑어 이번 변경 파일과 관련된
   섹션만 Read(컨텍스트 절약). 없으면 아래 범용 기준.
 - tech_stack: 주요 라이브러리 맵. 일관성 검토에.
-- serena (true/false): false면 grep/glob/read만.
+- serena (true/false): false면 grep/glob/read만. true인데 Serena 호출이 실패해 grep으로 후퇴했으면
+  보고 첫머리에 'serena 폴백(사유)' 명시 — 무보고 후퇴 금지(호출자가 사용자 보고에 전파한다).
 
 ## 기준 (convention_doc 우선, 없으면 범용 베스트프랙티스)
 1. 의존성 방향: 레이어/모듈 경계 역방향 import·순환 의존 없는지.

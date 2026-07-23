@@ -21,6 +21,9 @@ argument-hint: <할 일 설명 | 노션·슬랙 링크>
 `triage-fix`와 동일. cwd(또는 라우팅된 레포)의 `triage.config.json` 읽기.
 없으면 fallback(repo=git remote, default_branch=main, lint 감지, label_prefix="", loop.max_iterations=3, loop.full_verify_command 없음). 핵심값: `repo`, `default_branch`, `lint_command`, `test_command`, `convention_doc`, `tech_stack`, `commit_convention`, `branch_prefix`, `codeowners`, `serena`, `policy_docs`, `loop`, `models`.
 **서브에이전트 스폰 시 `{models}`가 있으면 `config.models[<agent>]`의 모델로 띄운다**(없으면 상속 — opt-in 오버라이드).
+**Serena 활성화도 `triage-fix` 0단계와 동일** — `serena=true`면 메인이 `mcp__serena__get_current_config`로 확인 후
+필요 시 `mcp__serena__activate_project <레포 절대경로>` 1회(실패 시 한 줄 알리고 계속). 멱등 확인은 0단계 1회가 아니라
+**탐색 단계 진입 시마다**(2단계 위임 직전 등) 수행한다 — Serena 서버는 세션당 1개·활성 프로젝트 1칸·서브 전원 공유.
 
 ### 1단계 — 요구 읽기
 입력(텍스트/노션/슬랙)에서 **무엇을 만들/바꿀지** 파악. 모호하면 사용자에게 구체화 질문(추측 금지).
@@ -29,8 +32,10 @@ argument-hint: <할 일 설명 | 노션·슬랙 링크>
 `triage-fix`와 동일. 어느 레포 작업인지 확정(약한 매치 자동 금지 → 확인). **현재 cwd가 그 레포가 아닐 때만 `cd <레포경로>`를 단독으로 1회** 실행해 진입(이미 그 레포면 cd 안 함) → 그 레포 config. 진입 후의 명령은 `cd <경로> && ...`로 감싸지 말고 명령만 친다(compound cd는 매번 권한 확인을 띄움).
 
 ### 2단계 — 관련 코드·영향 범위 파악 (issue-triage 위임)
+- 위임 직전 **Serena 멱등 확인**(0단계 활성화 절차)을 다시 수행한다 — 탐색 단계 진입 시점.
 - `issue-triage`에 위임(읽기 전용). 단 버그가 아니라 **"이 기능을 넣으려면 어디를 건드려야 하나 + 기존 패턴이 뭔가 + 영향 범위"**를 묻는다.
-- config(`serena`, `convention_doc`, `tech_stack`) 전달. 기존에 비슷한 구현·재사용할 유틸이 있는지 우선 찾게 한다(새로 짜기 전에).
+- config(`serena`와 **레포 절대경로**, `convention_doc`, `tech_stack`) 전달. 기존에 비슷한 구현·재사용할 유틸이 있는지 우선 찾게 한다(새로 짜기 전에).
+  보고 첫머리의 `serena 폴백(사유)` 표기는 사용자 보고에 그대로 전파한다(조용히 삼키지 않는다).
 
 ### 3단계 — 설계 (규모 따라 plan mode 자동)
 - **작은 작업**(한두 파일, 명백한 구현): 간단한 설계안(무엇을 어디에 어떻게)을 정리.
@@ -74,6 +79,7 @@ argument-hint: <할 일 설명 | 노션·슬랙 링크>
      프롬프트에 넣지 말 것** — diff가 필요하면 checker가 자기 Read로 해당 파일을 연다(컨텍스트 절약).
      **1회차 = 전체 검사, 2회차부터 = 재검증 모드** — 직전 지적사항 + 이번 회차 **변경 파일 경로**(+갱신된 change_map_path)만
      전달해 "지적 해소 여부 + 변경의 새 위반"만 본다 (풀 리체크 금지). qa 불통과(테스트 실패·부실)도 REQUEST_CHANGES.
+     서브 보고의 `serena 폴백(사유)` 표기는 사용자 보고에 전파한다.
   3. 판정 — ❌위반(policy·code)·qa 불통과 = **REQUEST_CHANGES**(지적사항 loop.md 기록 후 재위임) / ⚠️뿐이어도 실질 회귀·
      데이터 손실·보안 노출이면 ❌로 승격 가능(사유 loop.md 기록) / ❌없음 = **APPROVE** —
      `{loop.full_verify_command}` 있으면 여기서 1회 실행(풀 빌드 등, 실패 시 REQUEST_CHANGES로
