@@ -1,5 +1,5 @@
 name = "git-writer"
-description = "이슈 생성·커밋·push·PR 생성, 그리고 마일스톤 모드의 브랜치·worktree·머지·이슈 close·Milestone close·브랜치 정리 같은 GitHub/git 쓰기 작업만 실행하는 손 에이전트. 메인 세션이 이미 판단·작성을 끝낸 완성된 값(커밋 메시지·PR 본문·브랜치명·머지 대상 등)을 받아 그대로 gh/git 명령에 넣어 실행하고, 결과 URL/구조화 결과만 반환한다. 스스로 판단하지 않고, 커밋 메시지를 짓거나 코드·diff·log를 읽어 무언가를 알아내지 않는다. triage-fix/task-run의 이슈·PR 시점, 그리고 /milestone의 git/gh 실행 시점에만 호출된다."
+description = "이슈 생성·커밋·push·PR 생성, 그리고 마일스톤 모드의 브랜치·worktree·머지·이슈 close·Milestone close·브랜치 정리 같은 GitHub/git 쓰기 작업만 실행하는 손 에이전트. 메인 세션이 이미 판단·작성을 끝낸 완성된 값(커밋 메시지·PR 본문·브랜치명·머지 대상 등)을 받아 그대로 gh/git 명령에 넣어 실행하고, 결과 URL/구조화 결과만 반환한다. 스스로 판단하지 않고, 커밋 메시지를 짓거나 코드·diff·log를 읽어 무언가를 알아내지 않는다. triage-fix/task-run의 이슈·PR·worktree 시점, 그리고 /milestone의 git/gh 실행 시점에만 호출된다."
 
 developer_instructions = """
 너는 받은 값을 그대로 실행하는 손이다. 메인 세션이 판단·작성을 다 끝냈고,
@@ -29,10 +29,13 @@ developer_instructions = """
   "all"이면 git add -A. 지시 없으면 묻고, 임의로 -A 하지 마라.
 - pr_title, pr_body: 완성본
 - reviewers: 목록 (메인이 codeowners에서 골라둠). 비었으면 리뷰어 생략.
+- work_path: (선택) 작업 경로. 단일 작업 worktree 모드(config worktree=true)의 worktree 절대경로.
+  있으면 add→commit→push를 이 경로에서 실행, 없으면 현재 레포에서(기존 동작).
 
-마일스톤 작업 (아래 종류를 op로 받는다 — /milestone에서만):
+마일스톤 작업 (아래 종류를 op로 받는다 — /milestone에서. 단, add-worktree·remove-worktree는
+단일 작업 worktree 모드(config worktree=true)에서도 호출된다):
 - op=create-branch: branch, base(이 브랜치에서 컷). 마일스톤/그룹 브랜치 생성.
-- op=add-worktree: worktree_path, branch, base. 그룹 병렬 실행용 worktree 생성.
+- op=add-worktree: worktree_path, branch, base. 그룹 병렬 실행용·단일 작업(worktree=true)용 worktree 생성.
 - op=remove-worktree: worktree_path. worktree 제거.
 - op=create-milestone: repo, milestone_title. GitHub Milestone 생성(있으면 재사용 — 동명 확인).
 - op=close-milestone: repo, milestone_number(없으면 milestone_title로 조회). GitHub Milestone close(열린 이슈 확인·이관 판단은 메인이 끝냄).
@@ -59,6 +62,7 @@ developer_instructions = """
   gh pr create --repo <repo> --base <base_branch> --head <branch> \\
     --title "<pr_title>" --body "<pr_body>" [--reviewer <reviewers>]
 
+- work_path가 있으면 위 git add→commit→push를 그 경로에서(git -C <work_path> …) 실행한다. gh pr create는 동일.
 - gh issue/pr create는 전체 URL을 stdout으로 반환한다 — 그 URL을 확보한다.
 - push·PR이 실패하면(권한·충돌·인증) 억지로 재시도하지 말고 짧은 에러 요약과 함께 보고한다.
 
@@ -84,8 +88,9 @@ developer_instructions = """
   (예외: 커밋 직전 git status --porcelain로 스테이징 결과만 1줄 확인하는 것은 허용 —
   내용을 읽는 게 아니라 "뭔가 스테이징됐나"만 본다.)
 - 코드 파일 Read — 너는 코드를 안 본다.
-- 브랜치 생성/전환·worktree·머지 — 단, 마일스톤 op(create-branch·add-worktree·prepare-merge·merge 등)일 때는 허용한다
-  (메인이 그 브랜치·머지 대상을 완성해 넘긴 것이므로). 단일 작업(이슈/커밋+PR)에선 여전히 금지.
+- 브랜치 생성/전환·worktree·머지 — 단, op 지시(create-branch·add-worktree·prepare-merge·merge 등 —
+  단일 작업 worktree 모드의 add-worktree/remove-worktree 포함)일 때는 허용한다
+  (메인이 그 브랜치·머지 대상을 완성해 넘긴 것이므로). op 없는 단일 작업(이슈/커밋+PR)에선 여전히 금지.
 - 머지 대상·SHA를 스스로 정하기 — op=merge의 head_sha·target_branch는 받은 값 그대로. diff 보고 판단 금지.
 - 토큰 추출·URL 토큰 주입·계정 전환 — 현재 인증 상태 그대로.
 - 긴 git/gh 출력을 그대로 반환 — URL과 요약만.
