@@ -185,6 +185,7 @@ dobiflow runs everything **on your machine**, so Dobby keeps a few rules:
 - **Project rules first** — commit convention, policies, conventions follow the target project
 - **Implementation loop** — an implementer Dobby codes while reviewer Dobbys judge; findings trigger automatic re-implementation until green (bounded — stops and reports instead of forcing a PR)
 - **Milestones for big work** — when a request is too big for one PR, Dobby splits it into tasks, groups related ones (a group = one dev), and runs groups in parallel (git worktrees) with per-group PRs merged behind a merge-queue-style verify, then a final PR to main — always human-merged. A planner Dobby plans, a qa Dobby runs the tests
+- **Single-task worktree (opt-in)** — with `worktree: true` in the config, even a single bug/feature is built in its own git worktree, so your main working tree stays free while Dobby works (off by default — dependency install cost; falls back to the normal flow if creation fails)
 - **Split self-check** — domain-policy check + general code review + QA (acceptance-criteria tests) run separately (read-only Dobbys)
 - **Debt-test audit** — right before the PR, Dobby audits only the tests this loop added ("if it breaks, is it a bug or a refactor?") — only tests with regression value reach main
 - **Post-merge cleanup** — say "merged" and Dobby tags (if the repo does tags) and sweeps merged local branches, worktrees and leftover loop folders — unmerged ones are never touched

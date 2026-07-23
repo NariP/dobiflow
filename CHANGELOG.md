@@ -19,6 +19,20 @@
     `SessionStart` 이벤트·`${CLAUDE_PLUGIN_ROOT}` 치환 지원을 확인, `.codex-plugin/plugin.json`에
     `hooks: ./hooks/hooks.json` 등록 — 양쪽 CLI에서 같은 훅이 동작.
 
+## [0.18.0] - 2026-07-23
+
+### Added
+- **단일 작업 worktree 옵션 — config `worktree`(기본 `false`)** — `true`면 `triage-fix`·`task-run` 단일 작업도
+  `<repo>/.claude/worktrees/<이슈번호>` worktree에서 구현해 메인 워킹트리를 점유하지 않는다.
+  5단계 준비에 분기 신설: git-writer `op=add-worktree`로 브랜치+worktree 생성 → `{milestone.install_command}`
+  있으면 의존성 설치(마일스톤 ⑦ 관례 재사용) → implementer·자가체크 3축에 worktree 절대경로를 cwd로 전달.
+  6단계 커밋은 git-writer `work_path` 파라미터(신설)로 worktree 경로에서 add→commit→push, 7단계 sweep에
+  단일 작업 worktree 제거(`op=remove-worktree`) 편입. 생성 실패(디스크·권한) 시 현행 방식 폴백+한 줄 알림,
+  Serena 활성화 대상 경로는 worktree 절대경로(0단계 절차 그대로 — worktree별 인덱스라 첫 질의 워밍업),
+  상태 파일(`.claude/loops/`)은 메인 레포 중앙 유지. **기본 false면 기존 동작 완전 불변.**
+  git-writer 2벌에 worktree op 단일 작업 호출·`work_path` 명시, `triage-init` 2벌 생성 표·스키마에 필드 추가,
+  가이드·README 특징 1줄(claude+codex).
+
 ## [0.17.2] - 2026-07-23
 
 ### Fixed
