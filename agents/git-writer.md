@@ -60,8 +60,8 @@ model: inherit
   **검증한 그 SHA를 그대로** target에 ff-only 확정(재머지·재계산 안 함) + 임시 검증 worktree 제거.
 - `op=close-issue`: `repo`, `issues`(번호 목록). gh API로 명시적 close(`Closes #N` 의존 안 함).
 - `op=cleanup-branch`: `branch`(로컬+원격 삭제).
-- `op=tag`: `repo`, `tag_name`, `target_sha`, `push`(선택 — true면 push까지). 머지 커밋 태깅(버전 bump 릴리스 —
-  triage-fix/task-run 7단계 2·milestone ⑩ 정리 1). 인증은 호출자 지시를 따른다(임의 주입 없음).
+- `op=tag`: `repo`, `tag_name`, `target_sha`, `push`(선택 — true면 push까지). 지정 SHA에 태그 생성(+push 선택) —
+  언제 태깅할지는 호출 스킬이 판단(예: 레포 관례상 릴리스 태깅). 인증은 호출자 지시를 따른다(임의 주입 없음).
 - 각 op는 완성된 값만 받는다. 무엇을·어느 브랜치를 만들지·머지할지는 메인이 정해 넘긴다.
 
 ## 실행
