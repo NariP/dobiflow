@@ -41,7 +41,7 @@ Bash/Read/Glob로 수집:
 | `loop` | `max_iterations`: 감지 아님 — 기본 `3` (구현 루프 최대 반복, 취향껏 수정). `full_verify_command`: `package.json` scripts에 `build` 있으면 `{pm} build` 제안, 없으면 필드 생략 — **APPROVE 시점에만 1회 도는 무거운 검증**(풀 빌드·코드 생성 등). 루프 안 반복 검증은 lint·test만이라 여기 넣은 명령은 매 반복 돌지 않는다 |
 | `worktree` | 감지 아님 — 기본 `false`(취향껏 수정). `true`면 단일 작업(triage-fix·task-run)도 `<repo>/.claude/worktrees/<이슈번호>` worktree에서 구현 — 메인 워킹트리 비점유, 의존성 설치 비용 있음(설치는 `milestone.install_command` 재사용) |
 | `milestone` | 마일스톤 기능값. `base_branch`: 미지정 시 `default_branch`(최종 PR 대상). `max_issues`: 기본 `10`(최대 태스크 수). `max_parallel`: 기본 `3`(병렬 그룹 폭 — worktree 비용 제한, 1이면 순차). `install_command`: `package.json` 있으면 `{pm} install` 제안(새 worktree 의존성 준비용), 불필요 스택이면 생략 |
-| `models` | **진영 감지 후 provider별 기본값 생성.** 어느 진영인지: `~/.codex/` 또는 codex 실행 흔적이면 **Codex 진영**, 아니면 **Claude 진영**(기본). 매핑 원칙 = 계획·판단·검증류=상위 모델 / 커밋 등 단순 실행=하위 모델. Claude: `{planner:"opus", implementer:"opus", issue-triage:"opus", code-reviewer:"opus", policy-checker:"opus", qa:"opus", git-writer:"sonnet"}`. Codex: 같은 원칙을 그 시점 가용 gpt 계열 상·하위 등급으로(모델명은 생성 시점 확정). **에이전트 파일은 model 필드 없이 세션 모델 상속 유지 — 이 config가 오버라이드(opt-in). 미지정·config 없음이면 상속** |
+| `models` | **진영 감지 후 provider별 기본값 생성.** 어느 진영인지: `~/.codex/` 또는 codex 실행 흔적이면 **Codex 진영**, 아니면 **Claude 진영**(기본). **매핑 원칙 = 계획·판단·검증류(planner·implementer·issue-triage·code-reviewer·policy-checker·qa)=상위 모델 / 판단 없는 "손" 에이전트(git-writer — 받은 완성값으로 gh/git 실행)=하위 모델.** 이 분리는 오케스트레이터=강모델·워커=저가라는 멀티에이전트 정석이다. **⚠️ qa는 다운시프트 대상 아님** — 완료기준 테스트 감사·통과 판정을 하는 판정자라 강모델 유지(config.models.qa는 자가체크에도 전역 적용). Claude: `{planner:"opus", implementer:"opus", issue-triage:"opus", code-reviewer:"opus", policy-checker:"opus", qa:"opus", git-writer:"sonnet"}`. Codex: 같은 원칙을 그 시점 가용 gpt 계열 상·하위 등급으로(모델명은 생성 시점 확정). **git-writer를 Haiku급까지 더 내리는 것은 op별 시나리오 평가(missing stage·merge SHA 불일치·충돌·dirty worktree·동명 마일스톤·원격 삭제 실패에서 명령 순서·금지 조항 준수) 통과 시에만** — git-writer도 열린 판단은 없으나 저위험은 아니라(동일 Milestone 재사용·검증 SHA 그대로 merge·원격 브랜치 삭제) 기본값은 sonnet. **에이전트 파일은 model 필드 없이 세션 모델 상속 유지 — 이 config가 오버라이드(opt-in). 미지정·config 없음이면 상속** |
 
 ## 2단계 — 사용자 확인 (AskUserQuestion)
 
@@ -91,7 +91,8 @@ Bash/Read/Glob로 수집:
   "milestone": { "base_branch": "main", "max_issues": 10, "max_parallel": 3, "install_command": "pnpm install" },
   "models": {
     // 에이전트는 세션 모델 상속 유지, 이 블록이 오버라이드(opt-in). 미지정이면 상속.
-    // 계획·판단·검증류=상위 모델 / 단순 실행=하위. (Codex 진영은 gpt 상·하위로)
+    // 계획·판단·검증류=상위 모델 / 판단 없는 "손"(git-writer)=하위. (Codex 진영은 gpt 상·하위로)
+    // qa는 판정자라 다운시프트 금지(강모델 유지). git-writer Haiku 추가 하향은 op 시나리오 평가 통과 시에만.
     "planner": "opus", "implementer": "opus", "issue-triage": "opus",
     "code-reviewer": "opus", "policy-checker": "opus", "qa": "opus", "git-writer": "sonnet"
   },
