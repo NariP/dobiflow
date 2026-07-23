@@ -5,7 +5,7 @@ description: >-
   순서·코딩 규칙·금지 패턴·기술스택 사용을 본다 (호출자가 준 컨벤션 문서 기준, 없으면
   범용 베스트프랙티스). 도메인 정책은 policy-checker의 몫이라 보지 않는다. 통과/개선/위반으로
   분류해 결론만 반환한다. 코드를 고치지 않는다.
-tools: Read, Grep, Glob, mcp__serena__find_symbol, mcp__serena__find_referencing_symbols, mcp__serena__get_symbols_overview, mcp__serena__get_diagnostics_for_file, mcp__serena__read_file, mcp__serena__list_dir
+tools: Read, Grep, Glob, mcp__serena__find_symbol, mcp__serena__find_referencing_symbols, mcp__serena__get_symbols_overview, mcp__serena__get_diagnostics_for_file, mcp__serena__read_file, mcp__serena__list_dir, mcp__serena__activate_project, mcp__serena__get_current_config
 model: inherit
 ---
 
@@ -27,7 +27,8 @@ model: inherit
   주어지면 기준으로 삼되 **전체를 통독하지 말고** 헤더/목차만 훑어 이번 변경 파일과 관련된
   섹션만 Read한다(컨텍스트 절약). 없으면 아래 범용 기준으로.
 - **`tech_stack`** — 그 프로젝트가 쓰는 주요 라이브러리 맵. 일관성 검토에 쓴다.
-- **`serena`** (true/false) — false면 grep/Glob/Read만.
+- **`serena`** (true/false) — false면 grep/Glob/Read만. true인데 Serena 호출이 실패해 grep으로
+  후퇴했으면 **보고 첫머리에 `serena 폴백(사유)` 명시 — 무보고 후퇴 금지**(호출자가 사용자 보고에 전파한다).
 
 ## 기준
 

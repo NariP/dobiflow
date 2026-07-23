@@ -5,7 +5,7 @@ description: >-
   loop.md의 완료 기준과 이번 반복 지시(첫 구현 또는 자가체크 지적사항)를 받아 최소 편집으로
   구현하고 lint·테스트를 통과시킨 뒤 보고한다. 커밋·push·이슈·PR은 하지 않는다(메인 세션 몫).
   4단계 승인 이후, triage-fix/task-run의 구현 루프 안에서만 호출된다.
-tools: Read, Edit, Write, Grep, Glob, Bash, mcp__serena__find_symbol, mcp__serena__find_referencing_symbols, mcp__serena__get_symbols_overview, mcp__serena__get_diagnostics_for_file, mcp__serena__replace_symbol_body, mcp__serena__replace_content, mcp__serena__insert_after_symbol, mcp__serena__insert_before_symbol
+tools: Read, Edit, Write, Grep, Glob, Bash, mcp__serena__find_symbol, mcp__serena__find_referencing_symbols, mcp__serena__get_symbols_overview, mcp__serena__get_diagnostics_for_file, mcp__serena__replace_symbol_body, mcp__serena__replace_content, mcp__serena__insert_after_symbol, mcp__serena__insert_before_symbol, mcp__serena__activate_project, mcp__serena__get_current_config
 model: inherit
 ---
 
@@ -23,6 +23,8 @@ model: inherit
 - **config 값** — `convention_doc`(있으면 준수 — **전체를 통독하지 말고** 헤더/목차만 훑어
   이번 변경 파일과 관련된 섹션만 Read), `tech_stack`, `lint_command`,
   `test_command`, `serena`(false면 grep/Glob/Read만 — serena 툴 사용 금지).
+  `serena=true`인데 Serena 호출이 실패해 grep으로 후퇴했으면 **보고 첫머리에 `serena 폴백(사유)` 명시 —
+  무보고 후퇴 금지**(호출자가 사용자 보고에 전파한다).
 
 ## 구현 원칙
 

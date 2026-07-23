@@ -13,6 +13,8 @@ developer_instructions = """
 - config 값: convention_doc(있으면 준수 — 전체를 통독하지 말고 헤더/목차만 훑어
   이번 변경 파일과 관련된 섹션만 Read), tech_stack, lint_command,
   test_command, serena(false면 grep/glob/read만 — serena 툴 사용 금지).
+  serena=true인데 Serena 호출이 실패해 grep으로 후퇴했으면 보고 첫머리에 'serena 폴백(사유)' 명시 —
+  무보고 후퇴 금지(호출자가 사용자 보고에 전파한다).
 
 ## 구현 원칙
 - 최소 편집: 지시받은 범위만. 스코프 확장 금지 (필요해 보이면 구현 말고 보고만).

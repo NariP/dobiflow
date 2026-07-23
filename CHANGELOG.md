@@ -4,10 +4,7 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 [유의적 버전](https://semver.org/lang/ko/)을 사용합니다.
 
-## [Unreleased]
-
-> 버전 메모: main(0.17.1) 기준 minor 변경이지만 0.18.0은 #16 브랜치가 선점(적층 대기) 중 —
-> 충돌 방지를 위해 이 항목은 버전 bump·배지 없이 [Unreleased]로 두고, 머지 순서 확정 시 조정한다 (이슈 #17).
+## [0.19.0] - 2026-07-23
 
 ### Added
 - **업데이트 알림 — SessionStart 훅** (claude+codex):
@@ -21,6 +18,26 @@
   - **Codex 지원 확인 결과: 등록** — Codex CLI 0.144 바이너리 스키마에서 매니페스트 `hooks` 필드(설정 파일 경로)·
     `SessionStart` 이벤트·`${CLAUDE_PLUGIN_ROOT}` 치환 지원을 확인, `.codex-plugin/plugin.json`에
     `hooks: ./hooks/hooks.json` 등록 — 양쪽 CLI에서 같은 훅이 동작.
+
+## [0.17.2] - 2026-07-23
+
+### Fixed
+- **서브에이전트 Serena 미사용 — 메인 중앙 활성화 + 모드별 worktree 정책** — 실측(프론트 6레포·25세션·
+  서브에이전트 297건)에서 Serena 호출 101건 중 80건(79%)이 "No active project" 에러로 실패하고 grep/Read로
+  조용히 후퇴(Read 누적 314만 토큰). 원인은 user 레벨 MCP 등록에 `--project`가 없어 매 세션 활성 프로젝트
+  없이 부팅되는데 활성화 주체도 없던 것. 수리:
+  - 스킬 3종(`triage-fix`·`task-run`·`milestone`)에 **메인 중앙 활성화** 절차 — `serena=true`면 메인이
+    `get_current_config`로 멱등 확인 후 필요 시 `activate_project <레포 절대경로>` 1회, **탐색 단계 진입
+    시마다** 재확인(0단계 1회 아님 — 순차 worktree 사용 후 복귀 보장, 실패 시 한 줄 알리고 계속).
+    근거인 "Serena 서버=세션당 1개·활성 프로젝트 1칸·서브 전원 공유"를 스킬 서술에 명시(claude+codex).
+  - `milestone` ⑧ **워커 모드별 정책** — 병렬(바이패스)=워커 Serena 호출 금지(grep/Glob/Read만 — 활성 1칸
+    경합·메인 레포 기준 결과 혼동 방지), 순차(중지)=자기 worktree 절대경로로 activate 후 허용(claude+codex).
+  - 워커 4종(implementer·qa·code-reviewer·policy-checker) md tools에 `activate_project`+`get_current_config`
+    추가(codex toml은 mcp_servers 통째 부여라 변경 불필요).
+  - **무보고 후퇴 금지** — 전 에이전트 6종×2벌의 "실패하면 grep" 폴백 서술에 "보고 첫머리에
+    `serena 폴백(사유)` 명시" 의무 추가, 스킬 수신부는 그 표기를 사용자 보고에 전파.
+  - `triage-fix` 1.5단계 "cd = Serena 컨텍스트 정렬" 오류 정정(cd는 MCP 서버의 활성 프로젝트를 바꾸지 않음),
+    `triage-init` 2벌에 "등록 감지≠활성화" 주석 + `serena project index` 사전 인덱싱 안내 추가.
 
 ## [0.17.1] - 2026-07-22
 

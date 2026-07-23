@@ -37,7 +37,8 @@ model: inherit
 ## 입력 (호출자가 준다)
 
 - 업무 설명(무엇을 만들/바꿀지).
-- `convention_doc`·`tech_stack`·`serena`(LSP 가능 여부) 등 config 값.
+- `convention_doc`·`tech_stack`·`serena`(LSP 가능 여부) 등 config 값. `serena=true`인데 Serena 호출이
+  실패해 grep으로 후퇴했으면 **보고 첫머리에 `serena 폴백(사유)` 명시 — 무보고 후퇴 금지**(호출자가 사용자 보고에 전파한다).
 - issue-triage의 **evidence packet** (있으면 기본 입력으로).
 
 ## 작업 순서
