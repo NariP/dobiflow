@@ -1,6 +1,17 @@
 {
-  "description": "dobiflow 이벤트 훅 — gh issue/pr create 실행 후 사용자 정의 스크립트 트리거",
+  "description": "dobiflow 이벤트 훅 — 세션 시작 시 업데이트 확인 + gh issue/pr create 실행 후 사용자 정의 스크립트 트리거",
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/dobiflow-update-check.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Bash",

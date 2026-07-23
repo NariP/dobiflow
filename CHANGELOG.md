@@ -4,6 +4,21 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 [유의적 버전](https://semver.org/lang/ko/)을 사용합니다.
 
+## [0.19.0] - 2026-07-23
+
+### Added
+- **업데이트 알림 — SessionStart 훅** (claude+codex):
+  - `scripts/dobiflow-update-check.sh` 신설 — 세션 시작 시 하루 1회(86400초, `~/.dobiflow/update-check` 캐시)
+    원격 최신 태그(`git ls-remote`)와 로컬 플러그인 버전을 비교해 신버전이면 갱신 방법
+    (Claude: /plugin 마켓플레이스 / Codex: 자동 반영)·CHANGELOG 링크·새 기능 헤드라인(원격 CHANGELOG
+    curl, 실패 무해)을 stdout으로 안내. 캐시 기간에는 재조회 없이 마지막 결과만 재출력.
+  - 모든 실패(네트워크 불통·파싱)는 조용히 exit 0, stderr 금지 — 세션 시작을 막지 않음.
+    macOS(bash 3.2)·Linux 호환: `timeout` 명령·jq 비의존, 저속 가드는 `http.lowSpeedLimit/Time`·`curl --max-time`.
+  - `hooks/hooks.json`에 SessionStart 등록(timeout 5) — 기존 PostToolUse 훅과 공존.
+  - **Codex 지원 확인 결과: 등록** — Codex CLI 0.144 바이너리 스키마에서 매니페스트 `hooks` 필드(설정 파일 경로)·
+    `SessionStart` 이벤트·`${CLAUDE_PLUGIN_ROOT}` 치환 지원을 확인, `.codex-plugin/plugin.json`에
+    `hooks: ./hooks/hooks.json` 등록 — 양쪽 CLI에서 같은 훅이 동작.
+
 ## [0.18.0] - 2026-07-23
 
 ### Added
