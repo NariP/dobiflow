@@ -7,7 +7,7 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/dobiflow-update-check.sh",
-            "timeout": 5
+            "timeout": 8
           }
         ]
       }

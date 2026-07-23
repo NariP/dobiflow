@@ -4,6 +4,32 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 [유의적 버전](https://semver.org/lang/ko/)을 사용합니다.
 
+## [0.19.1] - 2026-07-23
+
+### Fixed
+- **v0.15~0.19 교차 정합성 수리 13건** — 종합 감사(모순·성능 2렌즈)에서 발견된 실질 결함 3·공백 5·저비용 개선 5를 일괄 수리:
+  - **worktree 분기 마일스톤 제외 가드** — triage-fix·task-run 5단계 worktree 준비에 "마일스톤 모드 건너뜀" 가드 추가.
+    그룹 브랜치와 `op=add-worktree` 충돌·실패 폴백의 그룹 격리 파괴 방지 (claude+codex).
+  - **7단계 sweep 안전선·순서** — remove-worktree 대상을 닫힌 이슈·머지된 브랜치의 worktree로 한정(병행 작업 오삭제 방지),
+    순서를 worktree 제거→브랜치 삭제로 교정(체크아웃 브랜치 `-d` 거부), 6단계에 worktree 정리 안내 1줄 (claude+codex).
+  - **"머지했어" 트리거 판별** — 7단계 1에 마일스톤 판별 규칙(`plan.md` 폴더는 sweep 제외, `/milestone` ⑩ 라우팅) +
+    milestone ⑩ 상호참조 — Milestone close 확인 ✋ 우회 방지 (claude+codex).
+  - **적층 retarget 경고** — milestone 적층 ⑤·⑩ + 가이드 구조도: C 머지 전 A 원격 브랜치 삭제 선행
+    (retarget은 base 삭제 시에만 발동 — 실제 발생 사례) (claude+codex).
+  - **milestone ⑩ 태깅 편입** — 버전 bump 포함이면 머지 커밋 태그·push(git-writer `op=tag` 신설 — agents 2벌), 적층 연속 머지는 순서대로 (claude+codex).
+  - **부채 감사 시점 보강** — 태스크 추가 재진입의 최종 PR 갱신 전 감사·full_verify 재확인, 적층 체리픽된 B 테스트도
+    C ⑩ 감사 범위 포함 (claude+codex).
+  - **순차 무worktree Serena 경로** — milestone ⑦ worktree 없이 순차 처리 시 activate 대상 = 메인 레포 명시 (claude+codex).
+  - **알림 문구 Codex 정정** — `scripts/dobiflow-update-check.sh`: "Codex: 자동 반영" → "Codex: 클론 git pull(에이전트 변경 시 install.sh --codex-only)".
+  - **Serena 확인 시점 열거형 폐쇄** — triage-fix·task-run: "탐색 단계 진입 시마다(~등)" → 0단계·2단계 위임 직전
+    두 시점(worktree 모드면 5단계 worktree 준비 성공 직후 포함 세 시점)으로 한정, 루프 내 반복 확인 아님 (claude+codex).
+  - **5.5단계 fast-path** — 이번 루프 추가 테스트 0건이면 분류 없이 6단계로 (claude+codex).
+  - **훅 timeout 5→8초** — `hooks/hooks.json` SessionStart: 최악 경로(ls-remote 저속+curl 3s)의 5초 초과로 캐시 미기록 반복 방지.
+  - **worktree Serena 전제 보완** — 안전 전제는 한 세션 내 명시 + worktree activate 후 메인 레포 복귀는 기존 멱등 확인 담당 (claude+codex).
+  - **work→milestone 라우팅 방식 명시** — work 라우팅 3곳(0단계 ⓐ·ⓒ, §규모 축, 동작 2ⓐ): milestone SKILL.md를 Read로
+    열어 직접 수행(Skill 툴 호출 금지 — 근거는 claude=`disable-model-invocation`으로 거부됨, codex=사용자 명시 호출
+    전용 관례) (claude+codex).
+
 ## [0.19.0] - 2026-07-23
 
 ### Added

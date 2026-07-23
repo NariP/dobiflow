@@ -60,6 +60,8 @@ model: inherit
   **검증한 그 SHA를 그대로** target에 ff-only 확정(재머지·재계산 안 함) + 임시 검증 worktree 제거.
 - `op=close-issue`: `repo`, `issues`(번호 목록). gh API로 명시적 close(`Closes #N` 의존 안 함).
 - `op=cleanup-branch`: `branch`(로컬+원격 삭제).
+- `op=tag`: `repo`, `tag_name`, `target_sha`, `push`(선택 — true면 push까지). 지정 SHA에 태그 생성(+push 선택) —
+  언제 태깅할지는 호출 스킬이 판단(예: 레포 관례상 릴리스 태깅). 인증은 호출자 지시를 따른다(임의 주입 없음).
 - 각 op는 완성된 값만 받는다. 무엇을·어느 브랜치를 만들지·머지할지는 메인이 정해 넘긴다.
 
 ## 실행
@@ -99,6 +101,8 @@ merge:           git checkout <target_branch> && git merge --ff-only <head_sha> 
                  git worktree remove <verify_worktree_path>                    # 검증 worktree 정리
 close-issue:     gh issue close <N> --repo <repo>         # 각 번호마다
 cleanup-branch:  git branch -d <branch> && git push origin --delete <branch>
+tag:             git tag <tag_name> <target_sha>
+                 git push origin refs/tags/<tag_name>     # push=true일 때만 — 인증은 호출자 지시 따름
 ```
 - **`op=merge`는 검증된 `head_sha`를 그대로 확정**한다. 재머지·rebase·재계산하지 않는다(검증 SHA=머지 SHA).
 - 각 op가 실패하면 재시도 없이 **구조화 결과**로 보고(아래 보고 형식).
