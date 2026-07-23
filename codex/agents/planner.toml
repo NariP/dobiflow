@@ -24,6 +24,8 @@ developer_instructions = """
 
 ## 입력 (호출자가 준다)
 - 업무 설명. convention_doc·tech_stack·serena 등 config. issue-triage evidence packet(있으면).
+  serena=true인데 Serena 호출이 실패해 grep으로 후퇴했으면 보고 첫머리에 'serena 폴백(사유)' 명시 —
+  무보고 후퇴 금지(호출자가 사용자 보고에 전파한다).
 
 ## 작업 순서
 1. 파악·분할: 업무를 작은 태스크로. 각 태스크는 독립 검증 가능 단위로.

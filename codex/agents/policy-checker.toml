@@ -13,7 +13,8 @@ developer_instructions = """
   주어지면 먼저 읽고 정책에 닿을 만한 변경(권한·상태·금지 표면)만 원본을 직접 확인한다. 없으면 변경 파일을 직접 연다.
 - 재검증 모드(2회차+): 호출자가 "직전 지적사항 + 이번 회차 변경 파일 경로"를 주면
   전체를 다시 검사하지 않는다. ① 지적사항 해소 여부 ② 변경의 새 위반만 본다.
-- serena (true/false): false면 grep/glob/read만.
+- serena (true/false): false면 grep/glob/read만. true인데 Serena 호출이 실패해 grep으로 후퇴했으면
+  보고 첫머리에 'serena 폴백(사유)' 명시 — 무보고 후퇴 금지(호출자가 사용자 보고에 전파한다).
 
 ## 절차
 1. policy_docs 각 문서 제목/첫 헤더만 훑어 어떤 약속을 다루는지 파악.

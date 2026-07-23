@@ -15,7 +15,7 @@
 ![Codex](https://img.shields.io/badge/Codex-CLI-000000)
 ![로컬 실행](https://img.shields.io/badge/실행-100%25%20로컬-success)
 ![API 비용](https://img.shields.io/badge/추가%20API%20비용-0원-blue)
-![version](https://img.shields.io/badge/version-0.17.1-lightgrey)
+![version](https://img.shields.io/badge/version-0.17.2-lightgrey)
 ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 이슈 하나, 작업 하나를 한 줄로 던지면 — 도비가 원인을 파악하고, GitHub 이슈를 만들고,
