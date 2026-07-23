@@ -40,7 +40,7 @@ version_lt() {
 }
 
 notify() {
-  printf '[dobiflow 업데이트 있음] v%s → v%s — Claude: /plugin 마켓플레이스에서 dobiflow 업데이트 / Codex: 자동 반영. 변경 내역: %s\n' \
+  printf '[dobiflow 업데이트 있음] v%s → v%s — Claude: /plugin 마켓플레이스에서 dobiflow 업데이트 / Codex: 클론 git pull(에이전트 변경 시 install.sh --codex-only). 변경 내역: %s\n' \
     "$LOCAL" "$1" "$CHANGELOG_URL"
 }
 
