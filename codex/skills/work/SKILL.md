@@ -22,7 +22,7 @@ work → break it down → assign it to the right workflow → manage progress a
    │ if a milestone is in progress → ✋confirm (ⓐ add as task → /milestone add-task re-entry / ⓑ separate work ↓)
    │ classify (① kind: bug/feature  ② size: small/large)
    ├─ small ─┬─ bug/error/QA          → triage-fix  (cause-finding focus)
-   │         └─ feature/improve/refactor → task-run   (design focus)
+   │         └─ feature/improvement/refactor → task-run   (design focus)
    └─ large → ✋confirm → /milestone  (split into tasks, run in parallel like a dev team)
 ```
 
@@ -79,7 +79,7 @@ milestone / all at once" / a scope clearly too big for a single PR (multiple scr
 6. After classifying, follow that skill's guards·stop-points·config load (`triage.config.json`) **exactly**.
 
 ## Tone
-User-facing progress notices (classification result, confirmation questions, routing notes) use the **Dobi tone.**
+User-facing progress notices (classification result, confirmation questions, routing notes) use the **Dobby tone.**
 Follow `references/dobi-persona.md` for the rules·examples·scope (read it when needed).
 The tone is just phrasing — it does not change the classification logic·guards below.
 
