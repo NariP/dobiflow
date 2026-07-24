@@ -3,72 +3,72 @@ name: triage-init
 description: 현재 프로젝트를 분석해 triage 워크플로우 설정파일(.claude/triage.config.json)을 생성/갱신한다. 새 프로젝트에서 /triage-fix를 쓰기 전 1회 실행. 사용자가 /triage-init 으로 명시 호출할 때만.
 ---
 
-# triage-init — triage 설정 파일 생성
+# triage-init — Generate the triage config file
 
-현재 프로젝트(cwd)를 분석해 `/triage-fix`·`/triage-status`가 읽을 설정을 만든다.
-자동으로 감지할 수 있는 건 감지하고, **오발송 위험 있는 값(레포)만 사용자에게 확인**한다.
-**멱등** — 이미 있으면 덮어쓰지 말고 diff 보여주고 갱신(사용자 입력값 보존).
+Analyzes the current project (cwd) to build the config that `/triage-fix` and `/triage-status` will read.
+Auto-detect whatever can be detected, and **only confirm values with a mis-send risk (the repo) with the user**.
+**Idempotent** — if it already exists, don't overwrite; show a diff and update (preserving user-entered values).
 
-> 계정은 config에 저장하지 않는다. dobiflow는 현재 로그인된 gh 계정과 현재 git 설정을
-> 그대로 신뢰한다(멀티계정은 `gitto` 같은 도구가 git 레벨에서 처리).
+> Accounts are never stored in the config. dobiflow trusts the currently logged-in gh account and the current git
+> settings as-is (multi-account is handled at the git level by tools like `gitto`).
 
-## 출력
-- `<cwd>/.claude/triage.config.json` — 프로젝트 설정 (커밋 OK)
+## Output
+- `<cwd>/.claude/triage.config.json` — project config (safe to commit)
 
 ---
 
-## 1단계 — 자동 감지 (사용자에게 안 물음)
+## Step 1 — Auto-detection (nothing asked of the user)
 
-Bash/Read/Glob로 수집:
+Collect via Bash/Read/Glob:
 
-| 키 | 감지 방법 |
-|----|----------|
-| `repo` | `git remote get-url origin` → `owner/name` 정규화 (https/ssh 둘 다) |
-| `default_branch` | `gh repo view --json defaultBranchRef -q .defaultBranchRef.name` (실패 시 `main`) |
+| Key | Detection method |
+|-----|------------------|
+| `repo` | `git remote get-url origin` → normalize to `owner/name` (both https/ssh) |
+| `default_branch` | `gh repo view --json defaultBranchRef -q .defaultBranchRef.name` (falls back to `main`) |
 | `pm` | lockfile (`pnpm-lock.yaml`→pnpm, `package-lock.json`→npm, `yarn.lock`→yarn) |
-| `lint_command` | `package.json` scripts에서 `lint:fix` > `lint` > `format` 순 매칭 (`{pm} <script>`) |
-| `test_command` | `package.json` scripts에서 `test:run` > `test` |
-| `tech_stack` | `package.json` deps에서 식별 (react-query/zustand/react-hook-form/zod/axios/next/swr 등) |
-| `policy_docs` | `.claude/docs/*.md` 글롭. 각 파일 첫 헤더 1줄을 요약으로 첨부 |
-| `convention_doc` | `.claude/CLAUDE.md` 또는 `CLAUDE.md` 또는 `.claude/docs/conventions.md` 존재 확인 |
-| `architecture` | `src/` 하위에 `features`/`entities`/`shared` 디렉토리 있으면 `fsd`, 아니면 추론/`flat` |
-| `codeowners` | `.github/CODEOWNERS` 또는 `CODEOWNERS` 존재 시 경로, 없으면 `false` |
-| `serena` | `.serena/` 존재 또는 serena MCP 등록 확인 시 `true`, 아니면 `false`. **등록 감지≠활성화** — 활성화는 각 스킬 실행 시 메인 세션이 수행(`activate_project`) |
-| `bug_label` | `gh label list --repo {repo}`에 `bug` 있으면 `bug`, 없으면 첫 버그류 라벨/기본 `bug` |
-| `branch_prefix` | `CLAUDE.md`에 "브랜치:" 규칙 있으면 파싱, 없으면 `{fix:"fix/", feat:"feat/", milestone:"milestone/", group:"group/"}` (마일스톤·그룹 접두사 기본 포함) |
-| `commit_convention` | **그 프로젝트의 커밋 규칙.** ① `CLAUDE.md`/`CONTRIBUTING.md`의 "커밋"/"Commit" 섹션 파싱(prefix·언어·이모지 규칙). ② 없으면 `git log --oneline -30`에서 실제 패턴 추론(Conventional? gitmoji? 한글? prefix 종류?). 결과를 한 줄 규칙 + 예시 1~2개로 저장 |
-| `keywords` | (선택) `CLAUDE.md` 첫 줄/README 제목에서 도메인 키워드 몇 개 추출 (라우팅 매칭용) |
-| `loop` | `max_iterations`: 감지 아님 — 기본 `3` (구현 루프 최대 반복, 취향껏 수정). `full_verify_command`: `package.json` scripts에 `build` 있으면 `{pm} build` 제안, 없으면 필드 생략 — **APPROVE 시점에만 1회 도는 무거운 검증**(풀 빌드·코드 생성 등). 루프 안 반복 검증은 lint·test만이라 여기 넣은 명령은 매 반복 돌지 않는다 |
-| `worktree` | 감지 아님 — 기본 `false`(취향껏 수정). `true`면 단일 작업(triage-fix·task-run)도 `<repo>/.claude/worktrees/<이슈번호>` worktree에서 구현 — 메인 워킹트리 비점유, 의존성 설치 비용 있음(설치는 `milestone.install_command` 재사용) |
-| `milestone` | 마일스톤 기능값. `base_branch`: 미지정 시 `default_branch`(최종 PR 대상). `max_issues`: 기본 `10`(최대 태스크 수). `max_parallel`: 기본 `3`(병렬 그룹 폭 — worktree 비용 제한, 1이면 순차). `install_command`: `package.json` 있으면 `{pm} install` 제안(새 worktree 의존성 준비용), 불필요 스택이면 생략 |
-| `models` | **진영 감지 후 provider별 기본값 생성.** 어느 진영인지: `~/.codex/` 또는 codex 실행 흔적이면 **Codex 진영**, 아니면 **Claude 진영**(기본). **매핑 원칙 = 계획·판단·검증류(planner·implementer·issue-triage·code-reviewer·policy-checker·qa)=상위 모델 / 판단 없는 "손" 에이전트(git-writer — 받은 완성값으로 gh/git 실행)=하위 모델.** 이 분리는 오케스트레이터=강모델·워커=저가라는 멀티에이전트 정석이다. **⚠️ qa는 다운시프트 대상 아님** — 완료기준 테스트 감사·통과 판정을 하는 판정자라 강모델 유지(config.models.qa는 자가체크에도 전역 적용). Claude: `{planner:"opus", implementer:"opus", issue-triage:"opus", code-reviewer:"opus", policy-checker:"opus", qa:"opus", git-writer:"sonnet"}`. Codex: 같은 원칙을 그 시점 가용 gpt 계열 상·하위 등급으로(모델명은 생성 시점 확정). **git-writer를 Haiku급까지 더 내리는 것은 op별 시나리오 평가(missing stage·merge SHA 불일치·충돌·dirty worktree·동명 마일스톤·원격 삭제 실패에서 명령 순서·금지 조항 준수) 통과 시에만** — git-writer도 열린 판단은 없으나 저위험은 아니라(동일 Milestone 재사용·검증 SHA 그대로 merge·원격 브랜치 삭제) 기본값은 sonnet. **에이전트 파일은 model 필드 없이 세션 모델 상속 유지 — 이 config가 오버라이드(opt-in). 미지정·config 없음이면 상속** |
+| `lint_command` | match `package.json` scripts in the order `lint:fix` > `lint` > `format` (`{pm} <script>`) |
+| `test_command` | match `package.json` scripts: `test:run` > `test` |
+| `tech_stack` | identify from `package.json` deps (react-query/zustand/react-hook-form/zod/axios/next/swr, etc.) |
+| `policy_docs` | glob `.claude/docs/*.md`. Attach each file's first header line as a summary |
+| `convention_doc` | check for `.claude/CLAUDE.md`, `CLAUDE.md`, or `.claude/docs/conventions.md` |
+| `architecture` | if `features`/`entities`/`shared` directories exist under `src/`, `fsd`; otherwise infer/`flat` |
+| `codeowners` | if `.github/CODEOWNERS` or `CODEOWNERS` exists, its path; otherwise `false` |
+| `serena` | `true` if `.serena/` exists or a serena MCP registration is detected; otherwise `false`. **Registration detected ≠ activated** — activation is done by the main session at each skill run (`activate_project`) |
+| `bug_label` | if `bug` exists in `gh label list --repo {repo}`, `bug`; otherwise the first bug-type label / default `bug` |
+| `branch_prefix` | if `CLAUDE.md` has a "branch:" rule, parse it; otherwise `{fix:"fix/", feat:"feat/", milestone:"milestone/", group:"group/"}` (milestone/group prefixes included by default) |
+| `commit_convention` | **The project's commit rules.** ① Parse the "commit"/"Commit" section of `CLAUDE.md`/`CONTRIBUTING.md` (prefix/language/emoji rules). ② If absent, infer the actual pattern from `git log --oneline -30` (Conventional? gitmoji? Korean? what prefix kinds?). Store the result as a one-line rule + 1–2 examples |
+| `keywords` | (optional) extract a few domain keywords from `CLAUDE.md`'s first line / README title (for routing matches) |
+| `loop` | `max_iterations`: not detected — default `3` (max iterations of the implementation loop, tune to taste). `full_verify_command`: if `package.json` scripts has `build`, suggest `{pm} build`; otherwise omit the field — **the heavy verification that runs once only at APPROVE time** (full build, code generation, etc.). Iterative in-loop verification is lint/test only, so the command placed here does not run on every iteration |
+| `worktree` | not detected — default `false` (tune to taste). If `true`, even single tasks (triage-fix/task-run) are implemented in a `<repo>/.claude/worktrees/<issue-number>` worktree — the main working tree stays free, at the cost of installing dependencies (installation reuses `milestone.install_command`) |
+| `milestone` | Milestone feature values. `base_branch`: if unset, `default_branch` (the final PR target). `max_issues`: default `10` (max number of tasks). `max_parallel`: default `3` (parallel group width — caps worktree cost; `1` means sequential). `install_command`: if `package.json` exists, suggest `{pm} install` (to prepare a new worktree's dependencies); omit for stacks that don't need it |
+| `models` | **Detect the camp, then generate provider-specific defaults.** Which camp: if `~/.codex/` or traces of a codex run exist, **Codex camp**; otherwise **Claude camp** (default). **Mapping principle = planning/judgment/verification roles (planner/implementer/issue-triage/code-reviewer/policy-checker/qa) = higher-tier model / judgment-free "hands" agent (git-writer — runs gh/git with the finished values it's given) = lower-tier model.** This split is the multi-agent standard of orchestrator=strong model, worker=cheap. **⚠️ qa is not a downshift target** — as the arbiter that audits completion-criteria tests and rules pass/fail, it keeps the strong model (config.models.qa applies globally to self-checks too). Claude: `{planner:"opus", implementer:"opus", issue-triage:"opus", code-reviewer:"opus", policy-checker:"opus", qa:"opus", git-writer:"sonnet"}`. Codex: apply the same principle with the higher/lower tiers of the gpt line available at that time (model names finalized at generation time). **Dropping git-writer further, down to a Haiku tier, is only allowed after passing a per-op scenario evaluation (command ordering and adherence to prohibitions across missing stage / merge SHA mismatch / conflict / dirty worktree / same-name milestone / remote-delete failure)** — git-writer also has no open judgment, but it's not low-risk (reusing the same Milestone, merging the verified SHA as-is, deleting remote branches), so the default is sonnet. **Agent files carry no model field and keep session-model inheritance — this config overrides it (opt-in). If unspecified or no config, inherit the session model** |
 
-## 2단계 — 사용자 확인 (AskUserQuestion)
+## Step 2 — User confirmation (AskUserQuestion)
 
-오발송 위험·취향값만 묻는다:
-- **`repo`** — 감지값이 맞는지 1회 확인(오발송 방지의 핵심).
-- **`label_prefix`** — 이슈 제목 접두사. 기본 빈 값. 프로젝트 구분 표시가 필요하면 입력(예 `[gr] `).
-- 1단계에서 **감지 실패/애매**한 값(정책문서 0개, CLAUDE.md 없음, lint 없음 등)만 추가 확인.
+Only ask about mis-send risks and taste values:
+- **`repo`** — confirm once whether the detected value is correct (the core of mis-send prevention).
+- **`label_prefix`** — issue-title prefix. Empty by default. Enter one if you need a project-distinguishing marker (e.g. `[gr] `).
+- Only additionally confirm values that **failed/were ambiguous** in Step 1 (0 policy docs, no CLAUDE.md, no lint, etc.).
 
-## 3단계 — 파일 쓰기
+## Step 3 — Write the file
 
-- 모든 값 → `triage.config.json` 하나로. (민감값 분리 파일 `.local.json`은 더 이상 없다 — 계정을 저장하지 않으므로.)
-- **이미 존재하면**: 기존 값을 읽어 **변경점(diff)을 사용자에게 보여주고** 확인 후 갱신.
-  자동 감지로 새로 잡힌 값은 추가/업데이트, **사용자가 직접 넣었던 값(label_prefix 등)은 보존**.
-- 옛 `triage.config.local.json`이 남아 있으면(구버전) account·git_identity는 더 이상 안 쓴다고
-  안내하고, 사용자 승인 시 정리(삭제)를 제안한다.
+- All values → into a single `triage.config.json`. (There is no longer a separate sensitive-value file `.local.json` — since accounts aren't stored.)
+- **If it already exists**: read the existing values, **show the user the changes (diff)**, and update after confirmation.
+  Add/update newly auto-detected values, but **preserve values the user entered directly (label_prefix, etc.)**.
+- If an old `triage.config.local.json` remains (legacy), inform the user that account/git_identity are no longer used,
+  and, upon user approval, offer to clean it up (delete it).
 
-## 4단계 — 보고
+## Step 4 — Report
 
-생성/갱신된 설정을 요약 표로 보여주고, "`/triage-fix <이슈>`로 바로 쓸 수 있어요" 안내.
-`serena=false`면 "이 프로젝트는 Serena LSP 미설정 — issue-triage가 grep으로 동작.
-정밀 탐색 원하면 Serena 등록 권장" 한 줄 덧붙인다.
-`serena=true`면 "대형 프로젝트는 `serena project index` 1회 실행 권장(콜드 스타트 단축)" 한 줄 덧붙인다.
-이벤트 훅(알림·작업 수집)을 쓰려면 전역 `~/.dobiflow/hooks/on-<event>.sh` 또는 프로젝트
-`.claude/dobiflow-hooks/on-<event>.sh`에 스크립트를 두면 된다고 **한 줄로만** 안내
-(상세는 README "이벤트 훅" — config에 넣는 값 아님, 파일 존재만으로 동작).
+Show the created/updated config as a summary table and note "you can use `/triage-fix <issue>` right away."
+If `serena=false`, add one line: "This project has no Serena LSP configured — issue-triage runs on grep.
+For precise navigation, registering Serena is recommended."
+If `serena=true`, add one line: "For large projects, running `serena project index` once is recommended (shortens cold start)."
+To use event hooks (notifications, task collection), note in **one line only** that placing a script at the global
+`~/.dobiflow/hooks/on-<event>.sh` or the project `.claude/dobiflow-hooks/on-<event>.sh` enables them
+(details in the README "Event hooks" — not a config value; it works by the file's mere existence).
 
-## 설정 스키마 예시
+## Config schema example
 
 ```jsonc
 // triage.config.json
@@ -90,9 +90,9 @@ Bash/Read/Glob로 수집:
   "worktree": false,
   "milestone": { "base_branch": "main", "max_issues": 10, "max_parallel": 3, "install_command": "pnpm install" },
   "models": {
-    // 에이전트는 세션 모델 상속 유지, 이 블록이 오버라이드(opt-in). 미지정이면 상속.
-    // 계획·판단·검증류=상위 모델 / 판단 없는 "손"(git-writer)=하위. (Codex 진영은 gpt 상·하위로)
-    // qa는 판정자라 다운시프트 금지(강모델 유지). git-writer Haiku 추가 하향은 op 시나리오 평가 통과 시에만.
+    // Agents keep session-model inheritance; this block overrides it (opt-in). If unspecified, inherit.
+    // planning/judgment/verification roles = higher-tier model / judgment-free "hands" (git-writer) = lower. (Codex camp uses gpt higher/lower)
+    // qa is an arbiter, so no downshift (keep the strong model). Dropping git-writer further to Haiku only after passing the per-op scenario evaluation.
     "planner": "opus", "implementer": "opus", "issue-triage": "opus",
     "code-reviewer": "opus", "policy-checker": "opus", "qa": "opus", "git-writer": "sonnet"
   },
@@ -105,7 +105,7 @@ Bash/Read/Glob로 수집:
 }
 ```
 
-## 가드
-- **repo는 추측으로 확정 금지** — 항상 사용자 확인 1회.
-- 멱등 — 덮어쓰기 전 diff 확인. 사용자 입력값 보존.
-- 계정·토큰은 config에 저장하지 않는다 — dobiflow는 현재 gh 로그인·git 설정을 그대로 신뢰한다.
+## Guards
+- **Never finalize repo by guesswork** — always confirm with the user once.
+- Idempotent — verify the diff before overwriting. Preserve user-entered values.
+- Accounts/tokens are never stored in the config — dobiflow trusts the current gh login and git settings as-is.
