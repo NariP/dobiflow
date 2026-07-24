@@ -3,23 +3,23 @@ name: triage-help
 description: triage 워크플로우(work/triage-fix/task-run/triage-status/triage-init) 사용법을 안내한다. "어떻게 쓰지?" 싶을 때. 사용자가 /triage-help 로 호출할 때만.
 ---
 
-# triage-help — 사용법 안내
+# triage-help — usage guide
 
-이 스킬 폴더의 `references/triage-workflow-guide.md`를 Read해서 사용자에게 **핵심을 요약**해 보여준다.
-인자가 있으면(예: `/triage-help 승인`) 그 주제 부분만 발췌해 설명한다.
+Read this skill folder's `references/triage-workflow-guide.md` and show the user a **summary of the essentials**.
+If an argument is given (e.g. `/triage-help approval`), extract and explain only that topic.
 
-## 동작
-1. `references/triage-workflow-guide.md`(이 스킬 폴더 기준)를 Read.
-2. 인자 없으면: "빠른 시작 3단계" + "명령어 한눈에" 표 + 핵심 1~2줄을 보여주고,
-   "자세히는 가이드 문서 참조" 안내.
-3. 인자 있으면: 해당 키워드(설정·plan·승인·이벤트 훅 등) 섹션을 찾아 발췌 설명.
-4. 사용자가 처음이면 "`/triage-init` 먼저, 그다음 `/work`" 를 강조.
+## Behavior
+1. Read `references/triage-workflow-guide.md` (relative to this skill folder).
+2. No argument: show the "Quick start (3 steps)" + the "Commands at a glance" table + the key 1–2 lines,
+   then point to "see the guide doc for details".
+3. With an argument: find the matching section (config · plan · approval · event hooks, etc.) and explain that excerpt.
+4. If the user is new, emphasize "`/triage-init` first, then `/work`".
 
-## 핵심 요약 (가이드 못 읽어도 이것만은)
+## Key summary (in case you can't read the guide, at least this)
 ```
-/triage-init   ← 새 프로젝트 1회 (설정 생성)
-/work <할 일>   ← 평소. 버그/기능 알아서 분류
-"ㅇㅋ"          ← 이슈·설계 승인하면 PR까지 자동
-/triage-status ← 현황 조회
+/triage-init   ← once per new project (creates the config)
+/work <task>   ← everyday. Bug/feature classified automatically
+"ok"           ← approve the issue/design and it runs all the way to the PR
+/triage-status ← check current status
 ```
-전체 가이드: 이 스킬 폴더의 `references/triage-workflow-guide.md`
+Full guide: this skill folder's `references/triage-workflow-guide.md`
