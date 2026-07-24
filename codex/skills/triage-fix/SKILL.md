@@ -4,243 +4,246 @@ description: 이슈(노션/슬랙 링크·텍스트) → 알맞은 레포 결정
 argument-hint: <노션링크 | 슬랙링크 | 이슈 설명 텍스트>
 ---
 
-# triage-fix — 이슈 파악부터 PR까지 (범용)
+# triage-fix — From issue triage to PR (general-purpose)
 
-입력으로 받은 이슈를 파악해 **알맞은 레포에 GitHub 이슈를 만들고**, 사용자 승인 후
-**브랜치를 따서 수정하고 PR까지** 올리는 워크플로우. 입력: `$ARGUMENTS`
+A workflow that takes the given issue, **files a GitHub issue in the right repo**, and — after
+user approval — **cuts a branch, fixes it, and opens a PR**. Input: `$ARGUMENTS`
 
-입력은 노션 링크 / 슬랙 링크 / 그냥 텍스트 무엇이든 될 수 있다. 소스를 읽어 내용을 파악한다.
+The input can be a Notion link, a Slack link, or plain text — anything. Read the source to understand it.
 
-> 이 스킬은 **전역**이다. 프로젝트 고유값(레포·정책문서·린트 등)은 각 프로젝트의
-> `.claude/triage.config.json`에서 읽는다. 설정 파일은 `/triage-init`으로 생성한다.
+> This skill is **global**. Project-specific values (repo, policy docs, lint, etc.) are read from
+> each project's `.claude/triage.config.json`. Generate the config file with `/triage-init`.
 
 ---
 
-## 진행 순서 (이 순서를 지킬 것)
+## Sequence (follow this order)
 
-### 0단계 — 설정 로드
-- 대상 레포가 정해지면 그 레포의 `<repo>/.claude/triage.config.json`을 읽는다.
-- 아직 레포 미정이면 1단계 후 1.5단계(레포 결정)에서 정한다. 현재 cwd가 작업 대상이면 cwd의 config를 먼저 읽어도 된다.
-- **config가 없으면 fallback**으로 동작 + "설정 없음 — `/triage-init` 권장" 한 줄 안내:
-  - `repo` = `git remote get-url origin` 자동 감지
-  - `default_branch` = `gh repo view --json defaultBranchRef -q .defaultBranchRef.name` (실패 시 `main`)
-  - `lint_command` = package.json scripts 감지 (`lint:fix`>`lint`>`format`), 없으면 생략
-  - `policy_docs` = `.claude/docs/*.md` 글롭 (없으면 빈 목록)
-  - `label_prefix` = `""` (접두사 없음)
-  - `loop.max_iterations` = 미지정 → `3` (구현 루프 최대 반복)
-  - `loop.full_verify_command` = 미지정 → 없음 (APPROVE 시점의 무거운 검증 생략 — 루프 검증은 lint·테스트만)
-- 이후 단계에서 `{repo}`, `{default_branch}`, `{lint_command}`, `{test_command}`, `{policy_docs}`,
+### Step 0 — Load config
+- Once the target repo is decided, read that repo's `<repo>/.claude/triage.config.json`.
+- If the repo isn't decided yet, decide it in Step 1.5 (repo selection) after Step 1. If the current cwd is the work target, you may read cwd's config first.
+- **If there's no config, run in fallback mode** plus a one-line "no config — `/triage-init` recommended" notice:
+  - `repo` = auto-detect via `git remote get-url origin`
+  - `default_branch` = `gh repo view --json defaultBranchRef -q .defaultBranchRef.name` (falls back to `main`)
+  - `lint_command` = detect from package.json scripts (`lint:fix`>`lint`>`format`), omit if none
+  - `policy_docs` = `.claude/docs/*.md` glob (empty list if none)
+  - `label_prefix` = `""` (no prefix)
+  - `loop.max_iterations` = unset → `3` (max implementation-loop iterations)
+  - `loop.full_verify_command` = unset → none (skip heavy verification at APPROVE — loop verification is lint/test only)
+- Later steps use config values such as `{repo}`, `{default_branch}`, `{lint_command}`, `{test_command}`, `{policy_docs}`,
   `{label_prefix}`, `{branch_prefix}`, `{bug_label}`, `{codeowners}`,
-  `{serena}`, `{convention_doc}`, `{tech_stack}`, `{loop}`, `{models}` 등을 config 값으로 쓴다.
-- **서브에이전트 스폰 시 모델 오버라이드:** `{models}`가 있으면 각 서브에이전트를 `config.models[<agent>]`의
-  모델로 띄운다(예: `models.implementer`, `models.qa`). 없으면 세션 모델 상속(기존 동작).
-- **Serena 활성화 (`serena=true`일 때 · 메인이 직접):** `mcp__serena__get_current_config`로 활성 프로젝트를
-  확인하고, 현재 레포와 다르거나 비활성이면 `mcp__serena__activate_project <레포 절대경로>`를 1회 실행한다.
-  실패하면 사용자에게 한 줄 알리고 계속한다(서브들은 자연히 grep 폴백). 이 멱등 확인은 **0단계·2단계 위임 직전
-  두 시점에만** 수행한다(worktree 모드면 **5단계 worktree 준비 성공 직후** — activate 대상=worktree 절대경로 —
-  를 더해 세 시점. 루프 내 반복 확인 아님) — 순차 worktree 사용 후 복귀를 보장한다(확인 콜은 가볍다).
-  Serena 서버는 **세션당 1개·활성 프로젝트 1칸·서브에이전트 전원 공유**라 메인이 켜면 서브 전부가 쓴다.
+  `{serena}`, `{convention_doc}`, `{tech_stack}`, `{loop}`, `{models}`.
+- **Model override when spawning subagents:** if `{models}` is set, spawn each subagent with the model from
+  `config.models[<agent>]` (e.g. `models.implementer`, `models.qa`). If unset, inherit the session model (current behavior).
+- **Serena activation (`serena=true` · main does it directly):** check the active project with
+  `mcp__serena__get_current_config`, and if it differs from the current repo or is inactive, run
+  `mcp__serena__activate_project <repo absolute path>` once. On failure, tell the user in one line and
+  continue (subagents naturally fall back to grep). This idempotent check runs **only at two points —
+  Step 0 and right before the Step 2 delegation** (in worktree mode, add a third: **right after Step 5
+  worktree prep succeeds** — activation target = worktree absolute path. Not a per-loop recheck) — this
+  guarantees return after sequential worktree use (the check call is cheap).
+  The Serena server is **one per session · one active-project slot · shared by all subagents**, so once
+  main turns it on, every subagent uses it.
 
-### 1단계 — 소스 읽기
-- **노션 링크** (`notion.so` / `notion.com`): `mcp__claude_ai_Notion__notion-fetch`로 페이지 내용 가져오기.
-- **슬랙 링크** (`slack.com/archives/...`): Slack MCP로 메시지/스레드 읽기.
-- **텍스트만**: 그대로 이슈 설명으로 사용.
-- 링크인데 읽기 실패하면 사용자에게 내용 붙여달라고 요청하고 멈춘다 (추측 금지).
+### Step 1 — Read the source
+- **Notion link** (`notion.so` / `notion.com`): fetch page content via `mcp__claude_ai_Notion__notion-fetch`.
+- **Slack link** (`slack.com/archives/...`): read the message/thread via Slack MCP.
+- **Text only**: use it as-is as the issue description.
+- If it's a link but reading fails, ask the user to paste the content and stop (no guessing).
 
-### 1.5단계 — 레포 결정 (멀티레포 라우팅)
-이슈가 **어느 레포 것인지** 정한다. cwd가 이미 명백한 대상이면 생략 가능.
-- **후보 출처**:
-  1. (1순위) 로컬 스캔 — 클론된 레포들(작업 루트 하위 디렉토리)의 git remote(`owner/name`) +
-     각 레포 `.claude/triage.config.json`의 `repo`/`keywords`.
-  2. (보강) 조직 레포 카탈로그 MCP가 있으면 그 설명을 활용. 클론 안 된 레포는 "클론 필요" 안내.
-- **매칭**: 이슈 단서(화면명·기능·도메인 키워드) ↔ 후보의 keywords/설명/디렉토리명.
-- **약한 매치는 자동 진행 금지** — `AskUserQuestion`으로 top 2~3 후보 제시해 확정받는다.
-- 확정 후, **현재 cwd가 그 레포가 아닐 때만 `cd <레포경로>`를 단독으로 1회** 실행해 진입한다(그 레포 config 로드를 위해 — `cd`는 Serena 활성 프로젝트를 바꾸지 않으므로 Serena 정렬은 0단계 활성화 절차가 담당). **이미 그 레포 안이면 cd 하지 않는다.** cwd는 이후 Bash 호출 간 유지되므로, 진입 후의 명령은 `cd <경로> && ...`로 감싸지 말고 **명령만** 친다 (`cd X && cmd` 형태의 compound 커맨드는 매번 권한 확인을 띄운다).
-- **클론 안 된 레포**면 작업 불가 → "클론 후 재시도" 안내(임의 클론 금지).
+### Step 1.5 — Repo selection (multi-repo routing)
+Decide **which repo the issue belongs to**. Skippable if cwd is already the obvious target.
+- **Candidate sources**:
+  1. (primary) Local scan — the git remotes (`owner/name`) of cloned repos (subdirectories of the work root) +
+     the `repo`/`keywords` in each repo's `.claude/triage.config.json`.
+  2. (supplement) If there's an org repo-catalog MCP, use its descriptions. For un-cloned repos, note "clone needed".
+- **Matching**: issue clues (screen name, feature, domain keywords) ↔ candidates' keywords/descriptions/directory names.
+- **No auto-proceed on a weak match** — present the top 2–3 candidates via `AskUserQuestion` and get confirmation.
+- Once confirmed, **only when the current cwd is not that repo, run `cd <repo path>` on its own, once** to enter it (to load that repo's config — `cd` doesn't change Serena's active project, so Serena alignment is handled by the Step 0 activation procedure). **If you're already inside that repo, don't cd.** Since cwd persists across later Bash calls, don't wrap post-entry commands in `cd <path> && ...` — just run **the command alone** (a `cd X && cmd` compound command triggers a permission prompt every time).
+- **If the repo isn't cloned**, work is impossible → advise "clone and retry" (no arbitrary cloning).
 
-### 2단계 — 코드 원인 파악 (issue-triage 위임)
-- 위임 직전 **Serena 멱등 확인**(0단계 활성화 절차)을 다시 수행한다 — 탐색 단계 진입 시점.
-- `issue-triage` 서브에이전트에 위임한다. 읽기 전용 조사만 (코드 수정 X).
-- **config 값을 함께 전달**: `serena`(LSP 사용 가능 여부)와 **레포 절대경로**, `convention_doc`, `policy_docs`,
-  화면 경로/라벨/컴포넌트명 등 단서. `serena=false`면 grep만 쓰라고 알린다.
-- 받을 것: 관련 파일:줄, 데이터 흐름, 원인 추정, 수정 지점.
-  보고 첫머리에 `serena 폴백(사유)` 표기가 있으면 **사용자 보고에 그대로 전파**한다(조용히 삼키지 않는다).
+### Step 2 — Code root-cause analysis (delegate to issue-triage)
+- Right before delegating, run the **Serena idempotent check** (Step 0 activation procedure) again — this is the entry into the exploration phase.
+- Delegate to the `issue-triage` subagent. Read-only investigation only (no code changes).
+- **Pass config values too**: `serena` (whether LSP is available) and the **repo absolute path**, `convention_doc`, `policy_docs`,
+  and clues such as screen paths / labels / component names. If `serena=false`, tell it to use grep only.
+- What you'll get back: relevant file:line, data flow, cause hypothesis, fix points.
+  If the report leads with a `serena fallback (reason)` note, **propagate it verbatim to the user report** (don't silently swallow it).
 
-### 3단계 — GitHub 이슈 생성 (먼저 만든다 · git-writer 위임)
-- **메인이 작성**한다: 아래 **이슈 템플릿**으로 본문을 채우고, 제목(원본 + `{label_prefix}`,
-  빈 값이면 접두사 없음)·라벨(`{bug_label}`, 기본 `bug`)을 확정한다.
-- **git-writer 서브에이전트에 위임해 실행**한다. 완성된 값만 넘긴다 —
-  `repo={repo}`, `issue_title`, `issue_body`(완성본), `labels`.
-  git-writer는 `gh issue create`만 하고 **전체 URL을 반환**한다(장황한 gh 출력은 서브에 갇힘).
-- 반환된 이슈 URL을 그대로 확보한다.
-- **왜 위임하나**: 메인 세션이 gh 출력을 직접 받지 않게 해 컨텍스트를 아낀다. git-writer는
-  코드·log·diff를 읽지 않고 받은 값만 실행한다(§git-writer 위임).
+### Step 3 — Create the GitHub issue (create it first · delegate to git-writer)
+- **Main writes it**: fill the body with the **issue template** below, and finalize the title (original + `{label_prefix}`,
+  no prefix if empty) and labels (`{bug_label}`, default `bug`).
+- **Delegate execution to the git-writer subagent.** Pass only the finished values —
+  `repo={repo}`, `issue_title`, `issue_body` (finished), `labels`.
+  git-writer only runs `gh issue create` and **returns the full URL** (the verbose gh output stays trapped in the subagent).
+- Capture the returned issue URL as-is.
+- **Why delegate**: to keep the main session from receiving gh output directly, saving context. git-writer
+  doesn't read code/log/diff — it only executes the values it's given (§git-writer delegation).
 
-### 4단계 — 승인 받기 ✋ (필수 정지점)
-- 생성된 **이슈 내용(원인 파악 + 해결 방안)을 사용자에게 보여주고** 묻는다.
-- **이슈 생성 보고 시 `gh`가 반환한 전체 URL을 클릭 가능하게 명시**한다(`#N`만 쓰지 말 것).
-- **레포·base 브랜치를 한 화면에서 함께 확인**한다 (오발송 방지). 예:
-  > "이슈 #N 만들었어요: <전체 URL>
-  >  레포: {repo} / base: {default_branch}
-  >  승인하면 구현 루프(implementer 구현 → lint·테스트 → 자가체크, 최대 {loop.max_iterations}회)로 진행해요.
-  >  이 방향으로 수정하고 PR 올릴까요?"
-- 사용자가 명시적으로 **OK/ㅇㅋ/진행** 하기 전에는 **절대 코드를 건드리지 않는다.**
+### Step 4 — Get approval ✋ (mandatory stop-point)
+- **Show the created issue content (root-cause analysis + fix plan) to the user** and ask.
+- **When reporting the created issue, spell out the full URL returned by `gh` as a clickable link** (don't use just `#N`).
+- **Confirm the repo and base branch together on one screen** (to prevent mis-targeting). Example:
+  > "Made issue #N: <full URL>
+  >  repo: {repo} / base: {default_branch}
+  >  If you approve, I'll proceed to the implementation loop (implementer implements → lint/test → self-check, up to {loop.max_iterations} rounds).
+  >  Shall I fix it this way and open a PR?"
+- **Never touch code** until the user explicitly says **OK / 진행 / go ahead**.
 
-### 5단계 — 브랜치 + 구현 루프 🔁
+### Step 5 — Branch + implementation loop 🔁
 
-메인 세션은 이 단계에서 **직접 구현하지 않는다** — 루프 컨트롤러 역할만 한다
-(반복 관리·판정·loop.md 갱신). 구현은 매 반복 `implementer` 서브에이전트가 한다.
+In this step the main session **does not implement directly** — it only acts as the loop controller
+(iteration management, verdicts, loop.md updates). Implementation is done by the `implementer` subagent each round.
 
-**준비 (루프 진입 전 1회):**
-- **base 브랜치 결정**: `{base_branch}`가 주입됐으면 그것에서, 아니면 `{default_branch}`에서 브랜치를 딴다.
-  - **단일 작업(기본)**: `{base_branch}` 없음 → `{default_branch}`에서 새 브랜치 `{branch_prefix.fix}<짧은-영문-슬러그>` (기본 `fix/`).
-  - **마일스톤 모드**: 호출자(/milestone)가 `{base_branch}=그룹 브랜치`를 주입 → 그 그룹 브랜치 위에서 작업(태스크는
-    그룹 브랜치에 커밋으로 쌓임). 이 경우 **새 이슈 브랜치·PR을 만들지 않는다**(6단계 마일스톤 가드 참조).
-- **worktree 준비 (config `worktree=true`일 때만 — 기본 false면 이 항목 생략, 현행 그대로)**:
-  > **마일스톤 모드에선 이 항목도 건너뛴다** — worktree는 `/milestone` ⑦이 그룹 단위로 만든다. 태스크 루프가
-  > `op=add-worktree`를 다시 타면 그룹 브랜치와 충돌하고, 실패 폴백이 그룹 격리를 깨뜨린다. 아래는 **단일 작업 전용**.
+**Prep (once, before entering the loop):**
+- **Decide the base branch**: if `{base_branch}` is injected, branch from that; otherwise branch from `{default_branch}`.
+  - **Single task (default)**: no `{base_branch}` → a new branch `{branch_prefix.fix}<short-english-slug>` off `{default_branch}` (default `fix/`).
+  - **Milestone mode**: the caller (/milestone) injects `{base_branch}=group branch` → work on top of that group branch (tasks
+    stack as commits on the group branch). In this case, **don't create a new issue branch or PR** (see the Step 6 milestone guard).
+- **Worktree prep (only when config `worktree=true` — if the default false, skip this item; unchanged behavior)**:
+  > **In milestone mode, skip this item too** — worktrees are created per-group by `/milestone` ⑦. If the task loop
+  > runs `op=add-worktree` again it collides with the group branch, and the failure fallback breaks group isolation. The below is **single-task only**.
 
-  단일 작업도 메인 워킹트리를 점유하지 않도록, 위에서 정한 브랜치를 메인 워킹트리에 checkout하는 대신
-  git-writer `op=add-worktree`로 `<repo>/.claude/worktrees/<이슈번호>` 경로에 브랜치+worktree를 생성한다.
-  생성 직후 `{milestone.install_command}`가 있으면 그 worktree에서 의존성 설치(마일스톤 ⑦ "worktree 의존성 준비" 관례 재사용).
-  이후 implementer·자가체크 3축 스폰 시 **worktree 절대경로를 작업 경로(cwd)로 전달**하고,
-  6단계 커밋도 이 경로에서 실행한다(git-writer `work_path`). 상태 파일(`.claude/loops/<이슈번호>/`)은
-  마일스톤 관례대로 **메인 레포 중앙 유지**.
-  **생성 실패(디스크·권한 등) 시** 현행 방식(메인 워킹트리에서 브랜치)으로 폴백하고 사용자에게 한 줄 알린다.
-  **Serena**(`serena=true`): 0단계 활성화 절차의 대상 경로가 **worktree 절대경로**가 된다 — 단일 작업은
-  동시 사용자가 없어 안전하고(안전 전제는 **한 세션 내** — 서버는 세션당 1개·활성 1칸), 멱등 확인이 경로 기준이라
-  절차 그대로 자연 처리된다. worktree마다 인덱스가 별도라 **첫 질의 워밍업**이 발생하고, 작업 후 메인 레포로의
-  복귀는 별도 절차 없이 **기존 멱등 확인이 담당**한다.
-- **loop.md 생성**: `<repo>/.claude/loops/<이슈번호>/loop.md` — 아래 **loop.md 템플릿**대로.
-  완료 기준은 이슈의 "해결 방안"·"기대 동작"에서 그대로 가져온다 (**루프 중 수정 금지**).
-  **"관련 위치"는 2단계 issue-triage가 반환한 관련 위치·흐름 원본을 그대로 복사** — 이슈 본문(🔍 원인 파악)은
-  사용자용 요약이라 파일:줄이 깎일 수 있으니, loop.md엔 **issue-triage 반환 전문**을 넣는다(메인이 이미 갖고 있어
-  추가 토큰 0). implementer가 재탐색하지 않게 하는 핸드오프다 — 상세할수록 재탐색이 준다.
-- `.claude/loops/`·`.claude/worktrees/`가 커밋되지 않게 `.git/info/exclude`에 각 한 줄 추가
-  (이미 있으면 생략 — info/exclude는 worktree 간 공유라 1회면 충분하다).
-- **이벤트 발행**: `work-started` — 인자 `branch=<브랜치명> title="<이슈 제목>" issue_url=<이슈 전체 URL>` (§이벤트 발행).
+  So that a single task doesn't occupy the main working tree either, instead of checking out the branch decided above into the main working tree,
+  use git-writer `op=add-worktree` to create the branch+worktree at `<repo>/.claude/worktrees/<issue-number>`.
+  Right after creation, if `{milestone.install_command}` exists, install dependencies in that worktree (reusing the milestone ⑦ "worktree dependency prep" convention).
+  Then, when spawning the implementer and the three self-check axes, **pass the worktree absolute path as the work path (cwd)**, and
+  run the Step 6 commit from that path too (git-writer `work_path`). State files (`.claude/loops/<issue-number>/`) stay
+  **centralized in the main repo** per the milestone convention.
+  **On creation failure (disk, permissions, etc.)**, fall back to the current approach (branch in the main working tree) and tell the user in one line.
+  **Serena** (`serena=true`): the target path of the Step 0 activation procedure becomes the **worktree absolute path** — a single task
+  has no concurrent users, so it's safe (the safety premise is **within one session** — one server per session, one active slot), and since the idempotent check is path-based
+  it's handled naturally by the same procedure. Each worktree has a separate index, so a **first-query warmup** occurs, and after the work the
+  return to the main repo needs no separate procedure — the **existing idempotent check handles it**.
+- **Create loop.md**: `<repo>/.claude/loops/<issue-number>/loop.md` — per the **loop.md template** below.
+  Copy the completion criteria straight from the issue's "fix plan" / "expected behavior" (**no edits during the loop**).
+  **Copy "relevant locations" verbatim from the relevant-locations/flow source that Step 2 issue-triage returned** — since the issue body (🔍 root-cause analysis)
+  is a user-facing summary and file:lines may be trimmed, put the **full issue-triage return** into loop.md (main already has it, so
+  0 extra tokens). This is the handoff that keeps the implementer from re-exploring — the more detail, the less re-exploration.
+- Add one line each to `.git/info/exclude` so `.claude/loops/` and `.claude/worktrees/` aren't committed
+  (skip if already present — info/exclude is shared across worktrees, so once is enough).
+- **Emit event**: `work-started` — args `branch=<branch-name> title="<issue title>" issue_url=<issue full URL>` (§emit events).
 
-**루프 (최대 `{loop.max_iterations}`회, 기본 3):**
-1. **구현 — `implementer` 서브에이전트 위임.** 전달할 것: loop.md 경로, 이번 반복 지시
-   (1회차 = 이슈의 해결 방안, 2회차부터 = 직전 REQUEST_CHANGES 지적사항),
-   config(`convention_doc`·`tech_stack`·`lint_command`·`test_command`·`serena`),
-   **`change_map_path`**(loop.md 폴더의 `change-map.md`). implementer는 최소 편집으로 구현하고
-   **완료 기준을 만족하는 테스트를 작성**한 뒤 **lint를 통과**시켜 보고하고, **change-map을 그 경로에 1회 남긴다**
-   (파일별 변경 의도·위험·테스트 연결 — 자가체크 3축이 먼저 읽음). **테스트 실행·통과 판정은 qa가 한다**(아래 자가체크). 못 풀면 "막힘"으로 보고(실패 상태로 완료 보고 금지).
-2. **자가체크 — 서브에이전트 3개 병렬 (읽기 전용).** **변경 파일 경로 목록 + `change_map_path`를 전달**한다
-   (implementer 보고의 "변경 파일" 필드 + change-map 경로). 3축은 **change-map을 먼저 읽고 의심 지점만 원본 확인**한다.
-   **`git diff` 전문을 프롬프트에 넣지 말 것** — diff가
-   필요하면 checker가 자기 Read로 해당 파일의 현재 상태를 연다(컨텍스트 절약).
-   - **`policy-checker`** — 도메인 정책 위반. **`{policy_docs}` 목록을 인자로 전달**(비면 "정책 문서 없음" 통과).
-   - **`code-reviewer`** — 일반 코드 품질. **`{convention_doc}`+`{tech_stack}`를 전달**(없으면 범용 베스트프랙티스).
-   - **`qa`** — 완료기준 테스트 검증. **완료기준(loop.md)+`{test_command}`를 전달.** 테스트가 기준을
-     실제 검증하는지 감사하고 **실행해 통과 여부 판정**(verify.log). 껍데기·해피패스만·엣지 누락이면 불통과.
-   - 셋 다 `{serena}` 값도 전달(false면 grep 폴백). `{models}` 있으면 각 모델로 스폰.
-     서브 보고의 `serena 폴백(사유)` 표기는 사용자 보고에 전파한다.
-   - **1회차 = 전체 검사** (이번 작업 변경 파일 전체). **2회차부터 = 재검증 모드** — 풀 리체크 금지.
-     전달할 것: ① 직전 지적사항 목록 ② 이번 회차 implementer가 보고한 **변경 파일 경로**(+갱신된 `change_map_path`).
-     검사 질문은 둘뿐 — "지적이 해소됐나 + 변경이 새 위반을 만들었나" (전체는 1회차에 이미 봤다).
-3. **판정 (메인 세션):**
-   - implementer가 **막힘** 보고 → 루프 즉시 중단, 사용자에게 보고 (커밋·PR 없음).
-   - ❌ **위반 있음(policy·code) 또는 qa 불통과(테스트 실패·테스트 부실)** → **REQUEST_CHANGES**:
-     지적사항을 loop.md 반복 로그에 기록하고 다음 반복으로. (qa "테스트 부실"이면 implementer가 테스트 보강.)
-   - ⚠️뿐이어도 **실질 회귀·데이터 손실·보안 노출**로 판단되면 ❌로 승격해 REQUEST_CHANGES 할 수 있다
-     — 승격 사유를 loop.md에 기록 (checker가 심각도를 낮게 분류했을 때의 안전망).
-   - ❌ 없음(⚠️/💡만) → **APPROVE**: `{loop.full_verify_command}`가 있으면 **여기서 1회 실행**
-     (풀 빌드 등 무거운 검증 — 매 반복 돌리지 않고 APPROVE 시점에만). 실패하면 실패 내용을
-     지적사항 삼아 REQUEST_CHANGES로 다음 반복. 통과(또는 명령 없음)하면 ⚠️는 PR "## 셀프체크"용으로
-     요약해 두고 루프 종료 → 5.5단계.
-   - 판정을 loop.md에 기록한 직후 **이벤트 발행**: `iteration-completed` — 인자
-     `iteration=<회차> verdict=<approve|request_changes|blocked>` (§이벤트 발행).
+**Loop (up to `{loop.max_iterations}` rounds, default 3):**
+1. **Implement — delegate to the `implementer` subagent.** Pass: the loop.md path, this round's instruction
+   (round 1 = the issue's fix plan; from round 2 = the previous round's REQUEST_CHANGES findings),
+   config (`convention_doc`·`tech_stack`·`lint_command`·`test_command`·`serena`),
+   and **`change_map_path`** (the `change-map.md` in the loop.md folder). The implementer implements with minimal edits and
+   **writes a test that satisfies the completion criteria**, then makes **lint pass** before reporting, and **leaves a change-map at that path once**
+   (per-file change intent · risk · test linkage — read first by the three self-check axes). **Running tests and judging pass/fail is qa's job** (self-check below). If it can't be solved, report "blocked" (no done-report in a failing state).
+2. **Self-check — three subagents in parallel (read-only).** **Pass the list of changed-file paths + `change_map_path`**
+   (the "changed files" field of the implementer's report + the change-map path). The three axes **read the change-map first and only open the originals at suspect spots**.
+   **Don't put the full `git diff` in the prompt** — if a diff is needed,
+   the checker opens the current state of that file with its own Read (context saving).
+   - **`policy-checker`** — domain policy violations. **Pass the `{policy_docs}` list as an arg** (if empty, "no policy docs" → pass).
+   - **`code-reviewer`** — general code quality. **Pass `{convention_doc}`+`{tech_stack}`** (if absent, general best practices).
+   - **`qa`** — completion-criteria test verification. **Pass the completion criteria (loop.md) + `{test_command}`.** Audits whether the tests
+     actually verify the criteria and **runs them to judge pass/fail** (verify.log). Hollow, happy-path-only, or missing edges = fail.
+   - All three also receive the `{serena}` value (grep fallback if false). If `{models}` is set, spawn each with its model.
+     Propagate any `serena fallback (reason)` note in a subagent's report to the user report.
+   - **Round 1 = full check** (all changed files of this task). **From round 2 = re-verify mode** — no full recheck.
+     Pass: ① the previous findings list ② the **changed-file paths** this round's implementer reported (+ the updated `change_map_path`).
+     Only two check questions — "were the findings resolved + did the change create a new violation" (the full pass was already done in round 1).
+3. **Verdict (main session):**
+   - implementer reports **blocked** → stop the loop immediately, report to the user (no commit/PR).
+   - ❌ **violations present (policy/code) or qa fail (test failure · weak tests)** → **REQUEST_CHANGES**:
+     record the findings in the loop.md iteration log and go to the next round. (If qa fails for "weak tests", the implementer strengthens the tests.)
+   - Even if there are only ⚠️, if judged to be **real regression, data loss, or security exposure**, you may promote it to ❌ and REQUEST_CHANGES
+     — record the promotion reason in loop.md (a safety net for when a checker classified severity too low).
+   - No ❌ (only ⚠️/💡) → **APPROVE**: if `{loop.full_verify_command}` exists, **run it once here**
+     (heavy verification like a full build — not every round, only at APPROVE). If it fails, take the failure
+     as findings and REQUEST_CHANGES into the next round. On pass (or no command), summarize the ⚠️ for the PR "## self-check"
+     and end the loop → Step 5.5.
+   - Right after recording the verdict in loop.md, **emit event**: `iteration-completed` — args
+     `iteration=<round> verdict=<approve|request_changes|blocked>` (§emit events).
 
-- **max 소진 시**: 커밋·PR 없이 중단. WIP 브랜치는 유지하고, 마지막 지적사항 + 뭐가 안 풀리는지
-  정리해 사용자에게 보고한다 (계속/방향 전환/직접 확인은 사용자 판단).
-- **루프 중단 시**(막힘·max 소진): 보고 전에 **이벤트 발행**: `work-stopped` — 인자
-  `reason=<blocked|max-iterations>` (§이벤트 발행).
-- 작은 수정(한두 파일·명백)은 보통 **1바퀴에 APPROVE로 끝난다** — 구조는 같고 반복만 안 생길 뿐.
-- **루프 안에서 커밋·push 금지** — APPROVE 후 6단계에서 1회.
-- **백엔드 수정이 필요한 부분은 프론트에서 임의로 우회하지 말고** 이슈/PR에 "백엔드 필요"로 남긴다.
+- **On max exhaustion**: stop without commit/PR. Keep the WIP branch, and report to the user with the last findings +
+  what's stuck (continue / change direction / check yourself is the user's call).
+- **On loop stop** (blocked · max exhausted): before reporting, **emit event**: `work-stopped` — args
+  `reason=<blocked|max-iterations>` (§emit events).
+- A small fix (one or two files, obvious) usually **ends in one round at APPROVE** — the structure is the same, there just aren't repeats.
+- **No commit/push inside the loop** — once, in Step 6 after APPROVE.
+- **Where a backend fix is needed, don't work around it arbitrarily in the frontend** — note "backend needed" in the issue/PR.
 
-### 5.5단계 — 부채 테스트 감사 (APPROVE 후 · 커밋 전)
-> **마일스톤 모드에선 이 단계도 건너뛴다** — 태스크 중엔 감사하지 않고 `/milestone` ⑩에서 일괄.
+### Step 5.5 — Debt-test audit (after APPROVE · before commit)
+> **In milestone mode, skip this step too** — don't audit during tasks; do it in bulk at `/milestone` ⑩.
 
-main에 부채 테스트가 안 들어가게 **이번 루프가 추가한 테스트만** 감사한다(기존은 제거 제안도 금지).
-- **fast-path**: 추가 테스트 0건이면 분류 없이 바로 6단계로.
-- **판별**: "깨지면 **버그**인가 **리팩토링**인가?" — 동작 명세 검증=자산(유지), 구현 세부 결합·자명(tautological)·중복=부채(제거).
-- **절차**: 분류(qa 감사 결과 재사용 또는 메인 판단) → 부채 제거(implementer) → 남은 테스트 **1회** 재실행 green 확인(qa) → 6단계. red면 롤백·유지.
-- **부채 0건이면 그대로 6단계로.** 제거 내역(파일:테스트명+사유)은 PR 셀프체크에 기록.
+To keep debt tests out of main, audit **only the tests this loop added** (proposing removal of existing ones is forbidden too).
+- **fast-path**: if 0 tests were added, go straight to Step 6 with no classification.
+- **Judgment**: "if it breaks, is it a **bug** or a **refactor**?" — behavior-spec verification = asset (keep); coupling to implementation details, tautological, or duplicate = debt (remove).
+- **Procedure**: classify (reuse qa's audit result or main's judgment) → remove debt (implementer) → re-run the remaining tests **once**, confirm green (qa) → Step 6. If red, roll back and keep.
+- **If 0 debt, go to Step 6 as-is.** Record the removal list (file:test-name + reason) in the PR self-check.
 
-### 6단계 — 커밋 + PR (APPROVE 후에만 · git-writer 위임)
-> **마일스톤 모드에선 이 단계를 건너뛴다.** 태스크는 그룹 브랜치에 커밋만 쌓고(PR·이슈 브랜치 생성 안 함),
-> 그룹 PR·최종 PR은 `/milestone`이 그룹 단위로 만든다. 아래는 **단일 작업(비-마일스톤)** 전용.
+### Step 6 — Commit + PR (only after APPROVE · delegate to git-writer)
+> **In milestone mode, skip this step.** Tasks only stack commits on the group branch (no PR or issue branch created);
+> the group PR and final PR are made per-group by `/milestone`. The below is **single-task (non-milestone)** only.
 
-**메인이 판단·작성**을 다 끝내고, 실행은 git-writer에 위임한다.
+Main finishes all judging/writing, and delegates execution to git-writer.
 
-**메인이 작성/결정하는 것 (완성해서 넘길 값):**
-- **커밋 메시지** — **`{commit_convention}`(그 프로젝트 규칙)을 최우선으로 따라** 메인이 작성한다.
-  config에 `commit_convention`이 있으면 그 rule·examples 형식대로(prefix·언어·이모지 등).
-  없으면 Conventional Commits로 폴백. **어느 경우든 `Co-Authored-By` 트레일러 금지.**
-- **PR 제목/본문** — 제목은 커밋 제목과 동일. 본문은 아래 **PR 템플릿**(`Closes #N` + 원본 노션/슬랙 링크).
-- **리뷰어 목록** — `{codeowners}`가 경로면 매칭 코드오너에서 **작성자 본인 제외** → 남은 사람.
-  남은 사람 없거나 `{codeowners}`가 false면 빈 목록(리뷰어 생략).
-- **스테이징 지시** — 보통 `all`(작업 브랜치의 변경 전체). 특정 파일만이면 파일 목록.
+**What main writes/decides (finished values to hand off):**
+- **Commit message** — **follow `{commit_convention}` (that project's rule) first** and let main write it.
+  If config has `commit_convention`, use its rule/examples format (prefix, language, emoji, etc.).
+  If absent, fall back to Conventional Commits. **In any case, no `Co-Authored-By` trailer.**
+- **PR title/body** — the title matches the commit title. The body follows the **PR template** below (`Closes #N` + original Notion/Slack link).
+- **Reviewer list** — if `{codeowners}` is a path, from the matching code owners **exclude the author themselves** → the remaining people.
+  If no one remains or `{codeowners}` is false, an empty list (omit reviewers).
+- **Staging instruction** — usually `all` (all changes on the work branch). If only specific files, the file list.
 
-**git-writer에 위임해 실행:** 위 완성값 + `repo={repo}` `branch=<작업브랜치>` `base_branch={base_branch|default_branch}`(단일=`{default_branch}`)를
-넘긴다. git-writer가 `git add → commit → push → gh pr create`를 실행하고 **PR URL만 반환**한다.
-- 5단계 worktree 준비가 **성공**했으면 `work_path=<worktree 절대경로>`도 함께 넘긴다(생성 실패
-  폴백 시엔 현행 경로 그대로) — git-writer가 add→commit→push를 그 경로에서 실행한다(PR 생성은 동일).
-- author는 현재 git 설정 그대로(dobiflow는 계정 안 건드림). 인증 주입 없음.
-- **git-writer는 log/diff/코드를 읽지 않는다** — 커밋 메시지·PR 본문을 메인이 이미 완성해 넘겼으므로.
-- 실패(권한·충돌) 보고를 받으면 억지 재시도 없이 사용자에게 보고.
+**Delegate execution to git-writer:** hand off the finished values above + `repo={repo}` `branch=<work branch>` `base_branch={base_branch|default_branch}` (single=`{default_branch}`).
+git-writer runs `git add → commit → push → gh pr create` and **returns only the PR URL**.
+- If the Step 5 worktree prep **succeeded**, also pass `work_path=<worktree absolute path>` (on creation-failure
+  fallback, the current path as-is) — git-writer runs add→commit→push from that path (PR creation is the same).
+- The author stays exactly as the current git config (dobiflow doesn't touch the account). No auth injection.
+- **git-writer doesn't read log/diff/code** — because main already finished and handed off the commit message and PR body.
+- If you get a failure (permissions/conflict) report, report to the user without forcing a retry.
 
-- 반환된 **PR 전체 URL을 클릭 가능하게 보고**. 마무리에 이슈 URL·PR URL **둘 다** 명시.
-- worktree 모드였으면(5단계 준비 성공) **정리 안내 1줄** — "머지 후 '머지했어'로 7단계 정리" 또는 원하면 즉시
-  `op=remove-worktree` 확인(7단계 미호출 시 이슈당 수백 MB 누적 — info/exclude라 status에도 안 보인다).
-- PR 생성 후 `.claude/loops/<이슈번호>/` **삭제** (loop.md는 일회용 — 기록은 이슈·PR에 남는다).
-- **이벤트 발행**: `work-finished` — 인자 `pr_url=<PR 전체 URL> iterations=<총 회차>` (§이벤트 발행).
+- **Report the returned full PR URL as a clickable link.** In the wrap-up, spell out **both** the issue URL and the PR URL.
+- If it was worktree mode (Step 5 prep succeeded), a **one-line cleanup notice** — "after merge, say 'merged' for the Step 7 cleanup", or if you want, an immediate
+  `op=remove-worktree` confirmation (if Step 7 isn't called, hundreds of MB accumulate per issue — being in info/exclude, it doesn't even show in status).
+- After creating the PR, **delete** `.claude/loops/<issue-number>/` (loop.md is single-use — the record stays in the issue/PR).
+- **Emit event**: `work-finished` — args `pr_url=<PR full URL> iterations=<total rounds>` (§emit events).
 
-> **본문 윤문(humanize)은 선택 — 짧은 PR엔 기본 미적용.** 긴 보고/문서일 때만 `/humanize` 수동.
+> **Body humanizing is optional — off by default for short PRs.** Only for long reports/docs, run `/humanize` manually.
 
-### 7단계 (선택) — 머지 후 정리
-PR **머지 후** 사용자가 "머지했어/정리해줘" 류로 요청할 때만 실행한다(자동 진입 없음).
-1. **사실 확인** — fetch로 `{default_branch}`에 머지 커밋이 실재하는지 확인(추정 금지). 미머지면 알리고 중단.
-   **마일스톤 판별**: `.claude/loops/`에 `plan.md`가 있는 폴더는 마일스톤이다 — 아래 sweep 대상에서 제외하고,
-   그 정리는 `/milestone` ⑩ "머지 후 정리" 절차로 라우팅한다(Milestone close 확인 ✋를 sweep이 우회하지 못하게).
-2. **태깅**(레포 관례가 있을 때) — 버전 bump PR이면 머지 커밋에 태그·push(git-writer `op=tag`). 관례 없으면 생략.
-3. **로컬 정리(sweep · git-writer)** — 이번 작업 것만이 아니라 **정리 가능한 것 전부**를, **worktree 제거 →
-   브랜치 삭제 순서로**(worktree가 체크아웃 중인 브랜치는 `-d`가 거부된다):
-   prunable worktree 전부 제거, 단일 작업 worktree(`.claude/worktrees/<이슈번호>`)는 **닫힌 이슈·머지된 브랜치의
-   것만** `op=remove-worktree`로 명시 제거(진행 중인 병행 작업 worktree는 클린 상태여도 건드리지 않음),
-   이어서 머지 완료된 로컬 브랜치 전부 삭제(`-d`만 — 미머지는 git이 거부해 자동 보호, 거부 목록은 보고),
-   worktree·브랜치 다 미커밋 변경 있으면 보고만, 이슈 닫힌 좀비 `.claude/loops/` 폴더 전부 삭제
-   (`plan.md` 있는 마일스톤 폴더 제외 — 1의 판별).
+### Step 7 (optional) — Post-merge cleanup
+Run only when, **after the PR is merged**, the user asks with something like "merged / clean up" (no auto-entry).
+1. **Verify the fact** — via fetch, confirm the merge commit actually exists on `{default_branch}` (no guessing). If unmerged, say so and stop.
+   **Milestone detection**: a folder under `.claude/loops/` that has `plan.md` is a milestone — exclude it from the sweep below, and
+   route its cleanup to the `/milestone` ⑩ "post-merge cleanup" procedure (so the sweep doesn't bypass the Milestone-close confirmation ✋).
+2. **Tagging** (when the repo has the convention) — for a version-bump PR, tag the merge commit and push (git-writer `op=tag`). If there's no convention, skip.
+3. **Local cleanup (sweep · git-writer)** — not just this task's, but **everything cleanable**, in the order **remove worktree →
+   delete branch** (a branch a worktree has checked out is refused by `-d`):
+   remove all prunable worktrees; a single-task worktree (`.claude/worktrees/<issue-number>`) is explicitly removed via `op=remove-worktree`
+   **only for closed issues / merged branches** (don't touch an in-progress parallel-task worktree even if it's clean);
+   then delete all merged local branches (`-d` only — git refuses unmerged ones, auto-protecting; report the refused list),
+   report-only if any worktree/branch has uncommitted changes, delete all zombie `.claude/loops/` folders whose issue is closed
+   (excluding milestone folders with `plan.md` — the detection in 1).
 
-테스트 감사는 여기서 하지 않는다 — 5.5단계에서 머지 전에 이미 끝났다.
-
----
-
-## git-writer 위임 (쓰기 실행)
-
-이슈 생성(3단계)·커밋+push+PR(6단계)의 **실행**은 `git-writer` 서브에이전트가 한다.
-목적은 **컨텍스트 절약** — `git log`/`git diff`/`gh` 출력 같은 장황한 것을 메인 세션에
-쌓지 않고 서브 안에 가둔다.
-
-- **역할 경계**: **메인이 판단·작성**(커밋 메시지·PR 본문·리뷰어·라벨·스테이징 결정),
-  **git-writer는 실행만**(받은 완성값을 `git`/`gh`에 넣기). git-writer는 코드·log·diff를
-  **읽지 않는다** — 필요한 건 메인이 전부 완성해 넘겼으므로.
-- **넘기는 값**: (이슈) `repo`·`issue_title`·`issue_body`·`labels` / (PR) `repo`·`branch`·
-  `base_branch`·`commit_message`·`pr_title`·`pr_body`·`reviewers`·`stage`. 전부 **완성본.**
-- **받는 값**: 이슈 URL / PR URL(+실패 시 짧은 에러)만.
-
-## GitHub 계정 (참고)
-
-dobiflow는 **현재 로그인된 gh 계정과 현재 git 설정을 그대로 신뢰**한다.
-계정 전환·멀티계정은 dobiflow의 책임이 아니다(예: `gitto` 같은 도구가 git 레벨에서 처리).
-git-writer는 인증 주입 없이 평범하게 `gh`/`git`을 실행한다.
+The test audit is not done here — it was already finished before merge in Step 5.5.
 
 ---
 
-## 이슈 템플릿 (3단계)
+## git-writer delegation (write execution)
+
+The **execution** of issue creation (Step 3) and commit+push+PR (Step 6) is done by the `git-writer` subagent.
+The purpose is **context saving** — keep verbose things like `git log`/`git diff`/`gh` output from
+piling up in the main session, trapping them inside the subagent.
+
+- **Role boundary**: **main judges and writes** (commit message, PR body, reviewers, labels, staging decisions),
+  **git-writer only executes** (put the finished values into `git`/`gh`). git-writer **doesn't read** code/log/diff —
+  because main already finished everything and handed it off.
+- **Values handed off**: (issue) `repo`·`issue_title`·`issue_body`·`labels` / (PR) `repo`·`branch`·
+  `base_branch`·`commit_message`·`pr_title`·`pr_body`·`reviewers`·`stage`. All **finished.**
+- **Values received**: only the issue URL / PR URL (+ a short error on failure).
+
+## GitHub account (for reference)
+
+dobiflow **trusts the currently logged-in gh account and the current git config as-is**.
+Account switching / multi-account is not dobiflow's responsibility (e.g. a tool like `gitto` handles it at the git level).
+git-writer runs `gh`/`git` plainly, with no auth injection.
+
+---
+
+## Issue template (Step 3)
 
 ```markdown
 ## 🐞 문제
@@ -269,7 +272,7 @@ git-writer는 인증 주입 없이 평범하게 `gh`/`git`을 실행한다.
 🤖 자동 생성됨
 ```
 
-## PR 템플릿 (6단계)
+## PR template (Step 6)
 
 ```markdown
 ## 바뀐 점
@@ -297,9 +300,9 @@ Closes #<이슈번호>
 🤖 자동 생성됨
 ```
 
-> 문구는 딱딱하지 않게, 읽는 사람이 빠르게 이해할 **자연스러운 한국어**로.
+> Keep the wording un-stiff, in **natural Korean** that the reader can grasp quickly.
 
-## loop.md 템플릿 (5단계)
+## loop.md template (Step 5)
 
 ```markdown
 # 구현 루프 — 이슈 #<N>
@@ -323,43 +326,43 @@ Closes #<이슈번호>
 - 지적사항: <REQUEST_CHANGES일 때 — 다음 회차로 넘기는 것>
 ```
 
-- loop.md 갱신(반복 로그·체크박스)은 **메인 세션만**. implementer는 읽기만.
-- 일회용 — PR 후 폴더째 삭제. 영구 기록은 이슈·PR 본문이 담당.
+- Updating loop.md (iteration log, checkboxes) is **main-session only**. The implementer only reads.
+- Single-use — deleted folder-and-all after the PR. Permanent records live in the issue/PR body.
 
 ---
 
-## 이벤트 발행 (선택 — 외부 수집·알림용)
+## Emit events (optional — for external collection/notification)
 
-5·6단계의 지정 시점마다 아래 한 줄을 실행해 작업 생명주기를 사용자 훅에 알린다:
+At the designated points of Steps 5·6, run the one line below to notify the user's hooks of the work lifecycle:
 
 ```
 ~/.dobiflow/bin/dobiflow-emit <event> skill=triage-fix repo={repo} issue=<이슈번호> <시점별 추가 인자>
 ```
 
-- 이벤트 4개: `work-started`(루프 진입) → `iteration-completed`(매 반복 판정) →
-  `work-finished`(PR 생성) 또는 `work-stopped`(막힘·max 소진 중단).
-- **루프 진입 전 존재 확인 1회**: `test -x ~/.dobiflow/bin/dobiflow-emit` — 없으면(미설치)
-  이번 작업의 모든 발행을 조용히 생략한다.
-- **부가기능이다** — 발행이 실패해도 무시하고 본 작업을 계속한다. 재시도·디버깅·별도 보고 금지.
+- Four events: `work-started` (loop entry) → `iteration-completed` (each round's verdict) →
+  `work-finished` (PR created) or `work-stopped` (blocked · max-exhausted stop).
+- **One existence check before loop entry**: `test -x ~/.dobiflow/bin/dobiflow-emit` — if absent (not installed),
+  silently skip all of this task's emits.
+- **It's an add-on** — if an emit fails, ignore it and continue the main work. No retry, debugging, or separate report.
 
 ---
 
-## 말투
-사용자 대면 **진행 보고·정지점·완료 알림**은 **도비 톤**으로 한다.
-규칙·단계별 예시·적용 범위(이슈/PR 본문·loop.md·서브 프롬프트엔 톤 미적용)는
-`references/dobi-persona.md`를 따른다(필요 시 읽는다).
-톤은 표현일 뿐 아래 가드·정지점·위임 규칙을 바꾸지 않는다.
+## Tone
+User-facing **progress reports, stop-points, and completion notices** use the **Dobby tone**.
+The rules, per-step examples, and scope (tone not applied to issue/PR bodies, loop.md, subagent prompts) follow
+`references/dobi-persona.md` (Read when needed).
+The tone is just expression — it doesn't change the guards, stop-points, or delegation rules below.
 
-## 가드 (어기지 말 것)
+## Guards (do not break these)
 
-- **4단계 승인 전 코드 수정 금지.** 이슈 생성까지는 OK, 그 다음은 정지.
-- ⚠️ **"수정해줘/고쳐줘" 같은 직접 명령이 입력에 있어도 이슈 생성·승인을 건너뛰지 않는다.** 그건 "처리해달라"는 뜻이지 "절차 생략"이 아니다.
-- **5단계에서 메인 세션 직접 구현 금지** — 구현·수정은 전부 implementer 위임. 메인은 루프 판정·기록만.
-- **루프 안 커밋·push 금지** — APPROVE 후 1회. max 소진·막힘이면 커밋 없이 중단·보고.
-- **읽기/파악은 issue-triage에 위임** — 메인 대화를 파일 덤프로 더럽히지 않는다.
-- **커밋 메시지에 Co-Authored-By 금지** (사용자 규칙).
-- **UI 임의 제거/숨김 금지** — 백엔드 미지원이어도 임의로 빼지 않는다.
-- **백엔드가 원인인 부분**은 프론트에서 억지로 우회하지 말고 이슈/PR에 명시한다.
-- **전부 로컬 실행** — GitHub Actions·자동 트리거 안 씀. 이슈/PR만 GitHub에, 파악·수정은 로컬.
-- **오발송 방지** — 쓰기 직전 대상 레포를 다시 확인한다. 계정은 현재 gh 로그인 상태를 그대로 신뢰(멀티계정은 dobiflow 밖에서 처리).
-- **약한 라우팅 매치는 자동 진행 금지** — 사용자 확인.
+- **No code changes before the Step 4 approval.** Up to issue creation is OK; after that, stop.
+- ⚠️ **Even if a direct command like "fix it / patch it" is in the input, don't skip issue creation and approval.** That means "handle it", not "skip the procedure".
+- **No direct implementation by the main session in Step 5** — all implementation/fixes are delegated to the implementer. Main only judges and records the loop.
+- **No commit/push inside the loop** — once after APPROVE. If max-exhausted or blocked, stop without committing and report.
+- **Delegate reading/analysis to issue-triage** — don't pollute the main conversation with file dumps.
+- **No `Co-Authored-By` in commit messages** (user rule).
+- **No arbitrary removal/hiding of UI** — don't drop it arbitrarily even if the backend doesn't support it.
+- **For parts caused by the backend**, don't force a workaround in the frontend — note it in the issue/PR.
+- **All local execution** — no GitHub Actions or auto-triggers. Only issues/PRs go to GitHub; analysis/fixes are local.
+- **Prevent mis-targeting** — re-confirm the target repo right before writing. Trust the current gh login state as-is for the account (multi-account is handled outside dobiflow).
+- **No auto-proceed on a weak routing match** — confirm with the user.
