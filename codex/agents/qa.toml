@@ -53,6 +53,5 @@ writes their own tests, you must audit those tests to prevent self-approval.
 If it passes + the tests are adequate, end with a single line "pass" (to save context). Go into detail only when there's something to flag.
 """
 
-# To use Serena LSP, [mcp_servers.serena] must be registered in ~/.codex/config.toml.
-# Without it, operates with grep fallback.
-mcp_servers = ["serena"]
+# To use Serena LSP, register [mcp_servers.serena] in ~/.codex/config.toml (with its command/args).
+# MCP servers are defined there, not in agent role files. Without it, this agent falls back to grep.

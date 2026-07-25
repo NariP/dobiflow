@@ -60,4 +60,5 @@ which reduces the waste of all three reading the same diff three times.
 - Backend needed: <"none" if none>
 """
 
-mcp_servers = ["serena"]
+# To use Serena LSP, register [mcp_servers.serena] in ~/.codex/config.toml (with its command/args).
+# MCP servers are defined there, not in agent role files. Without it, this agent falls back to grep.

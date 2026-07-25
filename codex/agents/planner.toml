@@ -56,6 +56,5 @@ developer (group).
 State uncertain plans as "estimate". If you cannot force a completion criterion into a test, say so and move it to a PR self-check.
 """
 
-# To use Serena LSP, [mcp_servers.serena] must be registered in ~/.codex/config.toml.
-# Without it, operates with grep fallback.
-mcp_servers = ["serena"]
+# To use Serena LSP, register [mcp_servers.serena] in ~/.codex/config.toml (with its command/args).
+# MCP servers are defined there, not in agent role files. Without it, this agent falls back to grep.

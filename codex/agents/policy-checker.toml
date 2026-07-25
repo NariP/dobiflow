@@ -44,4 +44,5 @@ them as ❌ Violations even at low confidence and state "possible regression" in
 "ambiguous interpretation," not for "serious but uncertain."
 """
 
-mcp_servers = ["serena"]
+# To use Serena LSP, register [mcp_servers.serena] in ~/.codex/config.toml (with its command/args).
+# MCP servers are defined there, not in agent role files. Without it, this agent falls back to grep.
