@@ -69,8 +69,8 @@ The structure and loop.md template are **the same as `triage-fix` step 5** (incl
   pass the worktree absolute path as cwd to implementer and the self-checks (on creation failure, fall back to the current path + a one-line note;
   the Serena activation path is also the worktree — the safety premise is **within a single session**; returning to the main repo is handled by the existing idempotency check.
   Default false keeps the current behavior).
-  Create `<repo>/.claude/loops/<issue number>/loop.md` — copy the completion criteria verbatim from the issue's **"✅ Completion criteria"** checklist
-  (no edits during the loop). **In "Related locations," directly copy the change scope from the issue's "📐 Design" + the file:line originals
+  Create `<repo>/.claude/loops/<issue number>/loop.md` — copy the completion criteria verbatim from the issue's **"Completion criteria"** checklist
+  (no edits during the loop). **In "Related locations," directly copy the change scope from the issue's "Design" + the file:line originals
   returned by issue-triage in step 2** (the issue body is a summary and may be clipped, so put in the full issue-triage return —
   the main session already has it, so zero extra tokens, and it prevents implementer re-exploration). Add `.claude/loops/`·`.claude/worktrees/` to `.git/info/exclude` (info/exclude is shared across worktrees, so once is enough).
   Once setup is done, **emit an event**: `work-started` — args `branch=<branch name> title="<issue title>" issue_url=<full issue URL>` (§event emission).

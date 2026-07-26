@@ -31,22 +31,14 @@ It does not fix code or create issues/PRs. Use it to see what is open and what i
 
 ## Output format
 
-```
-## 🐞 열린 이슈 (N개)
-- #N <제목>  (<라벨>)
-  <전체 issue URL>
-- ...
+Show the status **in the user's language** (match the language they wrote in), with these sections:
 
-## 🔀 진행 중 PR (N개)
-- #N <제목>  [<브랜치명>]
-  <전체 PR URL>
-- ...
+- **Open issues (N)** — one line each: `#N <title>  (<labels>)` + the full issue URL below it.
+- **PRs in progress (N)** — one line each: `#N <title>  [<branch-name>]` + the full PR URL below it.
+- **Continue** — point out "unfinished things" (an issue with no linked PR, or a PR that isn't merged),
+  and how to resume: check out the relevant branch (`git checkout <branch>`), or run `/triage-fix` again for a new fix.
 
-## 💡 이어가기
-- Point out "unfinished things" (an issue with no linked PR, or a PR that isn't merged).
-- To continue a specific task: check out the relevant branch (`git checkout <branch>`),
-  or for a new fix, run `/triage-fix` again.
-```
+Keep an emoji at the head of each section if it helps (🐞 issues · 🔀 PRs · 💡 continue), but the labels themselves adapt to the user's language.
 
 ## Guards
 

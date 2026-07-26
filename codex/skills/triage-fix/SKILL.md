@@ -31,7 +31,7 @@ The input can be a Notion link, a Slack link, or plain text — anything. Read t
   - `loop.full_verify_command` = unset → none (skip heavy verification at APPROVE — loop verification is lint/test only)
 - Later steps use config values such as `{repo}`, `{default_branch}`, `{lint_command}`, `{test_command}`, `{policy_docs}`,
   `{label_prefix}`, `{branch_prefix}`, `{bug_label}`, `{codeowners}`,
-  `{serena}`, `{convention_doc}`, `{tech_stack}`, `{loop}`, `{models}`.
+  `{serena}`, `{convention_doc}`, `{tech_stack}`, `{commit_convention}`, `{loop}`, `{models}`, `{milestone}`.
 - **Model override when spawning subagents:** if `{models}` is set, spawn each subagent with the model from
   `config.models[<agent>]` (e.g. `models.implementer`, `models.qa`). If unset, inherit the session model (current behavior).
 - **Serena activation (`serena=true` · main does it directly):** check the active project with
@@ -115,8 +115,8 @@ In this step the main session **does not implement directly** — it only acts a
   it's handled naturally by the same procedure. Each worktree has a separate index, so a **first-query warmup** occurs, and after the work the
   return to the main repo needs no separate procedure — the **existing idempotent check handles it**.
 - **Create loop.md**: `<repo>/.claude/loops/<issue-number>/loop.md` — per the **loop.md template** below.
-  Copy the completion criteria straight from the issue's "fix plan" / "expected behavior" (**no edits during the loop**).
-  **Copy "relevant locations" verbatim from the relevant-locations/flow source that Step 2 issue-triage returned** — since the issue body (🔍 root-cause analysis)
+  Copy the completion criteria straight from the issue's "Resolution" section (**no edits during the loop**).
+  **Copy "Related locations" verbatim from the relevant-locations/flow source that Step 2 issue-triage returned** — since the issue body (Cause analysis)
   is a user-facing summary and file:lines may be trimmed, put the **full issue-triage return** into loop.md (main already has it, so
   0 extra tokens). This is the handoff that keeps the implementer from re-exploring — the more detail, the less re-exploration.
 - Add one line each to `.git/info/exclude` so `.claude/loops/` and `.claude/worktrees/` aren't committed
