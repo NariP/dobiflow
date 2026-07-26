@@ -4,6 +4,35 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 [유의적 버전](https://semver.org/lang/ko/)을 사용합니다.
 
+## [1.0.0] - 2026-07-26
+
+글로벌 준비 완료 — 실행 로직 영어화 + 사용자 언어 자동 대응으로 첫 메이저 릴리스.
+
+### Added
+- **i18n — 도비 말투·이슈/PR/loop.md 템플릿의 사용자 언어 자동 대응(#40)** — dobiflow가 LLM 에이전트라
+  입력 언어를 자연히 아는 특성을 활용(접근 A). config·감지 코드 없이 지시를 언어중립화 —
+  한국어로 입력하면 한국어 산출물, 영어면 영어. 원칙: 실행 로직(절차·가드)=영어 고정 / 사용자 대면=사용자 언어.
+  한글 템플릿 스켈레톤을 언어중립 지시로 바꿔 토큰도 감소. (claude+codex)
+
+### Changed
+- **실행 문서 영어화 — 스킬·에이전트·persona·workflow-guide(#26~#35)** — 매 실행 컨텍스트로 로드되는
+  실행 로직(절차·가드·명령·인용대사)을 영어화해 LLM 토큰 절감(근사 40%). 7개 스킬 SKILL.md, 7개 에이전트
+  (claude .md + codex .toml), persona SSOT + 복제본 3벌(도비→Dobby, README 관례 일치), workflow-guide 2벌.
+  frontmatter description·README·생성물 규칙은 한국어 유지. 가드 인벤토리 전량 보존(11·10·6·7·3·3·0),
+  미러 divergence 보존, Codex sol/xhigh 게이트·Claude 내부 대조로 검증. (claude+codex)
+- **토큰 다이어트 — 반복 산문 압축(#42-B)** — Serena 멱등성 정당화 중복·git-writer 위임 섹션(agents SSOT 중복)·
+  "qa's job" 3회 반복·승인 예시 verbatim을 압축(-78줄). 가드·의미 0 손실, Codex 교차검증 VERDICT SAFE. (claude+codex)
+
+### Fixed
+- **Codex 에이전트 role toml의 malformed mcp_servers(#36)** — `mcp_servers = ["serena"]`(배열)이 Codex 0.145.0에서
+  'invalid type: sequence, expected a map'으로 role 7개를 통째로 무시하던 문제. OpenAI 공식 config-reference 근거로
+  배열 줄 제거(MCP는 config.toml에 정의하는 게 정석). (codex)
+- **i18n fallout — 깨진 섹션 참조·triage-status 한글·용어 드리프트(#42-A)** — 영어화·i18n이 템플릿 헤딩을
+  언어중립화하며 생긴 참조 불일치 5건(이모지 섹션명·triage-status 출력 한글 누락·Related/relevant 드리프트·
+  config 열거 누락). 감사 + Codex 교차리뷰로 확인·수정. (claude+codex)
+- **work 스킬 Dobi→Dobby 표기 통일(#26 리뷰)** — 영어화 시 work만 "Dobi"로 번역돼 persona SSOT·타 스킬과
+  불일치하던 것 통일. improve→improvement. (claude+codex)
+
 ## [0.20.0] - 2026-07-24
 
 ### Changed
