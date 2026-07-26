@@ -84,11 +84,8 @@ Decide **which repo the issue belongs to**. Skippable if cwd is already the obvi
 ### Step 4 — Get approval ✋ (mandatory stop-point)
 - **Show the created issue content (root-cause analysis + fix plan) to the user** and ask.
 - **When reporting the created issue, spell out the full URL returned by `gh` as a clickable link** (don't use just `#N`).
-- **Confirm the repo and base branch together on one screen** (to prevent mis-targeting). Example:
-  > "Made issue #N: <full URL>
-  >  repo: {repo} / base: {default_branch}
-  >  If you approve, I'll proceed to the implementation loop (implementer implements → lint/test → self-check, up to {loop.max_iterations} rounds).
-  >  Shall I fix it this way and open a PR?"
+- **Confirm the repo and base branch together on one screen** (to prevent mis-targeting) — show `#N` + full URL, `repo: {repo} / base: {default_branch}`,
+  a one-line loop summary (implementer implements → lint/test → self-check, up to {loop.max_iterations} rounds), and ask "shall I fix it this way and open a PR?".
 - **Never touch code** until the user explicitly says **OK / 진행 / go ahead**.
 
 ### Step 5 — Branch + implementation loop 🔁
@@ -112,10 +109,8 @@ In this step the main session **does not implement directly** — it only acts a
   run the Step 6 commit from that path too (git-writer `work_path`). State files (`.claude/loops/<issue-number>/`) stay
   **centralized in the main repo** per the milestone convention.
   **On creation failure (disk, permissions, etc.)**, fall back to the current approach (branch in the main working tree) and tell the user in one line.
-  **Serena** (`serena=true`): the target path of the Step 0 activation procedure becomes the **worktree absolute path** — a single task
-  has no concurrent users, so it's safe (the safety premise is **within one session** — one server per session, one active slot), and since the idempotent check is path-based
-  it's handled naturally by the same procedure. Each worktree has a separate index, so a **first-query warmup** occurs, and after the work the
-  return to the main repo needs no separate procedure — the **existing idempotent check handles it**.
+  **Serena** (`serena=true`): the Step 0 activation target becomes the **worktree absolute path** — safe for a single task (Serena idempotent check — see Step 0).
+  Each worktree has a separate index, so a **first-query warmup** occurs; the return to the main repo needs no separate procedure (the same idempotent check handles it).
 - **Create loop.md**: `<repo>/.claude/loops/<issue-number>/loop.md` — per the **loop.md template** below.
   Copy the completion criteria straight from the issue's "Resolution" section (**no edits during the loop**).
   **Copy "Related locations" verbatim from the relevant-locations/flow source that Step 2 issue-triage returned** — since the issue body (Cause analysis)
@@ -131,8 +126,7 @@ In this step the main session **does not implement directly** — it only acts a
    config (`convention_doc`·`tech_stack`·`lint_command`·`test_command`·`serena`),
    and **`change_map_path`** (the `change-map.md` in the loop.md folder). The implementer implements with minimal edits and
    **writes a test that satisfies the completion criteria**, then makes **lint pass** before reporting, and **leaves a change-map at that path once**
-   (per-file change intent · risk · test linkage — read first by the three self-check axes). **Running tests and judging pass/fail is qa's job** (self-check below) —
-   the implementer writes the tests, but "must be green to report done" is qa's job. If it can't be solved, report "blocked" (no done-report in a failing state).
+   (per-file change intent · risk · test linkage — read first by the three self-check axes). **Running tests and judging pass/fail is qa's job** (self-check below). If it can't be solved, report "blocked" (no done-report in a failing state).
 2. **Self-check — three subagents in parallel (read-only).** **Pass the list of changed-file paths + `change_map_path`**
    (the "changed files" field of the implementer's report + the change-map path). The three axes **read the change-map first and only open the originals at suspect spots**.
    **Don't put the full `git diff` in the prompt** — if a diff is needed, the checker opens the current state of that file with its own Read (context saving).
@@ -228,22 +222,11 @@ The test audit is not done here — it was already finished before merge in Step
 
 ## git-writer delegation (write execution)
 
-The **execution** of issue creation (Step 3) and commit+push+PR (Step 6) is done by the `git-writer` subagent.
-The purpose is **context saving** — keep verbose things like `git log`/`git diff`/`gh` output from
-piling up in the main session, trapping them inside the subagent.
-
-- **Role boundary**: **main judges and writes** (commit message, PR body, reviewers, labels, staging decisions),
-  **git-writer only executes** (put the finished values into `git`/`gh`). git-writer **doesn't read** code/log/diff —
-  because main already finished everything and handed it off.
-- **Values handed off**: (issue) `repo`·`issue_title`·`issue_body`·`labels` / (PR) `repo`·`branch`·
-  `base_branch`·`commit_message`·`pr_title`·`pr_body`·`reviewers`·`stage`. All **finished.**
+The **execution** of issue creation (Step 3) and commit+push+PR (Step 6) is delegated to the `git-writer` subagent to **save context**
+(verbose `git log`/`diff`/`gh` output stays trapped in the subagent). Its role boundary is the SSOT in `agents/git-writer.md` (main judges/writes; git-writer only executes, reading no code/log/diff).
+- **Values handed off** (all finished): (issue) `repo`·`issue_title`·`issue_body`·`labels` / (PR) `repo`·`branch`·`base_branch`·`commit_message`·`pr_title`·`pr_body`·`reviewers`·`stage`.
 - **Values received**: only the issue URL / PR URL (+ a short error on failure).
-
-## GitHub account (for reference)
-
-dobiflow **trusts the currently logged-in gh account and the current git config as-is**.
-Account switching / multi-account is not dobiflow's responsibility (e.g. a tool like `gitto` handles it at the git level).
-git-writer runs `gh`/`git` plainly, with no auth injection.
+- **Account**: git-writer trusts the current gh login / git config as-is, no auth injection (multi-account is handled outside dobiflow, e.g. `gitto`).
 
 ---
 
