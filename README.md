@@ -15,7 +15,7 @@
 ![Codex](https://img.shields.io/badge/Codex-CLI-000000)
 ![runs local](https://img.shields.io/badge/runs-100%25%20local-success)
 ![no API cost](https://img.shields.io/badge/extra%20API%20cost-%240-blue)
-![version](https://img.shields.io/badge/version-0.20.0-lightgrey)
+![version](https://img.shields.io/badge/version-1.0.0-lightgrey)
 ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 Throw one bug or one task in a single line — Dobby finds the cause, files a GitHub
@@ -180,6 +180,7 @@ dobiflow runs everything **on your machine**, so Dobby keeps a few rules:
 
 - **Claude Code + Codex** — same workflow on both CLIs (skills, subagents, plan mode map natively)
 - **Any input** — Notion link / Slack link / plain text
+- **Your language** — Dobby talks to you and writes issue/PR bodies in the language you use (Korean in, Korean out; English in, English out) — no config, just match. The internal procedure logic stays English so context stays lean.
 - **Approval gate** — the issue gets created, but no code is touched until you say "ok"
 - **Multi-repo** — infers the right repo from the issue (asks when unsure)
 - **Project rules first** — commit convention, policies, conventions follow the target project
