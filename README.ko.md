@@ -15,7 +15,7 @@
 ![Codex](https://img.shields.io/badge/Codex-CLI-000000)
 ![로컬 실행](https://img.shields.io/badge/실행-100%25%20로컬-success)
 ![API 비용](https://img.shields.io/badge/추가%20API%20비용-0원-blue)
-![version](https://img.shields.io/badge/version-0.20.0-lightgrey)
+![version](https://img.shields.io/badge/version-1.0.0-lightgrey)
 ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 이슈 하나, 작업 하나를 한 줄로 던지면 — 도비가 원인을 파악하고, GitHub 이슈를 만들고,
@@ -174,6 +174,7 @@ dobiflow는 전부 **주인님 컴퓨터에서** 돌아가서, 도비가 지키�
 
 - **Claude Code + Codex 둘 다** — 같은 워크플로우를 두 CLI에서 (스킬·서브에이전트·plan mode 네이티브 대응)
 - **입력 자유** — 노션 링크 / 슬랙 링크 / 그냥 텍스트 다 받아요
+- **주인님 언어로** — 도비가 주인님이 쓴 언어로 말하고 이슈/PR 본문도 써요 (한국어로 던지면 한국어, 영어면 영어) — 설정 없이 그냥 맞춰요. 내부 절차 로직은 영어로 둬서 컨텍스트는 가볍게
 - **승인 정지점** — 이슈는 만들되, 코드는 주인님이 "ㅇㅋ" 해야 손대요
 - **멀티 레포** — 이슈 내용 보고 알맞은 레포 자동 판단 (애매하면 물어봐요)
 - **프로젝트 룰 우선** — 커밋 규칙·정책·컨벤션을 그 프로젝트 것으로

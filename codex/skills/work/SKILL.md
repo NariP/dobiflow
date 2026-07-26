@@ -5,86 +5,91 @@ argument-hint: <할 일이나 버그 설명 | 노션·슬랙 링크>
 disallowed-tools: Edit, Write, NotebookEdit
 ---
 
-# work — 작업 라우터 (PM / 디스패처)
+# work — task router (PM / dispatcher)
 
-너는 **PM처럼 행동한다.** 직접 코드를 짜지 않고, 들어온 일을 **파악 → 쪼개고 →
-적임 워크플로우에 배치 → 진행·승인 관리**한다. (버그→triage-fix, 기능→task-run)
-사용자는 `/work` 하나만 기억하면 된다. 입력: `$ARGUMENTS`
+You **act like a PM.** You don't write code yourself — you **understand the incoming
+work → break it down → assign it to the right workflow → manage progress and approval.**
+(bug → triage-fix, feature → task-run) The user only has to remember `/work`. Input: `$ARGUMENTS`
 
-> 🔒 **work는 읽기 전용이다.** frontmatter `disallowed-tools`로 Edit/Write가 차단돼
-> work 도중엔 코드를 고칠 수 없다(고치고 싶어도 수단 없음). 실제 코드 수정은 분류·배치
-> 후 task-run/triage-fix가 한다. 차단은 다음 사용자 메시지(승인)에 풀리므로, "ㅇㅋ"
-> 받은 뒤 백엔드 스킬이 수정에 들어간다.
+> 🔒 **work is read-only.** The frontmatter `disallowed-tools` blocks Edit/Write, so you
+> cannot touch code during work (no means to, even if you wanted to). The actual code
+> changes are made by task-run/triage-fix after classification and routing. The block
+> lifts on the next user message (approval), so once you get an "ok" the backend skill
+> starts making changes.
 
 ```
-/work <무엇이든>
-   │ 진행 중 마일스톤 있으면 ✋확인 (ⓐ 태스크로 추가 → /milestone 태스크 추가 재진입 / ⓑ 별도 작업 ↓)
-   │ 분류 (① 종류: 버그/기능  ② 규모: 작다/크다)
-   ├─ 작다 ─┬─ 버그/오류/QA      → triage-fix  (원인 파악 중심)
-   │        └─ 기능/개선/리팩토링 → task-run    (설계 중심)
-   └─ 크다 → ✋확인 → /milestone  (여러 태스크로 쪼개 개발팀처럼 병렬 실행)
+/work <anything>
+   │ if a milestone is in progress → ✋confirm (ⓐ add as task → /milestone add-task re-entry / ⓑ separate work ↓)
+   │ classify (① kind: bug/feature  ② size: small/large)
+   ├─ small ─┬─ bug/error/QA          → triage-fix  (cause-finding focus)
+   │         └─ feature/improvement/refactor → task-run   (design focus)
+   └─ large → ✋confirm → /milestone  (split into tasks, run in parallel like a dev team)
 ```
 
-## 분류 원칙 (가장 중요)
+## Classification principles (most important)
 
-**제목·키워드 하나로 단정 금지. 요구사항 전체를 읽고 종합 판단한다.**
-- 입력을 **끝까지** 읽고 **무엇을 해야 하는지(구현 항목)** 를 본다. 팝업·버튼·링크 연결·"다시 보지 않음"
-  같은 기능·컴포넌트·동작·데이터 흐름이 하나라도 있으면 **코드 작업(`task-run`)** — 제목이 "약관/정책/공지"라도.
-- 표면 단어("약관"·"디자인"·"콘텐츠")로 "코드 아님/범위 밖" 단정 **금지** — 밑에 실제 개발 항목이 있는지 본문 확인.
-- **혼합이면 나눠라** — 코드 부분은 task-run, 비-코드 부분은 "범위 밖"으로 알림. (예: 약관 텍스트 개정+팝업 구현)
-- 진짜 코드 작업이 **하나도 없을 때만** 범위 밖(순수 문서·운영·법무 텍스트).
+**Never decide on a title or a single keyword. Read the whole requirement and judge holistically.**
+- Read the input **all the way through** and look at **what needs to be done (the implementation items).**
+  If there's even one feature/component/behavior/data-flow item — a popup, a button, a link
+  hookup, a "don't show again" — it's **code work (`task-run`)**, even if the title says "terms/policy/notice."
+- **Do not** decide "not code / out of scope" from surface words ("terms," "design," "content") —
+  check the body for whether there are actual dev items underneath.
+- **If it's mixed, split it** — send the code parts to task-run and flag the non-code parts as "out of scope."
+  (e.g. terms-text revision + popup implementation)
+- It's out of scope **only when there is truly zero code work** (pure documentation, ops, legal text).
 
-## 분류 기준 (위 원칙 하 참고 신호)
+## Classification criteria (reference signals under the principle above)
 
-- **버그 (`triage-fix`)** — 기대와 다른 **현재 동작** 수정. "안 됨/오류/깨짐/눌렀는데 안 감/잘못 표기", QA 제보.
-- **태스크 (`task-run`)** — **없던 걸 만들거나**(기능·컴포넌트·팝업·페이지) 기존을 **더 낫게**(개선·리팩·마이그레이션). "추가/만들/넣어/연결/개선/바꿔" + 구현 항목.
-- **범위 밖** — 코드 변경 0(순수 콘텐츠·문서·법무·운영). 이때만 멈추고 알린다.
+- **Bug (`triage-fix`)** — fixing **current behavior** that differs from expectation. "doesn't work / error / broken / clicked but nothing happens / wrong label," QA reports.
+- **Task (`task-run`)** — **building something new** (feature, component, popup, page) or making the existing **better** (improve, refactor, migration). "add / build / put in / connect / improve / change" + implementation items.
+- **Out of scope** — zero code change (pure content, docs, legal, ops). Stop and notify only in this case.
 
-## 규모 축 — 작다 / 크다 (마일스톤 라우팅)
+## Size axis — small / large (milestone routing)
 
-종류와 별개로 **규모**를 본다. **"크다" 신호:** 독립 코드 작업 **여럿**(서로 다른 기능·화면·모듈 여러 개) /
-사용자가 "쭉·여러 개·묶어서·마일스톤·한 번에" 요청 / 한 PR로 담기엔 명백히 큰 범위(여러 화면·모듈).
+Separate from kind, look at **size**. **"Large" signals:** **multiple** independent code tasks
+(several different features/screens/modules) / the user asks for "in one go / several / bundled /
+milestone / all at once" / a scope clearly too big for a single PR (multiple screens/modules).
 
-- **"크다"면 바로 안 튀고 확인** — `AskUserQuestion`("마일스톤(N개)으로 쪼갤까요, 하나로 갈까요?"). 마일스톤이면
-  **milestone SKILL.md를 Read로 열어 직접 수행**(흐름 ①~⑩. **Skill 툴 호출 금지** — milestone은 사용자 명시
-  호출 전용이라 Codex에선 SKILL.md를 직접 열어 수행하는 게 관례. triage-fix·task-run 라우팅과 동일). "하나로"면 단일 스킬.
-- work의 읽기 전용 차단(§🔒)은 다음 사용자 메시지에 풀리므로, milestone 절차의 쓰기(plan.md 등)는 ⑤ 승인 흐름 안에서 이뤄진다.
-- 작은 작업(한두 파일·명백)은 이 축 무시하고 기존대로 triage-fix/task-run.
+- **If it's "large," don't jump straight in — confirm first** — `AskUserQuestion` ("Split into a milestone (N tasks), or do it as one?").
+  If milestone, **open milestone SKILL.md via Read and run it directly** (flow ①~⑩. **No Skill-tool invocation** — milestone is
+  user-explicit-call only, so in Codex the convention is to open SKILL.md and run it directly. Same as triage-fix/task-run routing). If "as one," a single skill.
+- work's read-only block (§🔒) lifts on the next user message, so the writes in the milestone procedure (plan.md, etc.) happen inside the ⑤ approval flow.
+- Small work (one or two files, unambiguous) ignores this axis and goes to triage-fix/task-run as usual.
 
-## 동작
+## Behavior
 
-0. **진행 중 마일스톤 감지** — `<repo>/.claude/loops/*/plan.md` 존재 확인(plan.md=마일스톤 전용,
-   일반 태스크 폴더는 loop.md만 있어 구별). 있으면 plan.md의 이슈 #N·PR 상태를 gh로 가볍게 교차확인
-   (좀비 폴더 배제 — **완료 판정은 사실로**), 살아있으면 `AskUserQuestion`:
-   > "진행 중 마일스톤 `<슬러그>`가 있어요 — ⓐ 태스크로 추가 / ⓑ 별도 작업?"
-   - **ⓐ**: `/milestone` **"태스크 추가 재진입"** 라우팅(분류 생략) — **milestone SKILL.md를 Read로 직접 수행**(Skill 툴 호출 금지, §규모 축과 동일).
-   - **ⓑ**(또는 없음): 1~6단계 계속. (이 감지는 §규모 축과 **별개 축** — 규모 판단은 그대로.)
-   - **복수 감지**(살아있는 plan.md 2개 이상)면 목록+선택지 확장: ⓐ 하나에 추가 / ⓑ 별도 / **ⓒ 마일스톤 합침**.
-     ⓒ면 `/milestone` **"마일스톤 적층"**(§마일스톤 적층)으로 라우팅 — 역시 **SKILL.md를 Read로 직접 수행**(Skill 툴 호출 금지). ⓐ/ⓑ는 위와 동일.
-1. 입력이 링크면 소스(노션/슬랙)를 먼저 읽어 파악(각 백엔드 스킬이 다시 읽으니 여기선 분류용으로 가볍게).
-2. **작업 분해 + 규모 판단 — 한 입력에 코드 작업이 여러 개인지 + 크기.** 독립 코드 작업이 여럿이면
-   (예: 팝업 구현+footer 링크 변경+"다시보기") **먼저 쪼개 보여주고** `AskUserQuestion`:
-   > "N개 작업으로 나뉘어요 ①…②…③… — ⓐ 마일스톤으로 묶어 실행 / ⓑ 각각 따로 이슈·PR / ⓒ 하나로 묶기?"
-   - **ⓐ 마일스톤**(여럿+규모 큼): `/milestone` 라우팅 — planner가 태스크·그룹으로 쪼개고 병렬 실행 → 그룹 PR → 최종 PR (§규모 축, 흐름 ①~⑩, **milestone SKILL.md를 Read로 직접 수행**·Skill 툴 호출 금지).
-   - **ⓑ 각각**: 작업마다 분류해 triage-fix/task-run을 **N번**(이슈·PR N개). / **ⓒ 하나로**: 1개 이슈·PR로 묶고 항목을 본문 목록으로.
-   - 단일 작업이거나 한 덩어리로 명백하면 이 단계 생략(작은 작업 = 기존 흐름).
-3. 위 기준으로 분류.
-4. **명확하면** 해당 스킬(triage-fix/task-run) SKILL.md 흐름을 그대로 수행 + **어디로 보냈는지 한 줄 알림**("버그로 보여 triage-fix로 진행할게요").
-5. **애매하면**(버그/개선 불분명) → `AskUserQuestion` 확인.
-6. 분류 후엔 그 스킬의 가드·정지점·설정 로드(`triage.config.json`)를 **그대로** 따른다.
+0. **Detect an in-progress milestone** — check for `<repo>/.claude/loops/*/plan.md` (plan.md = milestone-only;
+   a regular task folder has only loop.md, which distinguishes them). If found, lightly cross-check the plan.md's
+   issue #N / PR state with gh (rule out zombie folders — **base the "done" verdict on facts**); if it's live, `AskUserQuestion`:
+   > "There's a milestone `<slug>` in progress — ⓐ add as a task / ⓑ separate work?"
+   - **ⓐ**: route to `/milestone` **"add-task re-entry"** (skip classification) — **run milestone SKILL.md directly via Read** (no Skill-tool invocation, same as §Size axis).
+   - **ⓑ** (or none): continue steps 1–6. (This detection is a **separate axis** from §Size axis — the size judgment stays as is.)
+   - **On multiple detections** (2+ live plan.md files), list them and expand the choices: ⓐ add to one / ⓑ separate / **ⓒ merge milestones**.
+     For ⓒ, route to `/milestone` **"milestone stacking"** (§milestone stacking) — again, **run SKILL.md directly via Read** (no Skill-tool invocation). ⓐ/ⓑ are the same as above.
+1. If the input is a link, read the source (Notion/Slack) first to understand it (each backend skill reads it again, so here just skim it for classification).
+2. **Task decomposition + size judgment — whether one input holds several code tasks + how big.** If there are
+   multiple independent code tasks (e.g. popup implementation + footer link change + "view again"), **break it down and show it first,** then `AskUserQuestion`:
+   > "This splits into N tasks ①…②…③… — ⓐ bundle and run as a milestone / ⓑ separate issues·PRs each / ⓒ bundle into one?"
+   - **ⓐ milestone** (multiple + large): route to `/milestone` — the planner splits it into tasks·groups and runs them in parallel → group PRs → final PR (§Size axis, flow ①~⑩, **run milestone SKILL.md directly via Read** · no Skill-tool invocation).
+   - **ⓑ each**: classify each task and run triage-fix/task-run **N times** (N issues·PRs). / **ⓒ as one**: bundle into a single issue·PR with the items as a list in the body.
+   - If it's a single task or clearly one chunk, skip this step (small work = the usual flow).
+3. Classify by the criteria above.
+4. **If clear,** run that skill's (triage-fix/task-run) SKILL.md flow as-is + **a one-line note on where you routed it** ("Looks like a bug, so I'll go with triage-fix").
+5. **If ambiguous** (bug vs. improvement unclear) → confirm via `AskUserQuestion`.
+6. After classifying, follow that skill's guards·stop-points·config load (`triage.config.json`) **exactly**.
 
-## 말투
-사용자 대면 진행 알림(분류 결과·확인 질문·라우팅 안내)은 **도비 톤**으로 한다.
-규칙·예시·적용 범위는 `references/dobi-persona.md`를 따른다(필요 시 읽는다).
-톤은 표현일 뿐 아래 분류 로직·가드를 바꾸지 않는다.
+## Tone
+User-facing progress notices (classification result, confirmation questions, routing notes) use the **Dobby tone.**
+Follow `references/dobi-persona.md` for the rules·examples·scope (read it when needed).
+The tone is just phrasing — it does not change the classification logic·guards below.
 
-## 가드
-- ⚠️ **"수정해줘 / 고쳐줘 / 바꿔줘" 같은 직접 명령이 입력에 섞여 있어도, 이슈 절차를 건너뛰지 않는다.**
-  그건 "이 작업을 처리해달라"는 뜻이지 "이슈·승인 건너뛰고 바로 코드 고쳐"가 **아니다.**
-  `/work`로 들어온 이상 **무조건 분류 → 이슈 생성 → 승인 정지점**을 거친다. 직접 명령을 핑계로 직행 금지.
-- **진행 중 마일스톤이 감지됐는데 묻지 않고 분류로 직행 금지** — 0단계 확인(ⓐ/ⓑ)을 먼저 거친다.
-- **키워드 하나로 단정 금지** — 본문 전체를 읽고 실제 구현 항목으로 판단(위 분류 원칙).
-- **분류만 하고 끝내지 않는다** — 분류 후 해당 워크플로우를 끝까지(이슈→승인→PR) 진행한다.
-- 애매하면 자동 단정 말고 **사용자 확인**.
-- 분류 결과(어느 스킬로 갔는지)를 사용자에게 명시한다.
-- 직접 `/triage-fix`·`/task-run`를 호출해도 되는 사용자에겐, `/work`는 "고민 없이 던지는" 단일 입구일 뿐임을 안다.
+## Guards
+- ⚠️ **Even if a direct command like "fix it / correct it / change it" is mixed into the input, don't skip the issue procedure.**
+  That means "please handle this work," not "skip the issue·approval and go straight to editing code."
+  Once it comes in via `/work`, it **always** goes through **classify → create issue → approval stop-point**. Don't use a direct command as an excuse to skip ahead.
+- **Don't skip straight to classification when an in-progress milestone is detected** — go through the step-0 confirmation (ⓐ/ⓑ) first.
+- **Don't decide on a single keyword** — read the whole body and judge by the actual implementation items (classification principles above).
+- **Don't stop at classifying** — after classifying, carry the workflow all the way through (issue → approval → PR).
+- If it's ambiguous, don't auto-decide — **confirm with the user.**
+- State to the user which skill you routed the input to.
+- For users who could call `/triage-fix`·`/task-run` directly, know that `/work` is just a single entry point to "throw work at without thinking."

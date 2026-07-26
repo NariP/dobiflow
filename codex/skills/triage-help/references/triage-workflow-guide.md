@@ -1,215 +1,216 @@
-# Triage 워크플로우 가이드
+# Triage Workflow Guide
 
-> 이슈/작업을 받아 **파악 → GitHub 이슈 → 승인 → 구현 루프(구현→검증→자가체크) → PR**까지
-> 로컬에서 자동으로 굴리는 전역 도구 모음. 어느 프로젝트에서나 쓸 수 있다.
-
----
-
-## 🚀 빠른 시작 (3단계)
-
-```
-1.  /triage-init      ← 새 프로젝트에서 딱 1번 (설정 자동 생성)
-2.  /work <할 일>      ← 평소엔 이것만. 버그든 기능이든 던지면 알아서 분류
-3.  "ㅇㅋ"             ← 만든 이슈/설계 보고 승인하면 → PR까지 자동
-```
-
-처음 쓰는 프로젝트면 **`/triage-init` 먼저**. 그다음부턴 `/work`만 기억하면 된다.
+> A global toolkit that takes an issue/task and automatically runs it locally, all the way from
+> **understand → GitHub issue → approval → implementation loop (implement → verify → self-check) → PR**.
+> Works in any project.
 
 ---
 
-## 📋 명령어 한눈에
+## 🚀 Quick start (3 steps)
 
-| 명령 | 언제 | 무엇을 |
+```
+1.  /triage-init      ← just once per new project (auto-generates the config)
+2.  /work <task>      ← everyday, just this. Throw a bug or feature at it and it classifies automatically
+3.  "ok"              ← review the created issue/design, approve → runs all the way to the PR
+```
+
+For a project you're using for the first time, **`/triage-init` first**. After that, just remember `/work`.
+
+---
+
+## 📋 Commands at a glance
+
+| Command | When | What |
 |------|------|--------|
-| **`/work`** | 뭘 할지 정해졌을 때 (대부분) | 입력 보고 버그/기능·규모 분류 → 알맞은 워크플로우로 |
-| `/triage-fix` | 버그인 게 확실할 때 | 원인 파악 → 이슈 → 수정 → PR |
-| `/task-run` | 기능 추가·개선·리팩토링 | 설계 → 이슈 → 구현 → PR |
-| `/milestone` | 큰 업무 (여러 태스크로 쪼갤 규모) | 태스크 분할·그룹핑 → 그룹 병렬 실행 → 그룹 PR → 최종 PR |
-| `/triage-status` | 지금 뭐가 떠 있나 보고 싶을 때 | 열린 이슈·진행 PR 목록 (조회만) |
-| `/triage-init` | 새 프로젝트 처음 / 설정 갱신 | `.claude/triage.config.json` 생성 |
+| **`/work`** | When you know what to do (most of the time) | Reads the input, classifies bug/feature · size → routes to the right workflow |
+| `/triage-fix` | When it's clearly a bug | Find cause → issue → fix → PR |
+| `/task-run` | Feature add · improvement · refactor | Design → issue → implement → PR |
+| `/milestone` | Big work (large enough to split into multiple tasks) | Task split · grouping → parallel group execution → group PR → final PR |
+| `/triage-status` | When you want to see what's currently open | List of open issues · in-progress PRs (read-only) |
+| `/triage-init` | New project first time / config refresh | Creates `.claude/triage.config.json` |
 
-> 💡 **`/work` 하나로 충분.** `/triage-fix`·`/task-run`를 직접 부를 수도 있지만,
-> 헷갈리면 그냥 `/work`에 던지면 알아서 보낸다.
-
----
-
-## 🔤 입력은 뭐든 OK
-
-세 가지 다 받는다:
-- **노션 링크** — QA 페이지 URL → 자동으로 내용 읽음
-- **슬랙 링크** — 메시지/스레드 URL → 자동으로 읽음
-- **그냥 텍스트** — "대시보드에서 로고 눌렀는데 안 감" 처럼 말로 설명
-
-예시:
-```
-/work https://notion.so/...QA페이지...
-/work 후보지 비교 표에 정렬 기능 추가해줘
-/triage-fix 로그인하면 흰 화면 떠
-```
+> 💡 **`/work` alone is enough.** You can call `/triage-fix` · `/task-run` directly, but
+> if you're unsure, just throw it at `/work` and it routes for you.
 
 ---
 
-## 🔄 전체 흐름 (버그 예시)
+## 🔤 Any input is OK
+
+It takes all three:
+- **Notion link** — a QA page URL → reads the content automatically
+- **Slack link** — a message/thread URL → reads it automatically
+- **Plain text** — describe it in words, like "clicked the logo on the dashboard and nothing happened"
+
+Examples:
+```
+/work https://notion.so/...QA page...
+/work add sorting to the candidate-site comparison table
+/triage-fix login shows a blank white screen
+```
+
+---
+
+## 🔄 Full flow (bug example)
 
 ```
-/work 대시보드 로고 눌렀는데 안 감
+/work clicked the dashboard logo and nothing happened
    │
-   ├─ 0. 마일스톤 감지 → 진행 중 마일스톤 있으면 ✋ "태스크로 추가할까요?" (ⓐ면 마일스톤 재진입)
-   ├─ 1. 분류        → "버그 같아요, triage-fix로 진행"
-   ├─ 2. 원인 파악    → issue-triage가 코드 추적 (Serena LSP / grep)
-   ├─ 3. GitHub 이슈  → 생성 + 전체 URL 보고
-   ├─ 4. ✋ 승인       → "이슈 #N 만들었어요: <URL> / 레포·base 확인 / 고칠까요?"
-   │                     ← 너가 "ㅇㅋ"
-   ├─ 5. 구현 루프 🔁 → implementer 에이전트가 구현 + 린트·테스트
-   │                    → 정책(policy-checker) + 코드품질(code-reviewer) 병렬 검사
-   │                    → ❌ 지적 나오면 자동 재구현 (최대 3회, 설정 가능)
-   └─ 6. PR          → 검사 통과 후 커밋 + 생성 + 리뷰어 지정 + 전체 URL 보고
+   ├─ 0. Milestone detect → if a milestone is in progress ✋ "Add as a task?" (ⓐ → re-enter the milestone)
+   ├─ 1. Classify      → "Looks like a bug, proceeding with triage-fix"
+   ├─ 2. Find cause    → issue-triage traces the code (Serena LSP / grep)
+   ├─ 3. GitHub issue  → create + report the full URL
+   ├─ 4. ✋ Approval     → "Created issue #N: <URL> / confirm repo · base / shall I fix it?"
+   │                       ← you say "ok"
+   ├─ 5. Impl loop 🔁  → the implementer agent implements + lint · test
+   │                    → policy (policy-checker) + code quality (code-reviewer) checks in parallel
+   │                    → ❌ if issues are raised, auto re-implement (up to 3 times, configurable)
+   └─ 6. PR           → after checks pass: commit + create + assign reviewer + report the full URL
 ```
 
-**기능(task-run)은 2·4단계가 다름:** "원인 파악" 대신 **"설계"**, 승인도
-"이렇게 만들까요?"(방향 합의). 큰 작업이면 **plan mode**를 권한다.
+**For features (task-run) steps 2 · 4 differ:** instead of "find cause" it's **"design"**, and approval is
+"shall I build it this way?" (agreeing on direction). For big work, **plan mode** is recommended.
 
 ---
 
-## 🏗️ 큰 업무는 마일스톤 (개발팀처럼 나눠 실행)
+## 🏗️ Big work becomes a milestone (split and run like a dev team)
 
-`/work`가 규모가 **크다**고 판단하면(독립 코드 작업 여럿·여러 화면·모듈) 확인 후
-`/milestone`로 보낸다. 큰 업무를 작은 태스크로 쪼개고, 관련끼리 **그룹**으로 묶어
-(그룹 = 개발자 1명) **그룹은 병렬·그룹 내는 순차**로 굴린다.
+When `/work` judges the scope to be **big** (several independent code tasks · multiple screens · modules), it confirms and
+routes to `/milestone`. It splits the big work into small tasks, bundles related ones into **groups**
+(a group = one developer), and runs **groups in parallel · tasks within a group sequentially**.
 
 ```
-/milestone <큰 업무>
+/milestone <big work>
    │
-   ├─ ① 파악·분할     → planner가 태스크로 쪼개고 파일계획·완료기준(테스트)·그룹핑
-   ├─ ⑤ ✋ 승인       → 계획 + 실행모드[중지/바이패스]를 한 번에 확정
-   ├─ ⑥⑦ 이슈·브랜치  → Milestone·이슈·마일스톤 브랜치·그룹 브랜치·worktree (git-writer)
-   ├─ ⑧ 그룹 실행 🔁  → 각 태스크는 정식 구현 루프 재사용, 그룹 브랜치에 커밋
-   ├─ ⑨ 그룹 PR       → 머지 전 검증(qa full_verify, merge-queue식) 통과해야 마일스톤에 머지
-   └─ ⑩ ✋ 최종 PR    → 마일스톤 → main PR, main 머지는 항상 사람이
+   ├─ ① Understand · split → planner splits into tasks with file plans · completion criteria (tests) · grouping
+   ├─ ⑤ ✋ Approval        → confirm the plan + execution mode [stop / bypass] in one go
+   ├─ ⑥⑦ Issues · branches → Milestone · issues · milestone branch · group branches · worktree (git-writer)
+   ├─ ⑧ Group execution 🔁 → each task reuses the formal implementation loop, committing to the group branch
+   ├─ ⑨ Group PR          → must pass pre-merge verification (qa full_verify, merge-queue style) to merge into the milestone
+   └─ ⑩ ✋ Final PR        → milestone → main PR; merging into main is always done by a human
 ```
 
-**브랜치 3계층** `main → milestone/<슬러그> → group/<슬러그>-<그룹>` (태스크별 브랜치 없음).
-**막히거나 통합이 깨지면** 뚫고 가지 않고 **새 이슈로 남기고** 계속 — 성공한 태스크만 커밋된다.
-**진행 중에 새 수정사항이 들어오면** `/work`가 마일스톤을 감지해 **태스크로 추가**할 수 있다 —
-재계획 승인 ✋ 후 이슈를 만들고 해당 그룹에서 실행, 그룹 PR → 최종 PR 흐름에 합류한다.
+**Three branch layers** `main → milestone/<slug> → group/<slug>-<group>` (no per-task branches).
+**If it gets stuck or integration breaks**, it doesn't force through — it **leaves a new issue** and continues; only successful tasks get committed.
+**If a new fix comes in mid-flight**, `/work` detects the milestone and can **add it as a task** —
+after re-plan approval ✋ it creates an issue, runs it in the relevant group, and joins the group PR → final PR flow.
 
-**진행 중 마일스톤 위에 또 마일스톤(적층)도 된다** — A가 main 머지를 기다리는 동안 후속
-마일스톤 C를 A 브랜치를 base로 시작한다(base 선택은 승인 정지점에서 함께 확인). 번호 ①~⑥은
-`/milestone`의 "마일스톤 적층" 절차와 대응한다.
+**You can also stack another milestone on top of one in progress (stacking)** — while A waits for its main merge, a follow-up
+milestone C starts based on A's branch (the base choice is confirmed together at the approval stop point). Numbers ①~⑥ correspond
+to the "milestone stacking" procedure in `/milestone`.
 
 ```
-main ────────────────▶ ⑤ 수렴: A→main 먼저, 그다음 C→main
- ├─ A (진행 중 마일스톤, 머지 대기)
- │   └─ C (후속 마일스톤, ① base=A) ◀── ② B의 살릴 태스크 체리픽 + full_verify
- │        · ③ C의 최종 PR base는 A(main 아님) — A 머지·브랜치 삭제 시 자동 retarget
- │        · ④ A가 전진하면 C에 주기적 머지-인 (stale 방지)
- │        · ⑤ C 머지는 A 원격 브랜치 삭제 후에 — retarget은 base 삭제 시에만 발동(먼저 머지하면 A로 들어감)
- └─ B (흡수됨) ──▶ ⑥ Milestone close·이슈 이관·브랜치 정리
+main ────────────────▶ ⑤ Converge: A→main first, then C→main
+ ├─ A (milestone in progress, awaiting merge)
+ │   └─ C (follow-up milestone, ① base=A) ◀── ② cherry-pick B's tasks worth keeping + full_verify
+ │        · ③ C's final PR base is A (not main) — auto-retargets when A merges · branch is deleted
+ │        · ④ as A advances, periodically merge-in to C (avoids staleness)
+ │        · ⑤ merge C only after A's remote branch is deleted — retarget only fires on base deletion (merge earlier and it goes into A)
+ └─ B (absorbed) ──▶ ⑥ Milestone close · issue transfer · branch cleanup
 ```
 
 ---
 
-## ✋ 승인 정지점 (안심 포인트)
+## ✋ Approval stop points (peace-of-mind points)
 
-- **이슈는 만들어지지만**, 그다음 **코드는 너가 "ㅇㅋ" 해야** 손댄다.
-- 승인 전엔 절대 수정 안 함. 방향이 틀렸으면 그때 고쳐 말하면 된다.
-- 이슈/PR 보고할 때 **레포·base 브랜치를 같이** 보여줌 (엉뚱한 데 올라가는 것 방지).
-
----
-
-## ⚙️ 설정 (`/triage-init`이 자동 생성)
-
-프로젝트마다 `.claude/triage.config.json`에 그 프로젝트 고유값이 들어간다:
-- 레포명, 기본 브랜치, 린트 명령, 테스트 명령
-- 정책 문서 목록, 컨벤션 문서, 기술 스택, 아키텍처
-- **커밋 규칙** (그 프로젝트 방식 우선 — Conventional이든 gitmoji든 한글이든)
-- 라벨/브랜치 접두사, CODEOWNERS 유무, Serena 사용 여부
-
-전부 `/triage-init`이 **자동 감지** + 레포 같은 위험한 값만 한 번 물어본다.
-(계정은 저장하지 않는다 — 현재 gh 로그인·git 설정을 그대로 신뢰. 멀티계정은 `gitto` 등이 처리)
-나중에 바뀌면 `/triage-init` 다시 돌리면 갱신(기존 설정은 보존).
+- **The issue does get created**, but after that **the code is only touched once you say "ok"**.
+- Nothing is modified before approval. If the direction is wrong, just say so and correct it then.
+- When reporting an issue/PR, it also shows the **repo · base branch** (prevents landing in the wrong place).
 
 ---
 
-## 🧩 특징
+## ⚙️ Config (`/triage-init` auto-generates it)
 
-- **전부 로컬 실행** — GitHub Actions 안 씀. 이슈/PR만 GitHub에, 파악·수정은 네 컴퓨터에서.
-  (Claude Code 구독으로 동작, API 추가 비용 0)
-- **멀티 레포** — 이슈 내용 보고 알맞은 레포 자동 판단 (애매하면 물어봄).
-- **코드 탐색** — Serena LSP(심볼 단위 정밀) 있으면 쓰고, 없으면 grep으로 폴백.
-- **구현 루프** — 구현(implementer)과 검사(policy-checker+code-reviewer)를 다른 에이전트가 맡고,
-  ❌ 지적이 나오면 자동으로 재구현. 그린이 될 때까지 돌고, 최대 횟수(기본 3회)를 넘기면
-  멈추고 보고한다 — 절대 억지로 PR 올리지 않음.
-- **반복은 싸게** — 2회차부터는 풀 리체크가 아니라 **직전 지적 + 이번에 바뀐 부분만 재검증**.
-  풀 빌드 같은 무거운 검증은 루프 안에서 반복하지 않고 APPROVE 시점에 1회만
-  (`loop.full_verify_command`, 설정 시).
-- **자가체크 분리** — 도메인 정책 검사(policy-checker)와 일반 코드리뷰(code-reviewer)를 따로.
-- **부채 테스트 감사** — 커밋·PR 전(마일스톤은 최종 PR 전 일괄)에 **이번 작업이 추가한 테스트만**
-  "깨지면 버그인가, 리팩토링인가" 기준으로 감사해 구현 세부 결합·자명·중복 테스트를 걷어낸다.
-  기존 테스트는 건드리지 않고, 제거 후 남은 테스트 green 재확인 — main에 부채가 안 들어간다.
-- **머지 후 정리(선택)** — PR 머지 후 "머지했어/정리해줘"라고 하면 머지 사실 확인 → (레포 관례 시) 태깅 →
-  머지된 로컬 브랜치·prunable worktree·좀비 loops 폴더 일괄 정리(미머지는 자동 보호).
-- **단일 작업 worktree(선택)** — config `worktree: true`면 버그/기능 단일 작업도
-  `.claude/worktrees/<이슈번호>` worktree에서 구현해 작업 중에도 메인 워킹트리를 점유하지 않는다
-  (기본 false — 의존성 설치 비용 있음, 생성 실패 시 현행 방식 폴백).
-- **이벤트 훅(선택)** — 이슈/PR 생성(`issue-created`·`pr-created`)과 구현 루프의
-  시작·반복·종료(`work-started`·`iteration-completed`·`work-finished`·`work-stopped`)마다
-  **네가 정의한 스크립트**를 실행. 알림·로그·여러 세션에서 도는 작업의 외부 수집에 쓴다
-  (README "이벤트 훅" 참고).
+Each project's own values go into `.claude/triage.config.json`:
+- Repo name, default branch, lint command, test command
+- Policy doc list, convention doc, tech stack, architecture
+- **Commit rules** (that project's style takes priority — Conventional, gitmoji, or Korean)
+- Label/branch prefixes, whether CODEOWNERS exists, whether Serena is used
+
+`/triage-init` **auto-detects** everything + asks just once about risky values like the repo.
+(It does not store accounts — it trusts the current gh login · git config as-is. Multi-account is handled by `gitto` etc.)
+If things change later, run `/triage-init` again to refresh (existing config is preserved).
+
+---
+
+## 🧩 Features
+
+- **Everything runs locally** — no GitHub Actions. Only issues/PRs go to GitHub; understanding · fixing happens on your machine.
+  (Runs on your Claude Code subscription, zero extra API cost)
+- **Multi-repo** — reads the issue content and picks the right repo automatically (asks if ambiguous).
+- **Code search** — uses Serena LSP (symbol-level precision) if available, falls back to grep otherwise.
+- **Implementation loop** — implementation (implementer) and checks (policy-checker + code-reviewer) are handled by different agents,
+  and ❌ if issues are raised it auto re-implements. It loops until green, and if it exceeds the max count (default 3) it
+  stops and reports — it never forces a PR up.
+- **Iteration is cheap** — from the 2nd round on, it's not a full re-check but **the previous issues + only what changed this round**.
+  Heavy verification like a full build isn't repeated inside the loop but done once at APPROVE time
+  (`loop.full_verify_command`, when set).
+- **Self-check separation** — domain policy checks (policy-checker) and general code review (code-reviewer) are kept separate.
+- **Debt-test audit** — before commit · PR (for milestones, in one batch before the final PR), it audits **only the tests this work added**
+  on the "if it breaks, is it a bug or a refactor?" criterion, stripping out implementation-detail-coupled, self-evident, and duplicate tests.
+  It doesn't touch existing tests, and re-confirms the remaining tests are green after removal — no debt lands on main.
+- **Post-merge cleanup (optional)** — after a PR is merged, say "merged / clean it up" and it confirms the merge → (if the repo's convention) tags →
+  batch-cleans merged local branches · prunable worktrees · zombie loops folders (unmerged is auto-protected).
+- **Single-task worktree (optional)** — with config `worktree: true`, even a single bug/feature task is implemented in a
+  `.claude/worktrees/<issue-number>` worktree, so it doesn't occupy the main working tree while you work
+  (default false — has a dependency-install cost; falls back to the current method if creation fails).
+- **Event hooks (optional)** — on issue/PR creation (`issue-created` · `pr-created`) and on the implementation loop's
+  start · iteration · end (`work-started` · `iteration-completed` · `work-finished` · `work-stopped`), it runs
+  **scripts you define**. Use it for notifications · logs · externally collecting work running across multiple sessions
+  (see README "Event hooks").
 
 ---
 
 ## ❓ FAQ
 
-**Q. `/work`랑 `/triage-fix`랑 뭐가 달라?**
-`/work`는 입구(분류기). 진행 중 마일스톤이 있으면 분류 전에 감지해 태스크 추가 여부를
-먼저 묻고, 버그면 `/triage-fix`, 기능이면 `/task-run`로 자동으로 보낸다.
-어디로 갈지 알면 직접 불러도 되고, 모르면 `/work`.
+**Q. What's the difference between `/work` and `/triage-fix`?**
+`/work` is the entry point (classifier). If a milestone is in progress, it detects it before classifying and first asks
+whether to add a task; then for a bug it routes to `/triage-fix`, for a feature to `/task-run`, automatically.
+If you know where it should go, call it directly; if not, use `/work`.
 
-**Q. 새 프로젝트에서 `/work` 했더니 이상해.**
-`/triage-init`을 안 했을 가능성. 먼저 `/triage-init`으로 설정을 만들자.
-(설정 없어도 기본값으로 동작은 하지만, 레포·계정·커밋 규칙이 안 맞을 수 있음.)
+**Q. I ran `/work` on a new project and it acted weird.**
+You probably didn't run `/triage-init`. Let's create the config with `/triage-init` first.
+(It works with defaults even without config, but the repo · account · commit rules may not match.)
 
-**Q. 만든 이슈/PR 어디서 봐?**
-보고할 때 **클릭 가능한 전체 URL**을 준다. 현황을 다시 보려면 `/triage-status`.
+**Q. Where do I see the created issue/PR?**
+When it reports, it gives a **clickable full URL**. To see the status again, use `/triage-status`.
 
-**Q. 큰 기능이라 설계부터 하고 싶은데?**
-`/task-run`(또는 `/work`)가 규모가 크다고 판단하면 **plan mode**를 권한다.
-plan mode에선 계획서를 먼저 쓰고 너 승인 후 구현.
+**Q. It's a big feature and I want to design first.**
+If `/task-run` (or `/work`) judges the scope to be big, it recommends **plan mode**.
+In plan mode it writes a plan first, then implements after your approval.
 
-**Q. 구현 루프가 최대 횟수(3회)를 돌고도 안 끝나면?**
-커밋·PR 없이 멈추고 상황을 보고한다 (작업 브랜치는 유지). 계속할지, 방향을 바꿀지,
-직접 볼지는 네가 정한다. 최대 횟수는 `triage.config.json`의 `loop.max_iterations`로 조절.
+**Q. What if the implementation loop runs the max count (3) and still isn't done?**
+It stops without commit · PR and reports the situation (the work branch is kept). Whether to continue, change direction,
+or look yourself is up to you. Adjust the max count with `loop.max_iterations` in `triage.config.json`.
 
-**Q. 커밋 메시지 형식은?**
-그 프로젝트 규칙을 따른다(`/triage-init`이 감지). Co-Authored-By는 절대 안 붙인다.
+**Q. What's the commit message format?**
+It follows that project's rules (`/triage-init` detects them). Co-Authored-By is never added.
 
-**Q. 이미 처리하던 작업 이어가려면?**
-대화 세션은 Claude Code 기본 `claude --resume` / `--continue`.
-GitHub에 쌓인 작업은 `/triage-status`로 목록 확인 후 해당 브랜치 체크아웃.
+**Q. How do I resume work already in progress?**
+For the conversation session, use Claude Code's built-in `claude --resume` / `--continue`.
+For work stacked on GitHub, check the list with `/triage-status` and check out the relevant branch.
 
-**Q. 여러 세션·레포에서 돌고 있는 작업을 한곳에 모으고 싶은데?**
-레포 단위 스냅샷은 `/triage-status`. 세션을 가로질러 실시간 수집하려면 **이벤트 훅** —
-루프 시작/종료마다 `~/.dobiflow/hooks/on-work-started.sh` 같은 네 스크립트가 호출되니
-거기서 외부 서비스로 보내면 된다 (README "이벤트 훅", `hooks/examples/` 템플릿 참고).
+**Q. I want to gather work running across multiple sessions · repos in one place.**
+For a per-repo snapshot, use `/triage-status`. To collect in real time across sessions, use **event hooks** —
+at each loop start/end, your script like `~/.dobiflow/hooks/on-work-started.sh` is called,
+so send it to an external service from there (see README "Event hooks", `hooks/examples/` templates).
 
 ---
 
-## 📂 구성 (참고)
+## 📂 Layout (for reference)
 
-플러그인 `dobiflow` 안에:
+Inside the `dobiflow` plugin:
 ```
 skills/   work · milestone · triage-fix · task-run · triage-status · triage-init · triage-help
-agents/   issue-triage · planner (계획 전담) · qa (테스트 실행·판정) · policy-checker · code-reviewer (읽기 전용) · implementer (구현 전담) · git-writer (쓰기 실행 전담)
-hooks/    hooks.json (PostToolUse 등록) · examples/ (사용자 훅 템플릿)
-scripts/  dobiflow-hook.sh (이슈/PR 자동 감지) · dobiflow-emit.sh (작업 생명주기 발행)
-docs/     triage-workflow-guide.md  (이 가이드)
+agents/   issue-triage · planner (planning) · qa (test run · verdict) · policy-checker · code-reviewer (read-only) · implementer (implementation) · git-writer (write execution)
+hooks/    hooks.json (registers PostToolUse) · examples/ (user hook templates)
+scripts/  dobiflow-hook.sh (auto-detects issues/PRs) · dobiflow-emit.sh (publishes work lifecycle)
+docs/     triage-workflow-guide.md  (this guide)
 ```
 
-각 프로젝트엔 설정만 생성된다 (`/triage-init`이 만듦):
+Each project only gets a config created (made by `/triage-init`):
 ```
-<프로젝트>/.claude/
-  ├── triage.config.json       # 프로젝트 설정
-  ├── loops/<이슈번호>/loop.md  # 구현 루프 작업 파일 (일회용 — PR 후 삭제, git 추적 안 함)
-  └── dobiflow-hooks/on-<이벤트>.sh # (선택·직접 작성) 프로젝트별 이벤트 훅
+<project>/.claude/
+  ├── triage.config.json       # project config
+  ├── loops/<issue-number>/loop.md  # implementation loop work file (single-use — deleted after PR, not git-tracked)
+  └── dobiflow-hooks/on-<event>.sh # (optional · write it yourself) per-project event hook
 ```

@@ -4,232 +4,200 @@ description: 일반 태스크(기능 추가·개선·리팩토링) 작업 — �
 argument-hint: <할 일 설명 | 노션·슬랙 링크>
 ---
 
-# task-run — 일반 태스크(기능/개선) 파악부터 PR까지
+# task-run — general tasks (feature/improvement) from grasp to PR
 
-버그가 아니라 **새 기능·개선·리팩토링** 같은 일반 작업을 처리한다. 입력: `$ARGUMENTS`
+Handles general work like **new features, improvements, and refactors** rather than bugs. Input: `$ARGUMENTS`
 
-`triage-fix`(버그)와 뼈대·설정은 같되, **"원인 파악" 대신 "설계"가 중심**이다.
-버그는 원인이 정답을 정하지만, 일반 태스크는 여러 방법이 있어 **설계 합의가 먼저**다.
+Shares the same skeleton and config as `triage-fix` (bugs), but **centers on "design" instead of "root-cause analysis."**
+For bugs the cause dictates the answer, but a general task has many possible approaches, so **design agreement comes first.**
 
-> 전역 스킬. 프로젝트 고유값은 `<repo>/.claude/triage.config.json`에서 읽는다(없으면 `/triage-init` 권장).
-
----
-
-## 진행 순서
-
-### 0단계 — 설정 로드
-`triage-fix`와 동일. cwd(또는 라우팅된 레포)의 `triage.config.json` 읽기.
-없으면 fallback(repo=git remote, default_branch=main, lint 감지, label_prefix="", loop.max_iterations=3, loop.full_verify_command 없음). 핵심값: `repo`, `default_branch`, `lint_command`, `test_command`, `convention_doc`, `tech_stack`, `commit_convention`, `branch_prefix`, `codeowners`, `serena`, `policy_docs`, `loop`, `models`.
-**서브에이전트 스폰 시 `{models}`가 있으면 `config.models[<agent>]`의 모델로 띄운다**(없으면 상속 — opt-in 오버라이드).
-**Serena 활성화도 `triage-fix` 0단계와 동일** — `serena=true`면 메인이 `mcp__serena__get_current_config`로 확인 후
-필요 시 `mcp__serena__activate_project <레포 절대경로>` 1회(실패 시 한 줄 알리고 계속). 멱등 확인은 **0단계·2단계
-위임 직전 두 시점에만** 수행한다(worktree 모드면 **5단계 worktree 준비 성공 직후** — activate 대상=worktree 절대경로 —
-를 더해 세 시점. 루프 내 반복 확인 아님) — Serena 서버는 세션당 1개·활성 프로젝트 1칸·서브 전원 공유.
-
-### 1단계 — 요구 읽기
-입력(텍스트/노션/슬랙)에서 **무엇을 만들/바꿀지** 파악. 모호하면 사용자에게 구체화 질문(추측 금지).
-
-### 1.5단계 — 레포 결정 (멀티레포 라우팅)
-`triage-fix`와 동일. 어느 레포 작업인지 확정(약한 매치 자동 금지 → 확인). **현재 cwd가 그 레포가 아닐 때만 `cd <레포경로>`를 단독으로 1회** 실행해 진입(이미 그 레포면 cd 안 함) → 그 레포 config. 진입 후의 명령은 `cd <경로> && ...`로 감싸지 말고 명령만 친다(compound cd는 매번 권한 확인을 띄움).
-
-### 2단계 — 관련 코드·영향 범위 파악 (issue-triage 위임)
-- 위임 직전 **Serena 멱등 확인**(0단계 활성화 절차)을 다시 수행한다 — 탐색 단계 진입 시점.
-- `issue-triage`에 위임(읽기 전용). 단 버그가 아니라 **"이 기능을 넣으려면 어디를 건드려야 하나 + 기존 패턴이 뭔가 + 영향 범위"**를 묻는다.
-- config(`serena`와 **레포 절대경로**, `convention_doc`, `tech_stack`) 전달. 기존에 비슷한 구현·재사용할 유틸이 있는지 우선 찾게 한다(새로 짜기 전에).
-  보고 첫머리의 `serena 폴백(사유)` 표기는 사용자 보고에 그대로 전파한다(조용히 삼키지 않는다).
-
-### 3단계 — 설계 (규모 따라 plan mode 자동)
-- **작은 작업**(한두 파일, 명백한 구현): 간단한 설계안(무엇을 어디에 어떻게)을 정리.
-- **큰 작업**(여러 파일·아키텍처 결정·여러 접근법): **plan mode 권유** — "이건 설계가 필요해 보여요, plan mode로 갈까요?" 하고, 동의 시 EnterPlanMode로 계획서 작성.
-- 설계엔 기존 패턴 재사용·config의 tech_stack·아키텍처를 반영한다.
-
-### 4단계 — GitHub 이슈 생성 + 설계 승인 ✋ (필수 정지점)
-- **메인이 작성**: 아래 **이슈 템플릿**으로 본문·제목(`{label_prefix}` + 원본)·라벨(`enhancement`/`feature`, 없으면 생략) 확정.
-- **git-writer 위임**으로 생성: 완성값(`repo={repo}`·`issue_title`·`issue_body`·`labels`)만 넘기면
-  `gh issue create` 실행 후 **URL만 반환**(장황한 출력은 서브에 갇힘). 반환 URL 확보(§git-writer 위임).
-- **설계안을 보여주고 승인받는다** (버그보다 이 단계가 더 중요 — 방향이 갈리므로):
-  > "이슈 #N 만들었어요: <전체 URL>
-  >  레포: {repo} / base: {default_branch}
-  >  승인하면 구현 루프(implementer 구현 → lint·테스트 → 자가체크, 최대 {loop.max_iterations}회)로 진행해요.
-  >  이렇게 설계했는데 이 방향으로 구현할까요?"
-- 명시적 승인 전 코드 수정 금지. 방향 바꾸자면 반영 후 재확인.
-- ⚠️ **범위·방법을 물어본 답은 "승인"이 아니다.** 1·3단계에서 범위/접근을 물어 답을 받았어도
-  그건 *설계 합의*일 뿐. **반드시 이 4단계의 "이대로 구현할까요?"에 대한 명시적 OK를 별도로
-  받아야** 5단계로 간다. 중간 질문 답을 승인으로 착각해 직행 금지.
-
-### 5단계 — 브랜치 + 구현 루프 🔁
-구조·loop.md 템플릿은 `triage-fix` 5단계와 **동일**(base 브랜치 파라미터화 포함) — 메인 세션은 루프 컨트롤러만
-(직접 구현 금지), 구현은 매 반복 `implementer` 서브에이전트가. task-run 고유 사항:
-- **준비**: base = `{base_branch}` 주입 시 그것(마일스톤 모드=그룹 브랜치), 아니면 `{default_branch}`. 단일 작업은
-  그 base에서 브랜치 `{branch_prefix.feat}<슬러그>`(기본 `feat/`, 리팩토링이면 적절한 prefix). 마일스톤 모드는 그룹
-  브랜치에 커밋만 쌓고 이슈 브랜치·PR 안 만듦(triage-fix 5·6단계 마일스톤 가드 동일).
-  config `worktree=true`면 **triage-fix 5단계 "worktree 준비" 분기 동일 적용**(**마일스톤 모드는 이 분기도 건너뜀** —
-  worktree는 `/milestone` ⑦이 그룹 단위로 준비, triage-fix 가드 동일) — `<repo>/.claude/worktrees/<이슈번호>`에
-  브랜치+worktree 생성(git-writer `op=add-worktree`) → `{milestone.install_command}` 있으면 의존성 설치 →
-  implementer·자가체크에 worktree 절대경로를 cwd로 전달(생성 실패 시 현행 폴백+한 줄 알림,
-  Serena 활성화 경로도 worktree — 안전 전제는 **한 세션 내**, 메인 레포 복귀는 기존 멱등 확인 담당.
-  기본 false면 현행 그대로).
-  `<repo>/.claude/loops/<이슈번호>/loop.md` 생성 — 완료 기준은 이슈의 **"✅ 완료 기준"** 체크리스트를
-  그대로 복사 (루프 중 수정 금지). **"관련 위치"에는 이슈 "📐 설계"의 변경 범위 + 2단계
-  issue-triage가 반환한 파일:줄 원본을 직접 복사** (이슈 본문은 요약이라 깎일 수 있으니 issue-triage 반환 전문을
-  넣는다 — 메인이 이미 갖고 있어 추가 토큰 0, implementer 재탐색 방지). `.git/info/exclude`에 `.claude/loops/`·`.claude/worktrees/` 추가(info/exclude는 worktree 간 공유라 1회면 충분).
-  준비가 끝나면 **이벤트 발행**: `work-started` — 인자 `branch=<브랜치명> title="<이슈 제목>" issue_url=<이슈 전체 URL>` (§이벤트 발행).
-- **루프 (최대 `{loop.max_iterations}`회, 기본 3):**
-  1. `implementer` 위임 — loop.md 경로 + 이번 반복 지시(1회차 = 4단계에서 승인된 **설계**,
-     2회차부터 = 직전 지적사항) + config(`convention_doc`·`tech_stack`·`lint_command`·`test_command`·`serena`)
-     + **`change_map_path`**(loop.md 폴더의 `change-map.md`). **기존 패턴·컨벤션 준수**(새 추상화 남발 금지)를 지시에 명시.
-     **완료 기준을 만족하는 테스트를 작성**하고 lint를 통과시켜 보고 + **change-map을 그 경로에 1회 남긴다**(테스트 실행·판정은 qa 몫).
-  2. 자가체크 — `policy-checker`+`code-reviewer`+`qa` **3개 병렬**(읽기 전용). `{policy_docs}`·`{convention_doc}`·`{tech_stack}`·`{serena}` 전달,
-     qa엔 **완료기준(loop.md)+`{test_command}`** 전달(테스트 감사·실행·판정, verify.log). `{models}` 있으면 각 모델로 스폰.
-     **변경 파일 경로 목록 + `change_map_path`를 전달**한다(implementer 보고의 "변경 파일" 필드 + change-map 경로).
-     3축은 **change-map을 먼저 읽고 의심 지점만 원본 확인**한다. **`git diff` 전문을
-     프롬프트에 넣지 말 것** — diff가 필요하면 checker가 자기 Read로 해당 파일을 연다(컨텍스트 절약).
-     **1회차 = 전체 검사, 2회차부터 = 재검증 모드** — 직전 지적사항 + 이번 회차 **변경 파일 경로**(+갱신된 change_map_path)만
-     전달해 "지적 해소 여부 + 변경의 새 위반"만 본다 (풀 리체크 금지). qa 불통과(테스트 실패·부실)도 REQUEST_CHANGES.
-     서브 보고의 `serena 폴백(사유)` 표기는 사용자 보고에 전파한다.
-  3. 판정 — ❌위반(policy·code)·qa 불통과 = **REQUEST_CHANGES**(지적사항 loop.md 기록 후 재위임) / ⚠️뿐이어도 실질 회귀·
-     데이터 손실·보안 노출이면 ❌로 승격 가능(사유 loop.md 기록) / ❌없음 = **APPROVE** —
-     `{loop.full_verify_command}` 있으면 여기서 1회 실행(풀 빌드 등, 실패 시 REQUEST_CHANGES로
-     다음 반복), 통과하면 ⚠️는 PR 셀프체크에 기록하고 5.5단계로 / implementer **막힘** = 중단·보고.
-     판정을 loop.md에 기록한 직후 **이벤트 발행**: `iteration-completed` — 인자
-     `iteration=<회차> verdict=<approve|request_changes|blocked>` (§이벤트 발행).
-- max 소진 시 커밋·PR 없이 중단·보고(WIP 브랜치 유지). **루프 안 커밋·push 금지.**
-- 루프 중단 시(막힘·max 소진) 보고 전에 **이벤트 발행**: `work-stopped` — 인자 `reason=<blocked|max-iterations>` (§이벤트 발행).
-
-### 5.5단계 — 부채 테스트 감사 (APPROVE 후 · 커밋 전)
-> **마일스톤 모드에선 이 단계도 건너뛴다** — 태스크 중엔 감사하지 않고 `/milestone` ⑩에서 일괄.
-
-main에 부채 테스트가 안 들어가게 **이번 루프가 추가한 테스트만** 감사한다(기존은 제거 제안도 금지).
-- **fast-path**: 추가 테스트 0건이면 분류 없이 바로 6단계로.
-- **판별**: "깨지면 **버그**인가 **리팩토링**인가?" — 동작 명세 검증=자산(유지), 구현 세부 결합·자명(tautological)·중복=부채(제거).
-- **절차**: 분류(qa 감사 결과 재사용 또는 메인 판단) → 부채 제거(implementer) → 남은 테스트 **1회** 재실행 green 확인(qa) → 6단계. red면 롤백·유지.
-- **부채 0건이면 그대로 6단계로.** 제거 내역(파일:테스트명+사유)은 PR 셀프체크에 기록.
-
-### 6단계 — 커밋 + PR (APPROVE 후에만 · git-writer 위임)
-> **마일스톤 모드에선 이 단계를 건너뛴다** — 태스크는 그룹 브랜치에 커밋만, 그룹·최종 PR은 `/milestone`이 만듦. 아래는 단일 작업 전용.
-
-**메인이 판단·작성**하고 실행은 git-writer가 한다.
-- **메인이 작성**: 커밋 메시지(**`{commit_convention}` 최우선**, 없으면 Conventional Commits — 보통 `feat:`/`refactor:`/`chore:`, **Co-Authored-By 금지**), PR 제목/본문(`Closes #N`), 리뷰어 목록(`{codeowners}` 기준·작성자 제외·없으면 빈 목록), 스테이징 지시(보통 `all`).
-- **git-writer 위임**: 위 완성값 + `repo={repo}`·`branch`·`base_branch={base_branch|default_branch}`(단일=`{default_branch}`)를 넘긴다.
-  5단계 worktree 준비가 **성공**했으면 `work_path=<worktree 절대경로>`도 함께 — add→commit→push를 그 경로에서(생성 실패 폴백 시엔 현행 경로).
-  git-writer가 `add→commit→push→gh pr create` 실행, **PR URL만 반환**. author는 현재 git 설정 그대로.
-  git-writer는 log/diff/코드를 읽지 않는다(메인이 다 완성해 넘겼으므로). 실패 보고 시 억지 재시도 없이 사용자에게.
-- 반환된 이슈·PR **전체 URL을 클릭 가능하게** 보고. worktree 모드였으면 **정리 안내 1줄**("머지 후 '머지했어'로
-  7단계 정리" 또는 즉시 `op=remove-worktree` 확인 — 미정리 시 이슈당 수백 MB 누적, info/exclude라 status에도 안 보임).
-  PR 후 `.claude/loops/<이슈번호>/` 삭제(일회용).
-- **이벤트 발행**: `work-finished` — 인자 `pr_url=<PR 전체 URL> iterations=<총 회차>` (§이벤트 발행).
-
-### 7단계 (선택) — 머지 후 정리
-PR **머지 후** 사용자가 "머지했어/정리해줘" 류로 요청할 때만 실행한다(자동 진입 없음).
-1. **사실 확인** — fetch로 `{default_branch}`에 머지 커밋이 실재하는지 확인(추정 금지). 미머지면 알리고 중단.
-   **마일스톤 판별**: `.claude/loops/`에 `plan.md`가 있는 폴더는 마일스톤이다 — 아래 sweep 대상에서 제외하고,
-   그 정리는 `/milestone` ⑩ "머지 후 정리" 절차로 라우팅한다(Milestone close 확인 ✋를 sweep이 우회하지 못하게).
-2. **태깅**(레포 관례가 있을 때) — 버전 bump PR이면 머지 커밋에 태그·push(git-writer `op=tag`). 관례 없으면 생략.
-3. **로컬 정리(sweep · git-writer)** — 이번 작업 것만이 아니라 **정리 가능한 것 전부**를, **worktree 제거 →
-   브랜치 삭제 순서로**(worktree가 체크아웃 중인 브랜치는 `-d`가 거부된다):
-   prunable worktree 전부 제거, 단일 작업 worktree(`.claude/worktrees/<이슈번호>`)는 **닫힌 이슈·머지된 브랜치의
-   것만** `op=remove-worktree`로 명시 제거(진행 중인 병행 작업 worktree는 클린 상태여도 건드리지 않음),
-   이어서 머지 완료된 로컬 브랜치 전부 삭제(`-d`만 — 미머지는 git이 거부해 자동 보호, 거부 목록은 보고),
-   worktree·브랜치 다 미커밋 변경 있으면 보고만, 이슈 닫힌 좀비 `.claude/loops/` 폴더 전부 삭제
-   (`plan.md` 있는 마일스톤 폴더 제외 — 1의 판별).
-
-테스트 감사는 여기서 하지 않는다 — 5.5단계에서 머지 전에 이미 끝났다.
+> Global skill. Project-specific values are read from `<repo>/.claude/triage.config.json` (if absent, `/triage-init` recommended).
 
 ---
 
-## git-writer 위임 (쓰기 실행)
-`triage-fix`와 동일. 이슈 생성(4단계)·커밋+PR(6단계)의 **실행**은 `git-writer` 서브에이전트가 한다 —
-`git log`/`diff`/`gh` 출력을 메인에 쌓지 않고 서브에 가둬 **컨텍스트를 아낀다**.
-- **메인이 판단·작성**(커밋 메시지·PR 본문·리뷰어·스테이징 결정), **git-writer는 실행만**.
-  git-writer는 코드·log·diff를 읽지 않는다 — 완성값을 메인이 넘겼으므로.
-- 넘기는 값: (이슈) `repo`·`issue_title`·`issue_body`·`labels` / (PR) `repo`·`branch`·`base_branch`·`commit_message`·`pr_title`·`pr_body`·`reviewers`·`stage`. 받는 값: URL만.
+## Procedure
 
-## GitHub 계정 (참고)
-dobiflow는 **현재 로그인된 gh 계정과 현재 git 설정을 그대로 신뢰**한다.
-계정 전환·멀티계정은 dobiflow 밖(예: `gitto`)에서 처리 — git-writer가 인증 주입 없이 평범하게 실행한다.
+### Step 0 — Load config
+Same as `triage-fix`. Read `triage.config.json` from the cwd (or the routed repo).
+If absent, fall back (repo=git remote, default_branch=main, lint auto-detect, label_prefix="", loop.max_iterations=3, no loop.full_verify_command). Key values: `repo`, `default_branch`, `lint_command`, `test_command`, `convention_doc`, `tech_stack`, `commit_convention`, `branch_prefix`, `codeowners`, `serena`, `policy_docs`, `loop`, `models`.
+**When spawning subagents, if `{models}` is set, launch them with the model from `config.models[<agent>]`** (absent → inherit — opt-in override).
+**Serena activation is also the same as `triage-fix` step 0** — if `serena=true`, the main session checks via `mcp__serena__get_current_config`, then
+runs `mcp__serena__activate_project <repo absolute path>` once if needed (on failure, note it in one line and continue). The idempotency check runs **only at two points: step 0 and just before the step 2
+delegation** (in worktree mode, add a third point — **right after the step 5 worktree setup succeeds** — with the activate target = worktree absolute path.
+Not a per-iteration recheck within the loop) — the Serena server allows 1 per session, 1 active-project slot, shared by all subagents.
 
-## 이슈 템플릿 (4단계)
+### Step 1 — Read the requirement
+From the input (text/Notion/Slack), grasp **what to build/change**. If ambiguous, ask the user a clarifying question (no guessing).
 
-```markdown
-## 🎯 목표
-<무엇을 만들/바꾸는지 1~3줄>
+### Step 1.5 — Determine the repo (multi-repo routing)
+Same as `triage-fix`. Confirm which repo the work targets (no auto-proceed on weak matches → confirm). **Only when the current cwd isn't that repo, run `cd <repo path>` alone once** to enter it (if already in that repo, don't cd) → that repo's config. After entering, run commands bare rather than wrapping them as `cd <path> && ...` (a compound cd triggers a permission prompt every time).
 
-## 📐 설계
-- 접근: <어떻게 — 핵심 방식>
-- 변경 범위: `path/...` (재사용할 기존 패턴/유틸이 있으면 명시)
-- (대안 있었으면) 왜 이 방식인지 한 줄
+### Step 2 — Grasp related code and impact scope (delegate to issue-triage)
+- Just before delegating, run the **Serena idempotency check** (the step 0 activation procedure) again — at the point of entering the exploration phase.
+- Delegate to `issue-triage` (read-only). But instead of a bug, ask **"where do I need to touch to add this feature + what are the existing patterns + what's the impact scope."**
+- Pass config (`serena` and the **repo absolute path**, `convention_doc`, `tech_stack`). Have it look first for existing similar implementations or reusable utilities (before writing new code).
+  The `serena fallback (reason)` note at the head of the report is propagated verbatim to the user report (don't swallow it silently).
 
-## ✅ 완료 기준
-- [ ] <이게 되면 끝 — 가능하면 "테스트: <검증 방법>" 형태로. implementer가 테스트 짜고 qa가 실행·판정>
-- (테스트로 못 담는 주관·시각 항목은 "PR 셀프체크:"로 표시해 사람이 최종 PR에서 확인)
+### Step 3 — Design (plan mode auto-triggered by scale)
+- **Small task** (one or two files, an obvious implementation): put together a simple design (what, where, how).
+- **Large task** (multiple files, architectural decisions, several approaches): **recommend plan mode** — "This looks like it needs design; shall we go to plan mode?" and, on agreement, write the plan via EnterPlanMode.
+- The design reflects reuse of existing patterns and the config's tech_stack and architecture.
 
-## 출처
-- 원본: <링크 또는 텍스트>
+### Step 4 — Create GitHub issue + design approval ✋ (mandatory stop point)
+- **Main session writes**: finalize the body, title (`{label_prefix}` + original), and labels (`enhancement`/`feature`, omit if absent) using the **issue template** below.
+- **Delegate to git-writer** to create it: pass only the finalized values (`repo={repo}`, `issue_title`, `issue_body`, `labels`), and it
+  runs `gh issue create` and **returns only the URL** (verbose output stays trapped in the subagent). Capture the returned URL (§git-writer delegation).
+- **Show the design and get approval** (this step matters more than for bugs — because the direction can diverge) —
+  show `#N` + full URL, `repo: {repo} / base: {default_branch}`, a one-line loop summary
+  (implementer implements → lint·tests → self-check, up to {loop.max_iterations} times), and ask "this is the design — shall I implement it this way?".
+- No code changes before explicit approval. If the direction changes, apply it and re-confirm.
+- ⚠️ **An answer to a scope/approach question is NOT "approval."** Even if you asked about scope/approach in steps 1·3 and got an answer,
+  that's only a *design agreement*. **You must get a separate explicit OK to this step 4 "shall I implement it this way?"** before going
+  to step 5. Don't mistake a mid-question answer for approval and jump straight in.
+
+### Step 5 — Branch + implementation loop 🔁
+The structure and loop.md template are **the same as `triage-fix` step 5** (including base-branch parameterization) — the main session is only the loop controller
+(no direct implementation); implementation is done each iteration by the `implementer` subagent. task-run specifics:
+- **Setup**: base = `{base_branch}` if injected (milestone mode = group branch), otherwise `{default_branch}`. A single task
+  branches off that base as `{branch_prefix.feat}<slug>` (default `feat/`, an appropriate prefix if it's a refactor). Milestone mode only stacks
+  commits on the group branch and creates no issue branch or PR (same as the triage-fix step 5·6 milestone guards).
+  If config `worktree=true`, **apply the same "worktree setup" branch as triage-fix step 5** (**milestone mode skips this branch too** —
+  worktree is prepared per-group by `/milestone` ⑦, same as the triage-fix guard) — create a branch+worktree at `<repo>/.claude/worktrees/<issue number>`
+  (git-writer `op=add-worktree`) → if `{milestone.install_command}` is set, install dependencies →
+  pass the worktree absolute path as cwd to implementer and the self-checks (on creation failure, fall back to the current path + a one-line note;
+  the Serena activation path is also the worktree — the safety premise is **within a single session**; returning to the main repo is handled by the existing idempotency check.
+  Default false keeps the current behavior).
+  Create `<repo>/.claude/loops/<issue number>/loop.md` — copy the completion criteria verbatim from the issue's **"Completion criteria"** checklist
+  (no edits during the loop). **In "Related locations," directly copy the change scope from the issue's "Design" + the file:line originals
+  returned by issue-triage in step 2** (the issue body is a summary and may be clipped, so put in the full issue-triage return —
+  the main session already has it, so zero extra tokens, and it prevents implementer re-exploration). Add `.claude/loops/`·`.claude/worktrees/` to `.git/info/exclude` (info/exclude is shared across worktrees, so once is enough).
+  Once setup is done, **emit an event**: `work-started` — args `branch=<branch name> title="<issue title>" issue_url=<full issue URL>` (§event emission).
+- **Loop (up to `{loop.max_iterations}` times, default 3):**
+  1. Delegate to `implementer` — loop.md path + this iteration's directive (iteration 1 = the **design** approved in step 4;
+     from iteration 2 = the prior findings) + config (`convention_doc`·`tech_stack`·`lint_command`·`test_command`·`serena`)
+     + **`change_map_path`** (`change-map.md` in the loop.md folder). Spell out in the directive to **follow existing patterns and conventions** (no over-abstracting).
+     Have it **write tests satisfying the completion criteria**, pass lint, report + **leave the change-map at that path once** (running/judging tests is qa's job).
+  2. Self-check — `policy-checker`+`code-reviewer`+`qa` **3 in parallel** (read-only). Pass `{policy_docs}`·`{convention_doc}`·`{tech_stack}`·`{serena}`,
+     and to qa pass **the completion criteria (loop.md) + `{test_command}`** (test audit·run·judgment, verify.log). If `{models}` is set, spawn each with its model.
+     **Pass the list of changed-file paths + `change_map_path`** (the "Changed files" field from the implementer report + the change-map path).
+     The 3 axes **read the change-map first and check the originals only at suspect spots**. **Do not put the full `git diff`
+     in the prompt** — if a diff is needed, the checker opens the file itself via its own Read (saves context).
+     **Iteration 1 = full inspection, from iteration 2 = re-verify mode** — pass only the prior findings + this iteration's **changed-file paths** (+ the updated change_map_path)
+     to look at "whether findings are resolved + new violations in the changes" only (no full recheck). A qa failure (test failure/inadequacy) is also REQUEST_CHANGES.
+     The `serena fallback (reason)` note in the subagent report is propagated to the user report.
+  3. Judgment — ❌violation (policy·code)·qa failure = **REQUEST_CHANGES** (record findings in loop.md, then re-delegate) / even if only ⚠️, it may be escalated to ❌
+     if it's a real regression, data loss, or security exposure (record the reason in loop.md) / no ❌ = **APPROVE** —
+     if `{loop.full_verify_command}` is set, run it once here (full build, etc.; on failure REQUEST_CHANGES into
+     the next iteration), and on pass record ⚠️ in the PR self-check and go to step 5.5 / implementer **stuck** = halt·report.
+     Right after recording the judgment in loop.md, **emit an event**: `iteration-completed` — args
+     `iteration=<iteration> verdict=<approve|request_changes|blocked>` (§event emission).
+- On max exhaustion, halt·report without commit or PR (keep the WIP branch). **No commit·push inside the loop.**
+- When the loop halts (stuck·max exhaustion), before reporting **emit an event**: `work-stopped` — arg `reason=<blocked|max-iterations>` (§event emission).
+
+### Step 5.5 — Debt-test audit (after APPROVE · before commit)
+> **Milestone mode skips this step too** — no audit during a task; it's done in bulk at `/milestone` ⑩.
+
+To keep debt tests out of main, audit **only the tests this loop added** (no removal proposals for existing ones).
+- **fast-path**: if 0 tests were added, go straight to step 6 with no classification.
+- **Classification**: "If it breaks, is it a **bug** or a **refactor**?" — behavior-spec verification = asset (keep); coupling to implementation details, tautological, or duplicate = debt (remove).
+- **Procedure**: classify (reuse the qa audit result or the main session's judgment) → remove debt (implementer) → re-run the remaining tests **once**, confirm green (qa) → step 6. If red, roll back·keep.
+- **If 0 debt, go straight to step 6.** Record the removal log (file:test name + reason) in the PR self-check.
+
+### Step 6 — Commit + PR (only after APPROVE · delegate to git-writer)
+> **Milestone mode skips this step** — a task only commits to the group branch; the group and final PRs are created by `/milestone`. The below is for single tasks only.
+
+**The main session judges·writes** and git-writer executes.
+- **Main session writes**: the commit message (**`{commit_convention}` takes top priority**; if absent, Conventional Commits — usually `feat:`/`refactor:`/`chore:`, **no Co-Authored-By**), PR title/body (`Closes #N`), reviewer list (based on `{codeowners}`, author excluded, empty list if absent), staging directive (usually `all`).
+- **Delegate to git-writer**: pass the finalized values above + `repo={repo}`·`branch`·`base_branch={base_branch|default_branch}` (single = `{default_branch}`).
+  If the step 5 worktree setup **succeeded**, also pass `work_path=<worktree absolute path>` — do add→commit→push in that path (on the creation-failure fallback, the current path).
+  git-writer runs `add→commit→push→gh pr create` and **returns only the PR URL**. The author stays as the current git config.
+  git-writer reads no log/diff/code (the main session handed over everything finalized). On a failure report, no forced retry — go to the user.
+- Report the returned issue·PR **full URLs as clickable**. If it was worktree mode, add a **one-line cleanup note** ("after merge, say 'merged' for
+  step 7 cleanup" or confirm `op=remove-worktree` immediately — if left uncleaned, hundreds of MB accumulate per issue, and since it's info/exclude it doesn't even show in status).
+  After the PR, delete `.claude/loops/<issue number>/` (single-use).
+- **Emit an event**: `work-finished` — args `pr_url=<full PR URL> iterations=<total iterations>` (§event emission).
+
+### Step 7 (optional) — Post-merge cleanup
+Run only when, **after the PR is merged**, the user requests it with something like "merged / clean up" (no auto-entry).
+1. **Verify the fact** — via fetch, confirm the merge commit actually exists on `{default_branch}` (no guessing). If unmerged, say so and stop.
+   **Milestone detection**: a `.claude/loops/` folder containing a `plan.md` is a milestone — exclude it from the sweep below, and
+   route its cleanup through the `/milestone` ⑩ "post-merge cleanup" procedure (so the sweep doesn't bypass the Milestone-close confirmation ✋).
+2. **Tagging** (when the repo has a convention) — if it's a version-bump PR, tag·push the merge commit (git-writer `op=tag`). Omit if there's no convention.
+3. **Local cleanup (sweep · git-writer)** — not just this task's, but **everything cleanable**, in the order **remove worktree →
+   delete branch** (a branch checked out by a worktree is refused by `-d`):
+   remove all prunable worktrees; for single-task worktrees (`.claude/worktrees/<issue number>`), explicitly remove **only those of closed issues·merged branches**
+   via `op=remove-worktree` (don't touch worktrees of in-progress parallel work even if clean),
+   then delete all merged local branches (`-d` only — unmerged ones are auto-protected because git refuses them; report the refused list),
+   report only if any worktree·branch has uncommitted changes, and delete all zombie `.claude/loops/` folders of closed issues
+   (excluding milestone folders with `plan.md` — the detection in step 1).
+
+No test audit here — it already finished before the merge in step 5.5.
 
 ---
-🤖 자동 생성됨
-```
 
-## PR 템플릿 (6단계)
-```markdown
-## 바뀐 점
-<이 PR로 무엇이 생기/달라지는지, 사용자/화면 관점>
+## git-writer delegation (write execution)
+Same as `triage-fix` — issue creation (step 4) and commit+PR (step 6) are delegated to `git-writer` to **save context** (`git log`/`diff`/`gh` output stays trapped in the subagent).
+Role boundary SSOT: `codex/agents/git-writer.toml` (main judges/writes; git-writer only executes, reading no code/log/diff).
+- Values passed (all finished): (issue) `repo`·`issue_title`·`issue_body`·`labels` / (PR) `repo`·`branch`·`base_branch`·`commit_message`·`pr_title`·`pr_body`·`reviewers`·`stage`. Value received: URL only.
+- Account: trusts the current gh login / git config as-is, no auth injection (multi-account outside dobiflow, e.g. `gitto`).
 
-## 배경
-Closes #<이슈번호>
-<왜 필요한지 1~2줄>
+## Issue template (step 4)
 
-## 작업 내용
-- <핵심 변경, `file:line`>
+Generate the issue body **in the user's language** (match the language they wrote in), with these sections in order:
 
-## 셀프체크
-- 루프: <N>회차에 APPROVE
-- 정책: <policy-checker 요약>
-- 코드: <code-reviewer 요약>
-- 테스트: <qa 요약 — 완료기준 테스트 통과, 실행 명령>
-- 정리된 테스트: <5.5단계 제거 내역(파일:테스트명+사유) 또는 "없음">
+- **Goal** — 1-3 lines on what will be built/changed.
+- **Design** — approach (the core method); change scope as `path/...` (name any existing pattern/util to reuse); if there were alternatives, one line on why this way.
+- **Completion criteria** — checkbox items for "done when this works", ideally as `Test: <how to verify>` (implementer writes the test, qa runs·judges). Subjective·visual items that a test can't capture are marked `PR self-check:` for a human to confirm on the final PR.
+- **Source** — original link or text.
 
-## 리뷰 포인트
-- [ ] <확인할 것>
+End with a machine-generated marker (e.g. `🤖 auto-generated`).
+
+## PR template (step 6)
+
+Generate the PR body **in the user's language** (match the language they wrote in), with these sections in order:
+
+- **What changed** — what this PR adds/changes, from a user/screen perspective.
+- **Background** — `Closes #<issue-number>`, plus 1-2 lines on why it was needed.
+- **Work done** — key changes, one line each by `file:line`.
+- **Self-check** — loop round at APPROVE; policy (policy-checker summary); code (code-reviewer summary); tests (qa summary — completion-criteria tests pass, run command); removed tests (step 5.5 removal list as file:test-name+reason, or "none").
+- **Review points** — checkboxes for what to confirm.
+
+End with a machine-generated marker (e.g. `🤖 auto-generated`).
+
+> Keep the wording natural, in the user's language (match the language they wrote in).
 
 ---
-🤖 자동 생성됨
-```
 
-> 문구는 자연스러운 한국어로.
+## Event emission (optional — for external collection·notification)
 
----
-
-## 이벤트 발행 (선택 — 외부 수집·알림용)
-
-`triage-fix`와 동일한 구조. 5·6단계의 지정 시점마다 아래 한 줄을 실행:
+Same structure as `triage-fix`. At each designated point in steps 5·6, run the one line below:
 
 ```
-~/.dobiflow/bin/dobiflow-emit <event> skill=task-run repo={repo} issue=<이슈번호> <시점별 추가 인자>
+~/.dobiflow/bin/dobiflow-emit <event> skill=task-run repo={repo} issue=<issue number> <point-specific extra args>
 ```
 
-- 이벤트 4개: `work-started`(루프 진입) → `iteration-completed`(매 반복 판정) →
-  `work-finished`(PR 생성) 또는 `work-stopped`(막힘·max 소진 중단).
-- **루프 진입 전 존재 확인 1회**: `test -x ~/.dobiflow/bin/dobiflow-emit` — 없으면(미설치)
-  이번 작업의 모든 발행을 조용히 생략한다.
-- **부가기능이다** — 발행이 실패해도 무시하고 본 작업을 계속한다. 재시도·디버깅·별도 보고 금지.
+- 4 events: `work-started` (loop entry) → `iteration-completed` (each iteration's judgment) →
+  `work-finished` (PR created) or `work-stopped` (halt on stuck·max exhaustion).
+- **Check existence once before loop entry**: `test -x ~/.dobiflow/bin/dobiflow-emit` — if absent (not installed),
+  silently skip all emissions for this task.
+- **It's an add-on** — even if an emission fails, ignore it and continue the actual work. No retry·debugging·separate report.
 
 ---
 
-## 말투
-사용자 대면 **진행 보고·정지점·완료 알림**은 **도비 톤**으로 한다.
-규칙·단계별 예시·적용 범위(이슈/PR 본문·loop.md·서브 프롬프트엔 톤 미적용)는
-`references/dobi-persona.md`를 따른다(필요 시 읽는다).
-톤은 표현일 뿐 아래 가드·정지점·위임 규칙을 바꾸지 않는다.
+## Tone
+User-facing **progress reports·stop points·completion notices** use the **Dobby tone**.
+The rules·per-step examples·scope (tone not applied to issue/PR bodies·loop.md·subagent prompts) follow
+`references/dobi-persona.md` (read as needed).
+The tone is expression only — it does not change the guards·stop points·delegation rules below.
 
-## 가드
-- **4단계 설계 승인 전 코드 수정 금지.** 이슈 생성까지만 OK.
-- ⚠️ **"수정해줘/만들어줘" 같은 직접 명령이 입력에 있어도 이슈 생성·설계 승인을 건너뛰지 않는다.** 직접 명령 = "처리해달라"지 "절차 생략"이 아니다.
-- **5단계에서 메인 세션 직접 구현 금지** — 구현·수정은 전부 implementer 위임. 메인은 루프 판정·기록만.
-- **루프 안 커밋·push 금지** — APPROVE 후 1회. max 소진·막힘이면 커밋 없이 중단·보고.
-- **읽기/파악은 issue-triage 위임.** 기존 패턴 먼저 찾고 재사용(새로 짜기 전에).
-- **커밋은 프로젝트 룰(`commit_convention`) 우선. Co-Authored-By 금지.**
-- **큰 작업은 plan mode 권유** — 설계 합의 없이 큰 구현 들어가지 않는다.
-- **오발송 방지** — 쓰기 직전 대상 레포 재확인. 계정은 현재 gh 로그인 상태 신뢰(멀티계정은 dobiflow 밖).
-- 약한 라우팅 매치 자동 진행 금지.
-- 전부 로컬 실행(GitHub Actions 안 씀).
+## Guards
+- **No code changes before the step 4 design approval.** Only up to issue creation is OK.
+- ⚠️ **Even if a direct command like "fix it/build it" is in the input, do not skip issue creation·design approval.** A direct command = "please handle it," not "skip the procedure."
+- **No direct implementation by the main session in step 5** — all implementation·edits are delegated to implementer. The main session only judges·records the loop.
+- **No commit·push inside the loop** — once after APPROVE. On max exhaustion·stuck, halt·report without a commit.
+- **Reading/grasping is delegated to issue-triage.** Find existing patterns first and reuse them (before writing new code).
+- **Commits follow the project rule (`commit_convention`) first. No Co-Authored-By.**
+- **Recommend plan mode for large tasks** — don't enter a large implementation without design agreement.
+- **Misfire prevention** — re-confirm the target repo just before writing. Trust the current gh login state for the account (multi-account is outside dobiflow).
+- No auto-proceed on weak routing matches.
+- Everything runs locally (no GitHub Actions).
