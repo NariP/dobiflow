@@ -47,11 +47,9 @@ Same as `triage-fix`. Confirm which repo the work targets (no auto-proceed on we
 - **Main session writes**: finalize the body, title (`{label_prefix}` + original), and labels (`enhancement`/`feature`, omit if absent) using the **issue template** below.
 - **Delegate to git-writer** to create it: pass only the finalized values (`repo={repo}`, `issue_title`, `issue_body`, `labels`), and it
   runs `gh issue create` and **returns only the URL** (verbose output stays trapped in the subagent). Capture the returned URL (§git-writer delegation).
-- **Show the design and get approval** (this step matters more than for bugs — because the direction can diverge):
-  > "Created issue #N: <full URL>
-  >  repo: {repo} / base: {default_branch}
-  >  On approval I'll proceed with the implementation loop (implementer implements → lint·tests → self-check, up to {loop.max_iterations} times).
-  >  This is the design — shall I implement it this way?"
+- **Show the design and get approval** (this step matters more than for bugs — because the direction can diverge) —
+  show `#N` + full URL, `repo: {repo} / base: {default_branch}`, a one-line loop summary
+  (implementer implements → lint·tests → self-check, up to {loop.max_iterations} times), and ask "this is the design — shall I implement it this way?".
 - No code changes before explicit approval. If the direction changes, apply it and re-confirm.
 - ⚠️ **An answer to a scope/approach question is NOT "approval."** Even if you asked about scope/approach in steps 1·3 and got an answer,
   that's only a *design agreement*. **You must get a separate explicit OK to this step 4 "shall I implement it this way?"** before going
@@ -138,15 +136,10 @@ No test audit here — it already finished before the merge in step 5.5.
 ---
 
 ## git-writer delegation (write execution)
-Same as `triage-fix`. The **execution** of issue creation (step 4) and commit+PR (step 6) is done by the `git-writer` subagent —
-it keeps `git log`/`diff`/`gh` output out of the main session and trapped in the subagent to **save context**.
-- **Main session judges·writes** (commit message·PR body·reviewers·staging decisions), **git-writer only executes**.
-  git-writer reads no code·log·diff — because the main session handed over the finalized values.
-- Values passed: (issue) `repo`·`issue_title`·`issue_body`·`labels` / (PR) `repo`·`branch`·`base_branch`·`commit_message`·`pr_title`·`pr_body`·`reviewers`·`stage`. Value received: URL only.
-
-## GitHub account (reference)
-dobiflow **trusts the currently logged-in gh account and the current git config as-is**.
-Account switching·multi-account is handled outside dobiflow (e.g. `gitto`) — git-writer runs plainly with no auth injection.
+Same as `triage-fix` — issue creation (step 4) and commit+PR (step 6) are delegated to `git-writer` to **save context** (`git log`/`diff`/`gh` output stays trapped in the subagent).
+Role boundary SSOT: `codex/agents/git-writer.toml` (main judges/writes; git-writer only executes, reading no code/log/diff).
+- Values passed (all finished): (issue) `repo`·`issue_title`·`issue_body`·`labels` / (PR) `repo`·`branch`·`base_branch`·`commit_message`·`pr_title`·`pr_body`·`reviewers`·`stage`. Value received: URL only.
+- Account: trusts the current gh login / git config as-is, no auth injection (multi-account outside dobiflow, e.g. `gitto`).
 
 ## Issue template (step 4)
 
