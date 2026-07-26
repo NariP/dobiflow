@@ -245,85 +245,55 @@ git-writer runs `gh`/`git` plainly, with no auth injection.
 
 ## Issue template (Step 3)
 
-```markdown
-## 🐞 문제
-<무엇이 잘못됐는지 1~3줄>
+Generate the issue body **in the user's language** (match the language they wrote in), with these sections in order:
 
-## 🔁 재현
-**위치:** <화면 경로>
-1. <절차>
-- 기대: <기대 동작>
-- 실제: <문제 동작>
+- **Problem** — 1-3 lines on what's wrong.
+- **Reproduction** — `Location:` (screen path), numbered steps, then `Expected:` vs `Actual:`.
+- **Cause analysis (issue-triage result)** — related locations as `path/to/file:line — <role>`; flow (entry point → ... → failure point); the most likely cause (mark it "guess" if speculative).
+- **Resolution** — where and how to fix it; if the backend is needed, what to request from it.
+- **Source** — original link (Notion/Slack).
 
-## 🔍 원인 파악 (issue-triage 결과)
-- 관련 위치:
-  - `path/to/file:line` — <역할>
-- 흐름: <진입점 → ... → 문제 지점>
-- 원인: <가장 유력한 원인. 추정이면 "추정" 명시>
-
-## 🛠️ 해결 방안
-- <어디를 어떻게 고칠지>
-- (백엔드 필요 시) <무엇을 백엔드에 요청해야 하는지>
-
-## 출처
-- 원본: <노션/슬랙 링크>
-
----
-🤖 자동 생성됨
-```
+End with a machine-generated marker (e.g. `🤖 auto-generated`).
 
 ## PR template (Step 6)
 
-```markdown
-## 바뀐 점
-<이 PR로 무엇이 달라지는지 1~3줄, 사용자/화면 관점으로>
+Generate the PR body **in the user's language** (match the language they wrote in), with these sections in order:
 
-## 배경
-Closes #<이슈번호>
-<왜 필요했는지 — 증상/요청 1~2줄>
-원본 이슈: <노션/슬랙 링크>
+- **What changed** — 1-3 lines on what this PR changes, from a user/screen perspective.
+- **Background** — `Closes #<issue-number>`, why it was needed (symptom/request, 1-2 lines), and the original issue link (Notion/Slack).
+- **Work done** — key changes, one line each by `file:line`.
+- **Self-check (step-5 loop result)** — loop round at APPROVE; policy (policy-checker summary); code (code-reviewer summary); tests (qa summary — completion-criteria tests pass, run command); removed tests (step 5.5 removal list as file:test-name+reason, or "none").
+- **Review points** — checkbox to confirm behavior locally via `<reproduction steps>`.
 
-## 작업 내용
-- <핵심 변경점, `file:line` 기준으로 한 줄씩>
+End with a machine-generated marker (e.g. `🤖 auto-generated`).
 
-## 셀프체크 (5단계 루프 결과)
-- 루프: <N>회차에 APPROVE
-- 정책: <policy-checker 요약>
-- 코드: <code-reviewer 요약>
-- 테스트: <qa 요약 — 완료기준 테스트 통과, 실행 명령>
-- 정리된 테스트: <5.5단계 제거 내역(파일:테스트명+사유) 또는 "없음">
-
-## 리뷰 포인트
-- [ ] 로컬에서 <재현 절차>로 동작 확인
-
----
-🤖 자동 생성됨
-```
-
-> Keep the wording un-stiff, in **natural Korean** that the reader can grasp quickly.
+> Keep the wording un-stiff, in **the user's language** (match what they wrote), so the reader grasps it quickly.
 
 ## loop.md template (Step 5)
 
+loop.md is an **agent-internal working doc** (not user-facing GitHub output), so its section labels are kept in English.
+The content filled in follows whatever is copied from the issue — user-facing text stays in the user's language.
+
 ```markdown
-# 구현 루프 — 이슈 #<N>
-- 이슈: <전체 URL> / 브랜치: <브랜치명> / 최대 반복: <loop.max_iterations>
+# Implementation loop — issue #<N>
+- Issue: <full URL> / Branch: <branch-name> / Max iterations: <loop.max_iterations>
 
-## 완료 기준 (이슈에서 복사 — 루프 중 수정 금지, 가능하면 테스트로 표현)
-- [ ] <기대 동작/해결 방안 — "테스트: <검증 방법>"으로. implementer가 짜고 qa가 실행·판정>
-- (테스트로 못 담는 주관·시각 항목은 "PR 셀프체크:"로 표시 → 사람이 최종 PR에서 확인)
+## Completion criteria (copied from the issue — do not edit mid-loop; express as tests where possible)
+- [ ] <expected behavior/resolution — as "Test: <how to verify>". implementer writes it, qa runs·judges>
+- (Subjective·visual items a test can't capture are marked "PR self-check:" → a human confirms on the final PR)
 
-## 관련 위치 (2단계 issue-triage 반환 원본 복사 — implementer는 재탐색 전에 여기부터)
-- `path/to/file:line` — <역할> / 흐름: <진입점 → ... → 문제 지점>
+## Related locations (verbatim copy of the step-2 issue-triage return — implementer starts here before re-searching)
+- `path/to/file:line` — <role> / flow: <entry point → ... → failure point>
 
-## 검증 명령
-- lint: `<lint_command>` / test: `<test_command>` (없으면 "없음")
-- APPROVE 시 1회: `<loop.full_verify_command>` (없으면 "없음" — 루프 안에선 안 돌림)
-- change-map: `<loop.md 폴더>/change-map.md` (implementer가 매 반복 남김 → 자가체크 3축이 먼저 읽음)
+## Verification commands
+- lint: `<lint_command>` / test: `<test_command>` (or "none")
+- Once at APPROVE: `<loop.full_verify_command>` (or "none" — not run inside the loop)
+- change-map: `<loop.md folder>/change-map.md` (implementer leaves it each iteration → read first by the three self-check axes)
 
-## 반복 로그
-### 1회차
-- 구현: <implementer 보고 요약 1~2줄> / 판정: APPROVE | REQUEST_CHANGES | 막힘
-- 지적사항: <REQUEST_CHANGES일 때 — 다음 회차로 넘기는 것>
+## Iteration log
+### Round 1
+- Implementation: <implementer report summary, 1-2 lines> / Verdict: APPROVE | REQUEST_CHANGES | blocked
+- Findings: <on REQUEST_CHANGES — what carries to the next round>
 ```
 
 - Updating loop.md (iteration log, checkboxes) is **main-session only**. The implementer only reads.
@@ -336,7 +306,7 @@ Closes #<이슈번호>
 At the designated points of Steps 5·6, run the one line below to notify the user's hooks of the work lifecycle:
 
 ```
-~/.dobiflow/bin/dobiflow-emit <event> skill=triage-fix repo={repo} issue=<이슈번호> <시점별 추가 인자>
+~/.dobiflow/bin/dobiflow-emit <event> skill=triage-fix repo={repo} issue=<issue-number> <event-specific args>
 ```
 
 - Four events: `work-started` (loop entry) → `iteration-completed` (each round's verdict) →
