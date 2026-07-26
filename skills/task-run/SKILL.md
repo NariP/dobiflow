@@ -151,53 +151,28 @@ Account switching·multi-account is handled outside dobiflow (e.g. `gitto`) — 
 
 ## Issue template (step 4)
 
-```markdown
-## 🎯 목표
-<무엇을 만들/바꾸는지 1~3줄>
+Generate the issue body **in the user's language** (match the language they wrote in), with these sections in order:
 
-## 📐 설계
-- 접근: <어떻게 — 핵심 방식>
-- 변경 범위: `path/...` (재사용할 기존 패턴/유틸이 있으면 명시)
-- (대안 있었으면) 왜 이 방식인지 한 줄
+- **Goal** — 1-3 lines on what will be built/changed.
+- **Design** — approach (the core method); change scope as `path/...` (name any existing pattern/util to reuse); if there were alternatives, one line on why this way.
+- **Completion criteria** — checkbox items for "done when this works", ideally as `Test: <how to verify>` (implementer writes the test, qa runs·judges). Subjective·visual items that a test can't capture are marked `PR self-check:` for a human to confirm on the final PR.
+- **Source** — original link or text.
 
-## ✅ 완료 기준
-- [ ] <이게 되면 끝 — 가능하면 "테스트: <검증 방법>" 형태로. implementer가 테스트 짜고 qa가 실행·판정>
-- (테스트로 못 담는 주관·시각 항목은 "PR 셀프체크:"로 표시해 사람이 최종 PR에서 확인)
-
-## 출처
-- 원본: <링크 또는 텍스트>
-
----
-🤖 자동 생성됨
-```
+End with a machine-generated marker (e.g. `🤖 auto-generated`).
 
 ## PR template (step 6)
-```markdown
-## 바뀐 점
-<이 PR로 무엇이 생기/달라지는지, 사용자/화면 관점>
 
-## 배경
-Closes #<이슈번호>
-<왜 필요한지 1~2줄>
+Generate the PR body **in the user's language** (match the language they wrote in), with these sections in order:
 
-## 작업 내용
-- <핵심 변경, `file:line`>
+- **What changed** — what this PR adds/changes, from a user/screen perspective.
+- **Background** — `Closes #<issue-number>`, plus 1-2 lines on why it was needed.
+- **Work done** — key changes, one line each by `file:line`.
+- **Self-check** — loop round at APPROVE; policy (policy-checker summary); code (code-reviewer summary); tests (qa summary — completion-criteria tests pass, run command); removed tests (step 5.5 removal list as file:test-name+reason, or "none").
+- **Review points** — checkboxes for what to confirm.
 
-## 셀프체크
-- 루프: <N>회차에 APPROVE
-- 정책: <policy-checker 요약>
-- 코드: <code-reviewer 요약>
-- 테스트: <qa 요약 — 완료기준 테스트 통과, 실행 명령>
-- 정리된 테스트: <5.5단계 제거 내역(파일:테스트명+사유) 또는 "없음">
+End with a machine-generated marker (e.g. `🤖 auto-generated`).
 
-## 리뷰 포인트
-- [ ] <확인할 것>
-
----
-🤖 자동 생성됨
-```
-
-> Keep the wording in natural Korean.
+> Keep the wording natural, in the user's language (match the language they wrote in).
 
 ---
 
