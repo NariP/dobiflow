@@ -113,6 +113,7 @@ To keep debt tests out of main, audit **only the tests this loop added** (no rem
 
 **The main session judges·writes** and git-writer executes.
 - **Main session writes**: the commit message (**`{commit_convention}` takes top priority**; if absent, Conventional Commits — usually `feat:`/`refactor:`/`chore:`, **no Co-Authored-By**), PR title/body (`Closes #N`), reviewer list (based on `{codeowners}`, author excluded, empty list if absent), staging directive (usually `all`).
+- **QA-scenario gate** — **before delegating to git-writer** (the loop folder is deleted right after the PR), read `<loop.md folder>/change-map.md`: if **any** entry is `user-facing: yes`, write the QA scenario section (§PR template) for those surfaces; if all are `no`, **omit the section entirely** (no "N/A"). Doc-only exception: same as `triage-fix` Step 6's QA-scenario gate.
 - **Delegate to git-writer**: pass the finalized values above + `repo={repo}`·`branch`·`base_branch={base_branch|default_branch}` (single = `{default_branch}`).
   If the step 5 worktree setup **succeeded**, also pass `work_path=<worktree absolute path>` — do add→commit→push in that path (on the creation-failure fallback, the current path).
   git-writer runs `add→commit→push→gh pr create` and **returns only the PR URL**. The author stays as the current git config.
@@ -165,7 +166,8 @@ Generate the PR body **in the user's language** (match the language they wrote i
 - **Background** — `Closes #<issue-number>`, plus 1-2 lines on why it was needed.
 - **Work done** — key changes, one line each by `file:line`.
 - **Self-check** — loop round at APPROVE; policy (policy-checker summary); code (code-reviewer summary); tests (qa-runner result + qa audit summary — completion-criteria tests pass, run command); removed tests (step 5.5 removal list as file:test-name+reason, or "none").
-- **Review points** — checkboxes for what to confirm.
+- **QA scenario** — Same as `triage-fix` §PR template's QA scenario (conditional on the change-map's `user-facing: yes`; if all `no`, **omit the section itself** — no "N/A").
+- **Review points** — checkboxes for what to confirm (for the how-to, point at the QA scenario section above instead of repeating steps).
 
 End with a machine-generated marker (e.g. `🤖 auto-generated`).
 
