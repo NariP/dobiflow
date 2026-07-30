@@ -15,7 +15,7 @@
 ![Codex](https://img.shields.io/badge/Codex-CLI-000000)
 ![runs local](https://img.shields.io/badge/runs-100%25%20local-success)
 ![no API cost](https://img.shields.io/badge/extra%20API%20cost-%240-blue)
-![version](https://img.shields.io/badge/version-1.0.0-lightgrey)
+![version](https://img.shields.io/badge/version-1.1.0-lightgrey)
 ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 Throw one bug or one task in a single line — Dobby finds the cause, files a GitHub
@@ -39,7 +39,7 @@ permission.**
 
   🧦 Dobby will fix it…
   🔁 implement → lint·tests → self-check (Dobby inspects himself)
-     └ code-reviewer + policy-checker + qa: no findings ✓
+     └ code-reviewer + policy-checker + qa-runner (tests) → qa audit: no findings ✓
   ✓ everything is green   opened the PR → github.com/you/app/pull/129
 
   🧦 Dobby… is free!
@@ -134,7 +134,7 @@ Forgot how? `/triage-help` (Dobby will remind you).
 | `/triage-fix` | Bug — root cause → issue → fix → PR |
 | `/task-run` | Feature/improvement/refactor — design → issue → build → PR (plan mode for heavy designs) |
 | `/milestone` | Big work — split into tasks, group them (a group = one dev), run groups in parallel → per-group PRs → final PR |
-| `/triage-status` | List open issues & in-progress PRs (read-only) |
+| `/triage-status` | List open issues & in-progress PRs + config summary (model mapping, main settings) — read-only |
 | `/triage-init` | Generate per-project config (detects repo, lint, policy docs, commit rules) |
 | `/triage-help` | Usage guide |
 
@@ -148,7 +148,8 @@ Forgot how? `/triage-help` (Dobby will remind you).
    ├─ GitHub issue → git-writer Dobby files it (execution only) + URL reported
    ├─ ✋ approval   → confirm repo · base, then "may Dobby fix it, master?"
    ├─ loop 🔁      → implementer Dobby codes + lint/tests
-   │                 → policy-checker + code-reviewer + qa (Dobbys inspect in parallel)
+   │                 → policy-checker + code-reviewer + qa-runner (Dobbys work in parallel — the runner only runs tests)
+   │                 → tests green? → qa Dobby audits the tests and rules pass/fail (red → audit skipped, straight to a re-fix)
    │                 → ❌ findings? Dobby fixes himself (max 3, configurable)
    └─ PR           → main writes the message/body, git-writer Dobby runs commit+push+PR → URL
                      → 🧦 Dobby is free!
@@ -185,9 +186,10 @@ dobiflow runs everything **on your machine**, so Dobby keeps a few rules:
 - **Multi-repo** — infers the right repo from the issue (asks when unsure)
 - **Project rules first** — commit convention, policies, conventions follow the target project
 - **Implementation loop** — an implementer Dobby codes while reviewer Dobbys judge; findings trigger automatic re-implementation until green (bounded — stops and reports instead of forcing a PR)
-- **Milestones for big work** — when a request is too big for one PR, Dobby splits it into tasks, groups related ones (a group = one dev), and runs groups in parallel (git worktrees) with per-group PRs merged behind a merge-queue-style verify, then a final PR to main — always human-merged. A planner Dobby plans, a qa Dobby runs the tests
+- **Milestones for big work** — when a request is too big for one PR, Dobby splits it into tasks, groups related ones (a group = one dev), and runs groups in parallel (git worktrees) with per-group PRs merged behind a merge-queue-style verify, then a final PR to main — always human-merged. A planner Dobby plans, a qa-runner Dobby runs the tests
 - **Single-task worktree (opt-in)** — with `worktree: true` in the config, even a single bug/feature is built in its own git worktree, so your main working tree stays free while Dobby works (off by default — dependency install cost; falls back to the normal flow if creation fails)
 - **Split self-check** — domain-policy check + general code review + QA (acceptance-criteria tests) run separately (read-only Dobbys)
+- **QA scenario in the PR body** — when a change touches what users perceive (screens, flows, CLI output, error messages, API responses — tracked per file in the change-map), the PR body gets a user-flow scenario (setup / steps / checkpoints incl. must-show·must-not-show·regression / pre-fix behavior) that a human or an AI browser can follow to verify. Internal-only PRs get no section at all — no empty "N/A" shells
 - **Debt-test audit** — right before the PR, Dobby audits only the tests this loop added ("if it breaks, is it a bug or a refactor?") — only tests with regression value reach main
 - **Post-merge cleanup** — say "merged" and Dobby tags (if the repo does tags) and sweeps merged local branches, worktrees and leftover loop folders — unmerged ones are never touched
 - **Context-thrifty writes** — a `git-writer` Dobby runs issue/commit/push/PR as pure execution; main writes the message/body, git-writer just runs `gh`/`git` and returns the URL, so verbose `git log`/`diff`/`gh` output never piles up in the main session

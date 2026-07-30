@@ -15,7 +15,7 @@
 ![Codex](https://img.shields.io/badge/Codex-CLI-000000)
 ![로컬 실행](https://img.shields.io/badge/실행-100%25%20로컬-success)
 ![API 비용](https://img.shields.io/badge/추가%20API%20비용-0원-blue)
-![version](https://img.shields.io/badge/version-1.0.0-lightgrey)
+![version](https://img.shields.io/badge/version-1.1.0-lightgrey)
 ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 이슈 하나, 작업 하나를 한 줄로 던지면 — 도비가 원인을 파악하고, GitHub 이슈를 만들고,
@@ -38,7 +38,7 @@
 
   🧦 도비가 고칠게요…
   🔁 구현 → 린트·테스트 → 자가체크 (도비가 스스로를 검사해요)
-     └ code-reviewer + policy-checker + qa: 지적 없음 ✓
+     └ code-reviewer + policy-checker + qa-runner(테스트) → qa 감사: 지적 없음 ✓
   ✓ 전부 초록불이에요     PR 올렸어요 → github.com/you/app/pull/129
 
   🧦 도비는… 자유예요!
@@ -131,7 +131,7 @@ cd dobiflow
 | `/triage-fix` | 버그 — 원인 파악 → 이슈 → 수정 → PR |
 | `/task-run` | 기능/개선/리팩토링 — 설계 → 이슈 → 구현 → PR (설계가 무거우면 plan mode) |
 | `/milestone` | 큰 작업 — 태스크로 쪼개 그룹핑(그룹 = 개발자 1명), 그룹 병렬 실행 → 그룹별 PR → 최종 PR |
-| `/triage-status` | 열린 이슈·진행 PR 현황 조회 (조회만) |
+| `/triage-status` | 열린 이슈·진행 PR 현황 + 설정 요약(모델 매핑·주요 설정) 조회 (조회만) |
 | `/triage-init` | 새 프로젝트 설정 생성 (레포·린트·정책문서·커밋규칙 감지) |
 | `/triage-help` | 사용법 안내 |
 
@@ -145,7 +145,8 @@ cd dobiflow
    ├─ GitHub 이슈  → git-writer 도비가 생성(실행만) + URL 보고
    ├─ ✋ 승인       → 레포·base 확인 후 "고쳐도 될까요, 주인님?"
    ├─ 구현 루프 🔁  → implementer 도비가 구현 + 린트·테스트
-   │                 → policy-checker + code-reviewer + qa (병렬로 도비를 검사)
+   │                 → policy-checker + code-reviewer + qa-runner (도비들이 병렬로 — 러너는 테스트만 실행)
+   │                 → 테스트 초록이면 → qa 도비가 테스트를 감사하고 통과/실패 판정 (빨강이면 감사 스킵, 바로 재수정)
    │                 → ❌ 지적 나오면 도비가 스스로 다시 고침 (최대 3회, 설정 가능)
    └─ PR          → 메인이 메시지·본문 완성 → git-writer 도비가 커밋+push+PR 실행 → URL
                      → 🧦 도비는 자유예요!
@@ -180,9 +181,10 @@ dobiflow는 전부 **주인님 컴퓨터에서** 돌아가서, 도비가 지키�
 - **프로젝트 룰 우선** — 커밋 규칙·정책·컨벤션을 그 프로젝트 것으로
 - **구현 루프** — 구현은 implementer 도비, 검사는 리뷰 도비들이 맡아 지적이 나오면
   스스로 재구현. 그린이 될 때까지 돌되 한도를 넘기면 억지 PR 대신 멈추고 보고
-- **큰 작업은 마일스톤으로** — 한 PR로 안 되는 요청은 태스크로 쪼개고, 관련 태스크를 그룹으로 묶어(그룹 = 개발자 1명) git worktree로 그룹끼리 병렬 실행. 그룹별 PR은 merge-queue식 검증 뒤에 합치고, 마지막에 main으로 최종 PR — 머지는 항상 주인님 몫. 계획은 planner 도비, 테스트는 qa 도비가 맡아요
+- **큰 작업은 마일스톤으로** — 한 PR로 안 되는 요청은 태스크로 쪼개고, 관련 태스크를 그룹으로 묶어(그룹 = 개발자 1명) git worktree로 그룹끼리 병렬 실행. 그룹별 PR은 merge-queue식 검증 뒤에 합치고, 마지막에 main으로 최종 PR — 머지는 항상 주인님 몫. 계획은 planner 도비, 테스트 실행은 qa-runner 도비가 맡아요
 - **단일 작업도 worktree로(선택)** — config에 `worktree: true`면 버그/기능 하나짜리 작업도 자기 worktree에서 구현해서, 도비가 일하는 동안에도 주인님 워킹트리는 비어 있어요 (기본 꺼짐 — 의존성 설치 비용 있음, 생성 실패 시 기존 방식으로 폴백해요)
 - **자가체크 분리** — 도메인 정책 검사 + 일반 코드리뷰 + QA(완료 기준 테스트)를 따로 (읽기 전용 도비들)
+- **PR 본문에 QA 시나리오** — 유저가 지각하는 표면(화면·플로우·CLI 출력·에러 메시지·API 응답 — change-map에 파일별 기록)을 건드린 PR엔 유저 플로우 시나리오(준비 / 순서 / 확인 지점: 보여야·보이면 안 되는·회귀 / 수정 전 동작)가 붙어요 — 사람이든 AI 브라우저든 그대로 따라 검증하는 대본. 내부 변경만이면 섹션 자체가 안 생겨요 — 빈 "해당 없음" 금지
 - **부채 테스트 감사** — PR 직전, 이번 루프가 추가한 테스트만 "깨지면 버그인가, 리팩토링인가"로 심사해요 — main엔 회귀 가치 있는 테스트만 들어가요
 - **머지 후 정리** — "머지했어" 한마디면 태깅(레포 관례 시) + 머지된 로컬 브랜치·worktree·남은 루프 폴더까지 싹 정리 — 미머지는 절대 안 건드려요
 - **컨텍스트 아끼는 쓰기** — `git-writer` 도비가 이슈/커밋/push/PR을 **실행만** 담당. 메인이 메시지·본문을 완성해 넘기면 git-writer는 `gh`/`git`을 돌려 URL만 반환 → 장황한 `git log`/`diff`/`gh` 출력이 메인 세션에 안 쌓임

@@ -21,7 +21,7 @@ developer (group).
   process sequentially. That keeps groups independent, which makes parallelism safe.
 - Completion criteria as tests: write each task's completion criteria down to the verification method (tests). Subjective/visual
   criteria that tests cannot capture are flagged separately for PR self-check.
-- Do not grade: the pass/fail decision is made by qa (running the tests). You only create the criteria.
+- Do not grade: the pass/fail decision is made by qa (auditing the tests qa-runner ran). You only create the criteria.
 
 ## Input (given by the caller)
 - Task description. Config such as convention_doc, tech_stack, serena. issue-triage evidence packet (if any).

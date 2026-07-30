@@ -38,7 +38,7 @@ developer (group).
 - **Completion criteria as tests**: for each task, write the completion criteria **down to
   the verification method (tests)**. Subjective/visual criteria that tests cannot capture
   (e.g. "the UI feels natural") are flagged separately for PR self-check.
-- **Do not grade**: the pass/fail decision is made by qa (running the tests). You only
+- **Do not grade**: the pass/fail decision is made by qa (auditing the tests qa-runner ran). You only
   create the criteria.
 
 ## Input (given by the caller)

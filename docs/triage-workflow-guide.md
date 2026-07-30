@@ -26,7 +26,7 @@ For a project you're using for the first time, **`/triage-init` first**. After t
 | `/triage-fix` | When it's clearly a bug | Find cause → issue → fix → PR |
 | `/task-run` | Feature add · improvement · refactor | Design → issue → implement → PR |
 | `/milestone` | Big work (large enough to split into multiple tasks) | Task split · grouping → parallel group execution → group PR → final PR |
-| `/triage-status` | When you want to see what's currently open | List of open issues · in-progress PRs (read-only) |
+| `/triage-status` | When you want to see what's currently open, or which settings/models are in effect | List of open issues · in-progress PRs · config summary (read-only) |
 | `/triage-init` | New project first time / config refresh | Creates `.claude/triage.config.json` |
 
 > 💡 **`/work` alone is enough.** You can call `/triage-fix` · `/task-run` directly, but
@@ -62,7 +62,8 @@ Examples:
    ├─ 4. ✋ Approval     → "Created issue #N: <URL> / confirm repo · base / shall I fix it?"
    │                       ← you say "ok"
    ├─ 5. Impl loop 🔁  → the implementer agent implements + lint · test
-   │                    → policy (policy-checker) + code quality (code-reviewer) checks in parallel
+   │                    → policy (policy-checker) + code quality (code-reviewer) + test run (qa-runner) in parallel
+   │                    → then, if the run is green, the test audit · verdict (qa)
    │                    → ❌ if issues are raised, auto re-implement (up to 3 times, configurable)
    └─ 6. PR           → after checks pass: commit + create + assign reviewer + report the full URL
 ```
@@ -85,7 +86,7 @@ routes to `/milestone`. It splits the big work into small tasks, bundles related
    ├─ ⑤ ✋ Approval        → confirm the plan + execution mode [stop / bypass] in one go
    ├─ ⑥⑦ Issues · branches → Milestone · issues · milestone branch · group branches · worktree (git-writer)
    ├─ ⑧ Group execution 🔁 → each task reuses the formal implementation loop, committing to the group branch
-   ├─ ⑨ Group PR          → must pass pre-merge verification (qa full_verify, merge-queue style) to merge into the milestone
+   ├─ ⑨ Group PR          → must pass pre-merge verification (qa-runner full_verify, merge-queue style) to merge into the milestone
    └─ ⑩ ✋ Final PR        → milestone → main PR; merging into main is always done by a human
 ```
 
@@ -138,13 +139,16 @@ If things change later, run `/triage-init` again to refresh (existing config is 
   (Runs on your Claude Code subscription, zero extra API cost)
 - **Multi-repo** — reads the issue content and picks the right repo automatically (asks if ambiguous).
 - **Code search** — uses Serena LSP (symbol-level precision) if available, falls back to grep otherwise.
-- **Implementation loop** — implementation (implementer) and checks (policy-checker + code-reviewer) are handled by different agents,
+- **Implementation loop** — implementation (implementer) and checks (policy-checker + code-reviewer + qa-runner/qa) are handled by different agents,
   and ❌ if issues are raised it auto re-implements. It loops until green, and if it exceeds the max count (default 3) it
   stops and reports — it never forces a PR up.
 - **Iteration is cheap** — from the 2nd round on, it's not a full re-check but **the previous issues + only what changed this round**.
   Heavy verification like a full build isn't repeated inside the loop but done once at APPROVE time
   (`loop.full_verify_command`, when set).
-- **Self-check separation** — domain policy checks (policy-checker) and general code review (code-reviewer) are kept separate.
+- **Self-check separation** — domain policy checks (policy-checker) and general code review (code-reviewer) are kept separate,
+  and **test execution (qa-runner) is separated from test judgment (qa)** — the runner reports facts only (`ran`/`did-not-run`/`blocked-before-tests`)
+  and has no way to manufacture green, while qa runs no tests at all and grades on the runner's verify.log. If the run is red, the audit is skipped that round
+  (recorded as `audit skipped (red)` — never counted as a pass).
 - **Debt-test audit** — before commit · PR (for milestones, in one batch before the final PR), it audits **only the tests this work added**
   on the "if it breaks, is it a bug or a refactor?" criterion, stripping out implementation-detail-coupled, self-evident, and duplicate tests.
   It doesn't touch existing tests, and re-confirms the remaining tests are green after removal — no debt lands on main.
@@ -201,7 +205,7 @@ so send it to an external service from there (see README "Event hooks", `hooks/e
 Inside the `dobiflow` plugin:
 ```
 skills/   work · milestone · triage-fix · task-run · triage-status · triage-init · triage-help
-agents/   issue-triage · planner (planning) · qa (test run · verdict) · policy-checker · code-reviewer (read-only) · implementer (implementation) · git-writer (write execution)
+agents/   issue-triage · planner (planning) · qa-runner (test run) · qa (test audit · verdict) · policy-checker · code-reviewer (read-only) · implementer (implementation) · git-writer (write execution)
 hooks/    hooks.json (registers PostToolUse) · examples/ (user hook templates)
 scripts/  dobiflow-hook.sh (auto-detects issues/PRs) · dobiflow-emit.sh (publishes work lifecycle)
 docs/     triage-workflow-guide.md  (this guide)
