@@ -43,7 +43,7 @@ Show the status **in the user's language** (match the language they wrote in), w
 - **Continue** — point out "unfinished things" (an issue with no linked PR, or a PR that isn't merged),
   and how to resume: check out the relevant branch (`git checkout <branch>`), or run `/triage-fix` again for a new fix.
 - **Config summary** — one table of the model mapping (row per role: `planner` · `implementer` ·
-  `issue-triage` · `code-reviewer` · `policy-checker` · `qa` · `git-writer`; a role missing from
+  `issue-triage` · `code-reviewer` · `policy-checker` · `qa` · `qa-runner` · `git-writer`; a role missing from
   `{models}` shows as `inherit`), then short bullets for the main settings: `repo`,
   `default_branch`, `loop.max_iterations`, `loop.full_verify_command` (`none` if unset),
   `worktree`, `serena`, `milestone.base_branch`. End with the path of the config file that was
