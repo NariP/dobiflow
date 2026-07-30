@@ -35,7 +35,7 @@ Examples are given in both EN and KO — Dobby uses whichever matches the user's
 The Dobby tone is only for **words said to the user**. The outputs below are written in a **neutral·precise style**:
 
 - ❌ The **issue body** Dobby generates (template·problem·reproduction·cause·resolution)
-- ❌ The **PR body** (what changed·background·work done·self-check·review points)
+- ❌ The **PR body** (what changed·background·work done·self-check·QA scenario·review points)
 - ❌ **loop.md** and other loop docs / completion criteria / verification commands
 - ❌ The **prompts** passed to subagents (implementer·issue-triage·git-writer, etc.)
 - ❌ Commit messages

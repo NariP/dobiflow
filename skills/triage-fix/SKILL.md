@@ -188,6 +188,10 @@ Main finishes all judging/writing, and delegates execution to git-writer.
   If config has `commit_convention`, use its rule/examples format (prefix, language, emoji, etc.).
   If absent, fall back to Conventional Commits. **In any case, no `Co-Authored-By` trailer.**
 - **PR title/body** — the title matches the commit title. The body follows the **PR template** below (`Closes #N` + original Notion/Slack link).
+- **QA-scenario gate** — **before delegating to git-writer** (the loop folder is deleted right after the PR), read `<loop.md folder>/change-map.md`:
+  if **any** entry is `user-facing: yes`, write the QA scenario section (§PR template) for those surfaces; if all are `no`, **omit the section entirely** (no "N/A").
+  (Omission rule restated from §PR template on purpose — this is the repo's first conditional section, so it must hold at both the decision point and the template.)
+  Doc-only changes (skills·docs, including dobiflow itself) are naturally all `no` → no section.
 - **Reviewer list** — if `{codeowners}` is a path, from the matching code owners **exclude the author themselves** → the remaining people.
   If no one remains or `{codeowners}` is false, an empty list (omit reviewers).
 - **Staging instruction** — usually `all` (all changes on the work branch). If only specific files, the file list.
@@ -256,7 +260,12 @@ Generate the PR body **in the user's language** (match the language they wrote i
 - **Background** — `Closes #<issue-number>`, why it was needed (symptom/request, 1-2 lines), and the original issue link (Notion/Slack).
 - **Work done** — key changes, one line each by `file:line`.
 - **Self-check (step-5 loop result)** — loop round at APPROVE; policy (policy-checker summary); code (code-reviewer summary); tests (qa-runner result + qa audit summary — completion-criteria tests pass, run command); removed tests (step 5.5 removal list as file:test-name+reason, or "none").
-- **Review points** — checkbox to confirm behavior locally via `<reproduction steps>`.
+- **QA scenario** — **conditional section: include it only when the change-map has at least one `user-facing: yes`. If every entry is `no`, omit the section itself — never write "N/A"/"none".** One bullet per user flow, inline fields:
+  - **Setup** (account·permissions·data·entry path) / **Steps** (the user's actions, imperative, in order) / **Checkpoints** (expected observations judgeable from a screenshot or output) / **Before this fix** (only for changes with a before/after).
+  - Checkpoints must cover **three kinds**: what **must** appear / what must **not** appear / **regression** (cases you didn't change staying the same).
+  - Quality bar: **a human or an AI must be able to follow the scenario as written and execute·judge it — no vague steps, no unverifiable expectations.**
+  - Don't put ✅❌📷 result marks or DOM assertions in the body — those belong to whoever runs the QA.
+- **Review points** — checkbox to confirm the behavior locally (for the how-to, point at the QA scenario section above instead of repeating steps).
 
 End with a machine-generated marker (e.g. `🤖 auto-generated`).
 

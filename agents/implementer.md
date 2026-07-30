@@ -51,7 +51,12 @@ three reading the same diff from scratch three times. (qa-runner doesn't read it
 
 - **What it holds** — per file: **change intent** (why it was changed this way) · **risk
   spots** (side effects, edges, dependencies) · **test links** (which completion
-  criterion/test verifies this change).
+  criterion/test verifies this change) · **user-facing** (`yes — <which screen/flow/output>`
+  or `no`).
+  - **user-facing = a surface the user perceives while using the product** — screens, flows,
+    interactions, CLI output, error messages, API response shape. Purely internal changes
+    (refactoring, performance, internal structure) are `no`. This field is the gate for the
+    PR's QA-scenario section, so judge it per file and don't leave it out.
 - **Where to write it** — if the caller gives `change_map_path`, write it to that file;
   otherwise inline it in the completion report. (Milestone mode gives the path
   `groups/<group>/tasks/<issue#N>/change-map.md`.)
@@ -89,7 +94,7 @@ three reading the same diff from scratch three times. (qa-runner doesn't read it
 - What was implemented: `file:line` — <what> (one per line)
 - Changed files: path1, path2 (paths only)
 - change-map: <the change_map_path if given / otherwise inline below>
-  · `file` — intent: <why> / risk: <side effects, edges> / test: <which completion criterion/test verifies>
+  · `file` — intent: <why> / risk: <side effects, edges> / test: <which completion criterion/test verifies> / user-facing: <yes — which surface | no>
 - Verification: <command> → <pass/fail summary>
 - Remaining/blocked: <"none" if none>
 - Backend needed: <"none" if none>
