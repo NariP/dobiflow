@@ -134,7 +134,7 @@ Forgot how? `/triage-help` (Dobby will remind you).
 | `/triage-fix` | Bug — root cause → issue → fix → PR |
 | `/task-run` | Feature/improvement/refactor — design → issue → build → PR (plan mode for heavy designs) |
 | `/milestone` | Big work — split into tasks, group them (a group = one dev), run groups in parallel → per-group PRs → final PR |
-| `/triage-status` | List open issues & in-progress PRs (read-only) |
+| `/triage-status` | List open issues & in-progress PRs + config summary (model mapping, main settings) — read-only |
 | `/triage-init` | Generate per-project config (detects repo, lint, policy docs, commit rules) |
 | `/triage-help` | Usage guide |
 
