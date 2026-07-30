@@ -131,7 +131,7 @@ cd dobiflow
 | `/triage-fix` | 버그 — 원인 파악 → 이슈 → 수정 → PR |
 | `/task-run` | 기능/개선/리팩토링 — 설계 → 이슈 → 구현 → PR (설계가 무거우면 plan mode) |
 | `/milestone` | 큰 작업 — 태스크로 쪼개 그룹핑(그룹 = 개발자 1명), 그룹 병렬 실행 → 그룹별 PR → 최종 PR |
-| `/triage-status` | 열린 이슈·진행 PR 현황 조회 (조회만) |
+| `/triage-status` | 열린 이슈·진행 PR 현황 + 설정 요약(모델 매핑·주요 설정) 조회 (조회만) |
 | `/triage-init` | 새 프로젝트 설정 생성 (레포·린트·정책문서·커밋규칙 감지) |
 | `/triage-help` | 사용법 안내 |
 

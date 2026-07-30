@@ -26,7 +26,7 @@ For a project you're using for the first time, **`/triage-init` first**. After t
 | `/triage-fix` | When it's clearly a bug | Find cause → issue → fix → PR |
 | `/task-run` | Feature add · improvement · refactor | Design → issue → implement → PR |
 | `/milestone` | Big work (large enough to split into multiple tasks) | Task split · grouping → parallel group execution → group PR → final PR |
-| `/triage-status` | When you want to see what's currently open | List of open issues · in-progress PRs (read-only) |
+| `/triage-status` | When you want to see what's currently open, or which settings/models are in effect | List of open issues · in-progress PRs · config summary (read-only) |
 | `/triage-init` | New project first time / config refresh | Creates `.claude/triage.config.json` |
 
 > 💡 **`/work` alone is enough.** You can call `/triage-fix` · `/task-run` directly, but
