@@ -45,9 +45,9 @@ and verification** — commit/push/issue/PR belong to the main session.
 ## Producing the change-map (once, before self-check)
 
 When implementation is done (once the commit-candidate diff is fixed), **produce the
-change-map once.** The three self-check axes (code-reviewer, policy-checker, qa) read this
+change-map once.** The three self-check reviewers (code-reviewer, policy-checker, qa) read this
 first and **check the original only at suspicious spots**, which reduces the waste of all
-three reading the same diff from scratch three times.
+three reading the same diff from scratch three times. (qa-runner doesn't read it — it only runs tests.)
 
 - **What it holds** — per file: **change intent** (why it was changed this way) · **risk
   spots** (side effects, edges, dependencies) · **test links** (which completion

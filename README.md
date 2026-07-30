@@ -39,7 +39,7 @@ permission.**
 
   🧦 Dobby will fix it…
   🔁 implement → lint·tests → self-check (Dobby inspects himself)
-     └ code-reviewer + policy-checker + qa: no findings ✓
+     └ code-reviewer + policy-checker + qa-runner (tests) → qa audit: no findings ✓
   ✓ everything is green   opened the PR → github.com/you/app/pull/129
 
   🧦 Dobby… is free!
@@ -148,7 +148,8 @@ Forgot how? `/triage-help` (Dobby will remind you).
    ├─ GitHub issue → git-writer Dobby files it (execution only) + URL reported
    ├─ ✋ approval   → confirm repo · base, then "may Dobby fix it, master?"
    ├─ loop 🔁      → implementer Dobby codes + lint/tests
-   │                 → policy-checker + code-reviewer + qa (Dobbys inspect in parallel)
+   │                 → policy-checker + code-reviewer + qa-runner (Dobbys work in parallel — the runner only runs tests)
+   │                 → tests green? → qa Dobby audits the tests and rules pass/fail (red → audit skipped, straight to a re-fix)
    │                 → ❌ findings? Dobby fixes himself (max 3, configurable)
    └─ PR           → main writes the message/body, git-writer Dobby runs commit+push+PR → URL
                      → 🧦 Dobby is free!
@@ -185,7 +186,7 @@ dobiflow runs everything **on your machine**, so Dobby keeps a few rules:
 - **Multi-repo** — infers the right repo from the issue (asks when unsure)
 - **Project rules first** — commit convention, policies, conventions follow the target project
 - **Implementation loop** — an implementer Dobby codes while reviewer Dobbys judge; findings trigger automatic re-implementation until green (bounded — stops and reports instead of forcing a PR)
-- **Milestones for big work** — when a request is too big for one PR, Dobby splits it into tasks, groups related ones (a group = one dev), and runs groups in parallel (git worktrees) with per-group PRs merged behind a merge-queue-style verify, then a final PR to main — always human-merged. A planner Dobby plans, a qa Dobby runs the tests
+- **Milestones for big work** — when a request is too big for one PR, Dobby splits it into tasks, groups related ones (a group = one dev), and runs groups in parallel (git worktrees) with per-group PRs merged behind a merge-queue-style verify, then a final PR to main — always human-merged. A planner Dobby plans, a qa-runner Dobby runs the tests
 - **Single-task worktree (opt-in)** — with `worktree: true` in the config, even a single bug/feature is built in its own git worktree, so your main working tree stays free while Dobby works (off by default — dependency install cost; falls back to the normal flow if creation fails)
 - **Split self-check** — domain-policy check + general code review + QA (acceptance-criteria tests) run separately (read-only Dobbys)
 - **Debt-test audit** — right before the PR, Dobby audits only the tests this loop added ("if it breaks, is it a bug or a refactor?") — only tests with regression value reach main

@@ -24,9 +24,9 @@ commit/push/issue/PR belong to the main session.
 - Do not remove/hide UI arbitrarily. For parts that need a backend, do not work around it — report "backend needed".
 
 ## Producing the change-map (once, before self-check)
-When implementation is done (once the commit-candidate diff is fixed), produce the change-map once. The three self-check axes
+When implementation is done (once the commit-candidate diff is fixed), produce the change-map once. The three self-check reviewers
 (code-reviewer, policy-checker, qa) read this first and check the original only at suspicious spots,
-which reduces the waste of all three reading the same diff three times.
+which reduces the waste of all three reading the same diff three times. (qa-runner doesn't read it — it only runs tests.)
 - What it holds: per file, change intent (why) · risk spots (side effects, edges, dependencies) · test links (which completion criterion/test verifies).
 - Where to write it: if change_map_path is given, to that file; otherwise inline it in the completion report.
   (Milestone mode gives the path groups/<group>/tasks/<issue#N>/change-map.md.)

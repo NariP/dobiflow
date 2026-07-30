@@ -28,8 +28,8 @@ dobiflow 설치 스크립트
   -h, --help       도움말
 
 설치 위치:
-  Claude: $CLAUDE_HOME/skills/{work,triage-fix,task-run,triage-status,triage-init,triage-help}
-          $CLAUDE_HOME/agents/{issue-triage,policy-checker,code-reviewer,implementer,git-writer}.md
+  Claude: $CLAUDE_HOME/skills/{work,milestone,triage-fix,task-run,triage-status,triage-init,triage-help}
+          $CLAUDE_HOME/agents/{issue-triage,planner,qa,qa-runner,policy-checker,code-reviewer,implementer,git-writer}.md
   Codex : 스킬은 플러그인으로 설치(자동 시도) — codex plugin marketplace add <클론> + codex plugin add
           $CODEX_HOME/agents/<name>.toml  (서브에이전트는 플러그인 미지원이라 여기서 복사)
   공용  : $DOBIFLOW_HOME/bin/dobiflow-emit  (작업 생명주기 이벤트 발행기)
@@ -65,7 +65,7 @@ put_file() {  # <원본 파일> <설치 경로>
 }
 
 SKILLS="work milestone triage-fix task-run triage-status triage-init triage-help"
-AGENTS_MD="issue-triage planner qa policy-checker code-reviewer implementer git-writer"
+AGENTS_MD="issue-triage planner qa qa-runner policy-checker code-reviewer implementer git-writer"
 MODE_LABEL=$([ "$LINK" = yes ] && echo "심링크" || echo "복사")
 
 # ---- 공용: 이벤트 발행기 (CLI 무관 — 스킬들이 ~/.dobiflow/bin/dobiflow-emit 으로 호출) ----
@@ -89,7 +89,7 @@ if [ "$DO_CLAUDE" != no ] && { [ "$DO_CLAUDE" = yes ] || command -v claude >/dev
   for d in "$REPO"/docs/*.md; do
     [ -e "$d" ] && put_file "$d" "$CLAUDE_HOME/docs/$(basename "$d")"
   done
-  echo "  → Claude 스킬 7개 + 에이전트 7개 + 공용 문서 설치 ($MODE_LABEL)"
+  echo "  → Claude 스킬 7개 + 에이전트 8개 + 공용 문서 설치 ($MODE_LABEL)"
 else
   echo "== Claude Code 건너뜀 (미설치 또는 --codex-only) =="
 fi
@@ -103,7 +103,7 @@ if [ "$DO_CODEX" != no ] && { [ "$DO_CODEX" = yes ] || command -v codex >/dev/nu
   for a in $AGENTS_MD; do
     put_file "$REPO/codex/agents/$a.toml" "$CODEX_HOME/agents/$a.toml"
   done
-  echo "  → Codex 에이전트 7개(toml) 설치 ($MODE_LABEL)"
+  echo "  → Codex 에이전트 8개(toml) 설치 ($MODE_LABEL)"
 
   # 구버전(≤0.13)이 홈에 복사해 둔 스킬 제거 — 플러그인 스킬과 중복 방지
   for s in $SKILLS; do

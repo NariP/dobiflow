@@ -105,7 +105,7 @@ In this step the main session **does not implement directly** — it only acts a
   So that a single task doesn't occupy the main working tree either, instead of checking out the branch decided above into the main working tree,
   use git-writer `op=add-worktree` to create the branch+worktree at `<repo>/.claude/worktrees/<issue-number>`.
   Right after creation, if `{milestone.install_command}` exists, install dependencies in that worktree (reusing the milestone ⑦ "worktree dependency prep" convention).
-  Then, when spawning the implementer and the three self-check axes, **pass the worktree absolute path as the work path (cwd)**, and
+  Then, when spawning the implementer and the self-check subagents (qa-runner + the checkers), **pass the worktree absolute path as the work path (cwd)**, and
   run the Step 6 commit from that path too (git-writer `work_path`). State files (`.claude/loops/<issue-number>/`) stay
   **centralized in the main repo** per the milestone convention.
   **On creation failure (disk, permissions, etc.)**, fall back to the current approach (branch in the main working tree) and tell the user in one line.
@@ -126,23 +126,29 @@ In this step the main session **does not implement directly** — it only acts a
    config (`convention_doc`·`tech_stack`·`lint_command`·`test_command`·`serena`),
    and **`change_map_path`** (the `change-map.md` in the loop.md folder). The implementer implements with minimal edits and
    **writes a test that satisfies the completion criteria**, then makes **lint pass** before reporting, and **leaves a change-map at that path once**
-   (per-file change intent · risk · test linkage — read first by the three self-check axes). **Running tests and judging pass/fail is qa's job** (self-check below). If it can't be solved, report "blocked" (no done-report in a failing state).
-2. **Self-check — three subagents in parallel (read-only).** **Pass the list of changed-file paths + `change_map_path`**
-   (the "changed files" field of the implementer's report + the change-map path). The three axes **read the change-map first and only open the originals at suspect spots**.
+   (per-file change intent · risk · test linkage — read first by the self-check subagents). **Running tests is qa-runner's job, judging pass/fail is qa's** (self-check below). If it can't be solved, report "blocked" (no done-report in a failing state).
+2. **Self-check — two phases (all read-only): execution (phase A) → audit (phase B).** **Pass the list of changed-file paths + `change_map_path`**
+   (the "changed files" field of the implementer's report + the change-map path). The subagents **read the change-map first and only open the originals at suspect spots**.
    **Don't put the full `git diff` in the prompt** — if a diff is needed, the checker opens the current state of that file with its own Read (context saving).
-   - **`policy-checker`** — domain policy violations. **Pass the `{policy_docs}` list as an arg** (if empty, "no policy docs" → pass).
-   - **`code-reviewer`** — general code quality. **Pass `{convention_doc}`+`{tech_stack}`** (if absent, general best practices).
-   - **`qa`** — completion-criteria test verification. **Pass the completion criteria (loop.md) + `{test_command}`.** qa audits whether the completion-criteria tests
-     actually verify those criteria, and **runs the tests to judge pass/fail** (leaves verify.log). If a test is
-     hollow, happy-path-only, or missing edges, mark it as fail. **A passing test = the objective gate for done.**
-   - All three also receive the `{serena}` value (grep fallback if false). If `{models}` is set, spawn each with its model.
+   - **Phase A — three subagents in parallel**:
+     - **`policy-checker`** — domain policy violations. **Pass the `{policy_docs}` list as an arg** (if empty, "no policy docs" → pass).
+     - **`code-reviewer`** — general code quality. **Pass `{convention_doc}`+`{tech_stack}`** (if absent, general best practices).
+     - **`qa-runner`** — test execution only. **Pass `{test_command}` + the verify.log path.** It runs and reports
+       **`ran` / `did-not-run` / `blocked-before-tests` + failing test names** — **no verdict** (judgment is qa's/main's).
+   - **Phase B — `qa` (audit), only if the runner is green**: **pass the completion criteria (loop.md) + the runner's verify.log path.**
+     qa has no Bash — it audits whether the completion-criteria tests actually verify those criteria and issues the composite verdict.
+     Hollow, happy-path-only, or missing edges = fail.
+   - **fail-fast: if the runner is red (test failure) or `blocked-before-tests`, skip the audit this round** — it's REQUEST_CHANGES either way.
+     **Record `audit skipped (red)` in the loop.md iteration log** — a skipped audit is **never** to be read as "audit passed".
+   - All of them also receive the `{serena}` value (grep fallback if false). If `{models}` is set, spawn each with its model.
      Propagate any `serena fallback (reason)` note in a subagent's report to the user report.
    - **Round 1 = full check** (all changed files of this task). **From round 2 = re-verify mode** — no full recheck.
      Pass: ① the previous findings list ② the **changed-file paths** this round's implementer reported (+ the updated `change_map_path`).
      Only two check questions — "were the findings resolved + did the change create a new violation" (the full pass was already done in round 1).
+     Re-verify mode applies to the checkers and to the phase-B audit; **qa-runner always runs the tests in full** (a partial run proves nothing).
 3. **Verdict (main session):**
    - implementer reports **blocked** → stop the loop immediately, report to the user (no commit/PR).
-   - ❌ **violations present (policy/code) or qa fail (test failure · weak tests)** → **REQUEST_CHANGES**:
+   - ❌ **violations present (policy/code), qa-runner red/blocked-before-tests, or qa fail (weak tests)** → **REQUEST_CHANGES**:
      record the findings in the loop.md iteration log and go to the next round. (If qa fails for "weak tests",
      the implementer must strengthen the tests, so include that finding in the next round's instruction.)
    - Even if there are only ⚠️, if judged to be **real regression, data loss, or security exposure**, you may promote it to ❌ and REQUEST_CHANGES
@@ -168,7 +174,7 @@ In this step the main session **does not implement directly** — it only acts a
 To keep debt tests out of main, audit **only the tests this loop added** (proposing removal of existing ones is forbidden too).
 - **fast-path**: if 0 tests were added, go straight to Step 6 with no classification.
 - **Judgment**: "if it breaks, is it a **bug** or a **refactor**?" — behavior-spec verification = asset (keep); coupling to implementation details, tautological, or duplicate = debt (remove).
-- **Procedure**: classify (reuse qa's audit result or main's judgment) → remove debt (implementer) → re-run the remaining tests **once**, confirm green (qa) → Step 6. If red, roll back and keep.
+- **Procedure**: classify (reuse qa's audit result or main's judgment) → remove debt (implementer) → re-run the remaining tests **once**, confirm green (qa-runner) → Step 6. If red, roll back and keep.
 - **If 0 debt, go to Step 6 as-is.** Record the removal list (file:test-name + reason) in the PR self-check.
 
 ### Step 6 — Commit + PR (only after APPROVE · delegate to git-writer)
@@ -249,7 +255,7 @@ Generate the PR body **in the user's language** (match the language they wrote i
 - **What changed** — 1-3 lines on what this PR changes, from a user/screen perspective.
 - **Background** — `Closes #<issue-number>`, why it was needed (symptom/request, 1-2 lines), and the original issue link (Notion/Slack).
 - **Work done** — key changes, one line each by `file:line`.
-- **Self-check (step-5 loop result)** — loop round at APPROVE; policy (policy-checker summary); code (code-reviewer summary); tests (qa summary — completion-criteria tests pass, run command); removed tests (step 5.5 removal list as file:test-name+reason, or "none").
+- **Self-check (step-5 loop result)** — loop round at APPROVE; policy (policy-checker summary); code (code-reviewer summary); tests (qa-runner result + qa audit summary — completion-criteria tests pass, run command); removed tests (step 5.5 removal list as file:test-name+reason, or "none").
 - **Review points** — checkbox to confirm behavior locally via `<reproduction steps>`.
 
 End with a machine-generated marker (e.g. `🤖 auto-generated`).
@@ -266,7 +272,7 @@ The content filled in follows whatever is copied from the issue — user-facing 
 - Issue: <full URL> / Branch: <branch-name> / Max iterations: <loop.max_iterations>
 
 ## Completion criteria (copied from the issue — do not edit mid-loop; express as tests where possible)
-- [ ] <expected behavior/resolution — as "Test: <how to verify>". implementer writes it, qa runs·judges>
+- [ ] <expected behavior/resolution — as "Test: <how to verify>". implementer writes it, qa-runner runs, qa judges>
 - (Subjective·visual items a test can't capture are marked "PR self-check:" → a human confirms on the final PR)
 
 ## Related locations (verbatim copy of the step-2 issue-triage return — implementer starts here before re-searching)
@@ -275,11 +281,12 @@ The content filled in follows whatever is copied from the issue — user-facing 
 ## Verification commands
 - lint: `<lint_command>` / test: `<test_command>` (or "none")
 - Once at APPROVE: `<loop.full_verify_command>` (or "none" — not run inside the loop)
-- change-map: `<loop.md folder>/change-map.md` (implementer leaves it each iteration → read first by the three self-check axes)
+- change-map: `<loop.md folder>/change-map.md` (implementer leaves it each iteration → read first by the self-check subagents)
 
 ## Iteration log
 ### Round 1
 - Implementation: <implementer report summary, 1-2 lines> / Verdict: APPROVE | REQUEST_CHANGES | blocked
+- Test run: <qa-runner status + result> / Audit: <qa verdict, or `audit skipped (red)` — never counts as a pass>
 - Findings: <on REQUEST_CHANGES — what carries to the next round>
 ```
 

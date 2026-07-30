@@ -22,7 +22,7 @@ skill's procedure is the source of truth for execution.
 
 - **The controller (main) decides and delegates. The subs execute.**
   - Deciding, writing state files (plan.md etc.), assembling the values to hand off to subs = controller.
-  - **git/gh execution (branch·worktree·PR·merge·close·cleanup) = `git-writer`.** **Running tests·full_verify = `qa`.**
+  - **git/gh execution (branch·worktree·PR·merge·close·cleanup) = `git-writer`.** **Running tests·full_verify = `qa-runner`** (judging = `qa`).
     The controller does not directly run these **heavy, side-effecting, raw-output-spewing** operations. But **reading/writing
     state files (plan.md·search-cache) and light local lookups (checking a SHA·branch name) are done by the controller directly** —
     they're neither heavy enough to delegate nor do they pile up raw output.
@@ -136,31 +136,33 @@ if needed `mcp__serena__activate_project <repo absolute path>` once (on failure,
     the main repo — §⑦) — be aware of the first-query warmup cost (tens of seconds/worktree).
     Under parallel, also **downgrade the `serena` in the config handed to workers to false** (double safety with the spawn-prompt prohibition —
     mechanically interlocks with the agent's "if serena=false, don't use serena tools" rule). Sequential keeps `serena=true`.
-  - implementer implements + writes completion-criteria tests → generates a **change-map from the commit-candidate diff** → self-check (code-reviewer+policy-checker+qa).
-  - **If the self-check is green, git-writer commits to the group branch.** On failure (blocked/max_iter/qa fail) → **don't commit + new issue** (dedup marker `[milestone:<slug>][task:<issue#N>]`, check for the same key before creating) + next task. Leave the failed task's original issue open.
+  - implementer implements + writes completion-criteria tests → generates a **change-map from the commit-candidate diff** → self-check
+    (phase A: code-reviewer+policy-checker+qa-runner in parallel → phase B: qa audit, **skipped with `audit skipped (red)` in loop.md if the runner is red**).
+  - **If the self-check is green, git-writer commits to the group branch.** On failure (blocked/max_iter/runner red/qa fail) → **don't commit + new issue** (dedup marker `[milestone:<slug>][task:<issue#N>]`, check for the same key before creating) + next task. Leave the failed task's original issue open.
   - Under halt mode, stop for the 4-stage approval per task.
   - **The task stage does no debt-test audit** — added tests are left as a regression net for later tasks, and the audit happens all at once at ⑩.
 - **Search cache**: when a sub searches, it returns a cache_delta as result JSON → the controller merges serially into `search-cache.json`. On a file change (SHA), invalidate that file's entry.
   - **Hit metering**: subs also include `cache_hits`·`cache_misses` in their result JSON. The controller accumulates them into `search-cache.json`'s `_stats`
     (`total_hits`·`total_misses`·`hit_rate`) and records the **hit rate** in the ⑩ final-PR body (or log) — leaving data on whether the cache actually paid off.
 
-### ⑨ Group PR + pre-merge verification (qa verifies · git-writer executes)
+### ⑨ Group PR + pre-merge verification (qa-runner verifies · git-writer executes)
 Once a group's tasks are all done:
 - git-writer creates a **PR** from the group branch → milestone.
 - **Create commit M**: git-writer `op=prepare-merge` (combine [latest milestone + group] in a temporary verification worktree) → **return M's SHA**.
   On a merge conflict it's failed here → handle as red below.
-- **Pre-merge verification (qa)**: run `{loop.full_verify_command}` on the returned M (verification worktree), merge-queue style.
-  This qa **only runs and judges tests** (not an audit), so it **can be spawned with a lower model (e.g. `{models.git-writer}`-tier) instead of `{models.qa}`** — saving tokens.
+- **Pre-merge verification (`qa-runner`)**: run `{loop.full_verify_command}` on the returned M (verification worktree), merge-queue style.
+  This point is **pure execution** (no test-adequacy audit — that already happened per task), so it's `qa-runner` with `{models.qa-runner}`, not `qa`.
+  Green/red comes from the runner's status + verify.log; **the main session reads it as the merge gate** (the runner issues no verdict).
   - **green** → (halt=after human merge approval / bypass=immediately) git-writer `op=merge` fast-forward-only confirms **that same verified M as-is**
     as the milestone HEAD (not a re-merge) + cleans up the verification worktree. Then **post-merge cleanup**: `op=close-issue` only for successful task issues, `op=cleanup-branch`/`remove-worktree` for the group branch·worktree.
   - **red/conflict** → don't merge + clean up the verification worktree (`op=remove-worktree`) + create an **integration issue** + leave the group PR open + mark "unmerged" on the final PR.
 - If another group merged first and the milestone advanced, rebuild M (re-run prepare-merge) and re-verify (repeat if stale).
 
 ### ⑩ Final PR ✋
-- After all groups are merged or confirmed·marked unmerged, run the final `full_verify` (qa) once.
+- After all groups are merged or confirmed·marked unmerged, run the final `full_verify` (`qa-runner` — pure execution) once.
 - **Debt-test audit (after the final full_verify is green · before creating the final PR)** — only for tests the whole milestone added,
   classify each by "if it breaks, is it a bug or a refactor?" (no proposing changes to existing tests); remove debt via a **cleanup commit**
-  (milestone branch, git-writer) → re-confirm `full_verify` (if red, roll back the removal·keep it). If there are 0 debt items, proceed as-is.
+  (milestone branch, git-writer) → re-confirm `full_verify` (qa-runner; if red, roll back the removal·keep it). If there are 0 debt items, proceed as-is.
 - git-writer **opens the PR from the milestone branch → main and stops**
   (under stacking the base is the A branch, not main — §Milestone stacking ③. **Stacked-merge caution**: before merging C, delete A's **remote** branch
   first — §Milestone stacking ⑤ retarget warning). If any group is unmerged, make it a draft.
@@ -183,9 +185,10 @@ Task completion is `scope=issue` (omit pr_url if before the group PR); the final
 
 ## Guards (do not violate)
 - **No issue·branch·code creation before the ⑤ approval.** Plan only, then stop.
-- **The controller must not run git/gh/tests directly** — delegate to git-writer/qa. Don't pile raw diffs·logs into context.
+- **The controller must not run git/gh/tests directly** — delegate to git-writer/qa-runner. Don't pile raw diffs·logs into context.
   (Reading·writing state files and light local lookups (SHA·branch name) are the exception — the controller does these directly.)
 - **Blocked·integration breakage = new issue** (no forcing through). Only successful tasks get committed.
-- **Pre-merge verification (qa) must be green to merge into the milestone.** Nothing broken gets into the milestone branch.
+- **Pre-merge verification (qa-runner) must be green to merge into the milestone.** Nothing broken gets into the milestone branch.
+  **A skipped audit (runner red → `audit skipped (red)`) is never read as a pass** — it's a fail until the runner goes green and qa audits.
 - **Main merge is never automatic** — always a human gate at the final PR.
 - **Isolation via per-milestone folder·branch slug** — running multiple milestones at once is OK (no global lock needed).

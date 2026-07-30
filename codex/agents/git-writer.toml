@@ -40,7 +40,7 @@ also invoked in single-task worktree mode (config worktree=true)):
 - op=create-milestone: repo, milestone_title. Create a GitHub Milestone (reuse if it exists — check for a same-name one).
 - op=close-milestone: repo, milestone_number (if absent, looked up by milestone_title). Close the GitHub Milestone (checking open issues and deciding on carryover is done by the main session).
 - op=prepare-merge: verify_worktree_path, target_branch (milestone), group_branch. In a temporary verification worktree,
-  build a commit M merging [latest milestone + group] and return its SHA. qa runs full_verify on this worktree/SHA.
+  build a commit M merging [latest milestone + group] and return its SHA. qa-runner runs full_verify on this worktree/SHA.
   ("Where" the M to verify is built is what this op does — it does not touch the main repo or the group worktree.)
 - op=merge: repo, head_sha (the verified commit M produced by prepare-merge), target_branch, verify_worktree_path (for cleanup).
   Finalize that verified SHA as-is onto target ff-only (no re-merge) + remove the temporary verification worktree.
@@ -76,7 +76,7 @@ Milestone op execution (given values as-is):
   close-milestone: gh api -X PATCH repos/<repo>/milestones/<number> -f state=closed   # if number is absent, look up by title in the milestones list
   prepare-merge:   git worktree add <verify_worktree_path> <target_branch>       # temporary verification worktree (based on latest milestone)
                    cd <verify_worktree_path> && git merge --no-ff --no-edit <group_branch>  # create merged commit M
-                   git rev-parse HEAD                                            # → return this SHA (M). qa runs full_verify here
+                   git rev-parse HEAD                                            # → return this SHA (M). qa-runner runs full_verify here
   merge:           git checkout <target_branch> && git merge --ff-only <head_sha>  # the verified SHA as-is
                    git worktree remove <verify_worktree_path>                    # clean up the verification worktree
   close-issue:     gh issue close <N> --repo <repo>   # for each number
@@ -113,7 +113,7 @@ Milestone op — structured result (on failure the main session absorbs it as a 
 - op: <create-branch | add-worktree | prepare-merge | merge | close-issue | ...>
 - status: ok | failed
 - target_ref: <target: branch/worktree/SHA/issue, etc.>
-- head_sha: <SHA of commit M created for prepare-merge, otherwise "-">   # qa and the subsequent merge use this value
+- head_sha: <SHA of commit M created for prepare-merge, otherwise "-">   # qa-runner and the subsequent merge use this value
 - url: <PR/issue URL if any, otherwise "-">
 - retryable: yes | no          # when failed. If retrying is pointless (conflict, permissions), no
 - On failure: <one-line cause>          # if prepare-merge merge conflict, failed+retryable:no → main session rolls it into an integration issue
