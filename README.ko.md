@@ -15,7 +15,7 @@
 ![Codex](https://img.shields.io/badge/Codex-CLI-000000)
 ![로컬 실행](https://img.shields.io/badge/실행-100%25%20로컬-success)
 ![API 비용](https://img.shields.io/badge/추가%20API%20비용-0원-blue)
-![version](https://img.shields.io/badge/version-1.0.0-lightgrey)
+![version](https://img.shields.io/badge/version-1.1.0-lightgrey)
 ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 이슈 하나, 작업 하나를 한 줄로 던지면 — 도비가 원인을 파악하고, GitHub 이슈를 만들고,
@@ -184,6 +184,7 @@ dobiflow는 전부 **주인님 컴퓨터에서** 돌아가서, 도비가 지키�
 - **큰 작업은 마일스톤으로** — 한 PR로 안 되는 요청은 태스크로 쪼개고, 관련 태스크를 그룹으로 묶어(그룹 = 개발자 1명) git worktree로 그룹끼리 병렬 실행. 그룹별 PR은 merge-queue식 검증 뒤에 합치고, 마지막에 main으로 최종 PR — 머지는 항상 주인님 몫. 계획은 planner 도비, 테스트 실행은 qa-runner 도비가 맡아요
 - **단일 작업도 worktree로(선택)** — config에 `worktree: true`면 버그/기능 하나짜리 작업도 자기 worktree에서 구현해서, 도비가 일하는 동안에도 주인님 워킹트리는 비어 있어요 (기본 꺼짐 — 의존성 설치 비용 있음, 생성 실패 시 기존 방식으로 폴백해요)
 - **자가체크 분리** — 도메인 정책 검사 + 일반 코드리뷰 + QA(완료 기준 테스트)를 따로 (읽기 전용 도비들)
+- **PR 본문에 QA 시나리오** — 유저가 지각하는 표면(화면·플로우·CLI 출력·에러 메시지·API 응답 — change-map에 파일별 기록)을 건드린 PR엔 유저 플로우 시나리오(준비 / 순서 / 확인 지점: 보여야·보이면 안 되는·회귀 / 수정 전 동작)가 붙어요 — 사람이든 AI 브라우저든 그대로 따라 검증하는 대본. 내부 변경만이면 섹션 자체가 안 생겨요 — 빈 "해당 없음" 금지
 - **부채 테스트 감사** — PR 직전, 이번 루프가 추가한 테스트만 "깨지면 버그인가, 리팩토링인가"로 심사해요 — main엔 회귀 가치 있는 테스트만 들어가요
 - **머지 후 정리** — "머지했어" 한마디면 태깅(레포 관례 시) + 머지된 로컬 브랜치·worktree·남은 루프 폴더까지 싹 정리 — 미머지는 절대 안 건드려요
 - **컨텍스트 아끼는 쓰기** — `git-writer` 도비가 이슈/커밋/push/PR을 **실행만** 담당. 메인이 메시지·본문을 완성해 넘기면 git-writer는 `gh`/`git`을 돌려 URL만 반환 → 장황한 `git log`/`diff`/`gh` 출력이 메인 세션에 안 쌓임
