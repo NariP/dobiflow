@@ -147,7 +147,7 @@ If things change later, run `/triage-init` again to refresh (existing config is 
   (`loop.full_verify_command`, when set).
 - **Self-check separation** — domain policy checks (policy-checker) and general code review (code-reviewer) are kept separate,
   and **test execution (qa-runner) is separated from test judgment (qa)** — the runner reports facts only (`ran`/`did-not-run`/`blocked-before-tests`)
-  and has no way to manufacture green, while qa has no Bash and grades on the runner's verify.log. If the run is red, the audit is skipped that round
+  and has no way to manufacture green, while qa runs no tests at all and grades on the runner's verify.log. If the run is red, the audit is skipped that round
   (recorded as `audit skipped (red)` — never counted as a pass).
 - **Debt-test audit** — before commit · PR (for milestones, in one batch before the final PR), it audits **only the tests this work added**
   on the "if it breaks, is it a bug or a refactor?" criterion, stripping out implementation-detail-coupled, self-evident, and duplicate tests.

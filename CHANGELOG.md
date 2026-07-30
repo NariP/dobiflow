@@ -4,6 +4,20 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 [유의적 버전](https://semver.org/lang/ko/)을 사용합니다.
 
+## [1.1.0] - 2026-07-30
+
+구현 루프 비용 절감(qa 실행/감사 분리) + PR 본문의 QA 대본화.
+
+### Added
+- **qa 실행/감사 분리 — `qa-runner` 에이전트 신설(#47)** (claude+codex) — 테스트 실행·verify.log 작성은 qa-runner(기본 haiku), 적정성 감사·verdict는 qa(opus 유지, tools에서 Bash 제거로 "감사는 테스트를 못 돌림"을 구조로 강제). 자가체크 배선은 phase A(qa-runner ∥ code-reviewer ∥ policy-checker 병렬) → phase B(러너 초록일 때만 qa 감사, 빨강이면 감사 스킵을 loop.md에 "audit skipped (red)"로 기록 — fail-fast). milestone ⑨⑩의 "감사 없는 호출은 하위 모델 대체" 임시방편은 qa-runner 정식 호출로 대체. 하위 모델 적합성은 5개 함정 시나리오(스냅샷 `-u`·`--passWithNoTests`·대량 실패 로그·lint 차단·환경 에러) 재평가 3라운드로 검증 — 상태값 3개 강제·실패명 전수 나열+개수 대조·에러 줄 verbatim 인용·되묻기 금지를 명문화. `models.qa-runner` 미지정 시 inherit — 기존 config 하위호환
+- **PR 본문 QA 시나리오 섹션(#48)** (claude+codex) — change-map에 `user-facing` 필드 신설(파일별 yes/no — 화면·플로우·인터랙션·CLI 출력·에러 메시지·API 응답 등 지각 표면). yes가 하나라도 있는 PR에만 유저 플로우 시나리오(준비·순서·확인 지점 3종: 보여야 하는 것/보이면 안 되는 것/회귀·수정 전 동작)를 생성 — 사람·AI 브라우저 QA가 그대로 따라 실행할 수 있는 대본. 전부 no면 섹션 자체 생략("해당 없음" 금지). 정의는 triage-fix §PR template 한 곳(SSOT), 마일스톤은 ⑩ 최종 PR에서 전체 change-map 종합
+- **triage-status 설정 요약(#49)** (claude+codex) — 출력에 역할별 모델 매핑(미지정 `inherit`)·주요 설정(`repo`·`default_branch`·`loop.*`·`worktree`·`serena`·`milestone.base_branch`)·읽은 config 경로 표시. config 부재 시 깨지지 않고 "`/triage-init` 권장" 안내만 (읽기 전용 가드 유지)
+
+### Changed
+- install.sh — 에이전트 8개(qa-runner 추가), usage() 목록의 planner·qa 누락 정정
+- docs/architecture.md — 자가체크 상호 맹목 원칙에 "러너→감사는 판정이 아닌 사실만 흐르는 유일한 의도적 예외" 서술 추가
+- docs/dobi-persona.md — 말투 미적용 목록에 QA scenario 섹션 추가 (Codex 복제본 3개 동기화)
+
 ## [1.0.0] - 2026-07-26
 
 글로벌 준비 완료 — 실행 로직 영어화 + 사용자 언어 자동 대응으로 첫 메이저 릴리스.
