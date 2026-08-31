@@ -15,7 +15,7 @@
 ![Codex](https://img.shields.io/badge/Codex-CLI-000000)
 ![로컬 실행](https://img.shields.io/badge/실행-100%25%20로컬-success)
 ![API 비용](https://img.shields.io/badge/추가%20API%20비용-0원-blue)
-![version](https://img.shields.io/badge/version-1.1.0-lightgrey)
+![version](https://img.shields.io/badge/version-1.2.0-lightgrey)
 ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 이슈 하나, 작업 하나를 한 줄로 던지면 — 도비가 원인을 파악하고, GitHub 이슈를 만들고,
@@ -222,6 +222,12 @@ dobiflow는 전부 **주인님 컴퓨터에서** 돌아가서, 도비가 지키�
 - **GitHub CLI (`gh`)** — 이슈/PR 생성. 인증 필요(`gh auth login`).
 - **Serena MCP** (선택) — 심볼 단위 코드 탐색. 없으면 grep으로 동작.
   user 스코프 등록: `claude mcp add --scope user serena -- serena start-mcp-server --context claude-code`
+
+## 기여하기
+
+- `main`은 stable 라인이에요 — 릴리스 때만 움직이니까, 기본으로 보이고 설치되는 건 마지막 릴리스 버전이에요.
+- 일상 작업은 `develop`에 모여요. **PR은 `main`이 아니라 `develop`을 대상으로** 열어주세요.
+- 릴리스: `develop`에서 버전 bump → `develop → main` PR → 머지 커밋에 태그. `release/*` 브랜치는 없어요.
 
 ## 라이선스
 

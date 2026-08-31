@@ -15,7 +15,7 @@
 ![Codex](https://img.shields.io/badge/Codex-CLI-000000)
 ![runs local](https://img.shields.io/badge/runs-100%25%20local-success)
 ![no API cost](https://img.shields.io/badge/extra%20API%20cost-%240-blue)
-![version](https://img.shields.io/badge/version-1.1.0-lightgrey)
+![version](https://img.shields.io/badge/version-1.2.0-lightgrey)
 ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 Throw one bug or one task in a single line — Dobby finds the cause, files a GitHub
@@ -230,6 +230,12 @@ Drop an executable script at either location (or both):
 - **GitHub CLI (`gh`)** — creates issues/PRs. Requires auth (`gh auth login`).
 - **Serena MCP** (optional) — symbol-level code search. Falls back to grep if absent.
   Register at user scope: `claude mcp add --scope user serena -- serena start-mcp-server --context claude-code`
+
+## Contributing
+
+- `main` is the stable line — it only moves on a release, so what you see and install by default is the last released version.
+- Day-to-day work lands on `develop`. **Open pull requests against `develop`**, not `main`.
+- Releases: version bump on `develop` → `develop → main` PR → tag on the merge commit. No `release/*` branches.
 
 ## License
 

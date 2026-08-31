@@ -4,6 +4,17 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 [유의적 버전](https://semver.org/lang/ko/)을 사용합니다.
 
+## [1.2.0] - 2026-09-01
+
+완료기준 테스트 레벨 분리 — e2e를 자가체크에서 떼어 머지 게이트로.
+
+### Added
+- **테스트 레벨 분리 — `e2e_command`·`test_policy` 설정 신설(#56)** (claude+codex) — e2e만 있는 실사용 프로젝트에서 셸스크립트 검증까지 e2e spec으로 작성되고 라운드마다 전량 재실행돼 자가체크가 라운드당 15~22분 걸리던 병목 해소. `test_command`는 unit/integration 러너만(감지 시 playwright/cypress 실행 스크립트 제외), `e2e_command`(선택)는 머지 게이트(단일 태스크 APPROVE·마일스톤 ⑨⑩·Track-C)에서만 `full_verify_command`와 같은 자리에서 1회 실행. `test_policy`(enum: `ui-flow-only` 기본 / `merge-gate-only` / `unrestricted`)는 e2e "신규 작성" 범위만 지배 — 실행 시점은 정책과 무관하게 고정. triage-init이 e2e-only 프로젝트를 감지하면 경고("자가체크 라운드에 테스트 실행 없음 — unit 러너 추가 권장") + `test_policy` 1문항, triage-status 설정 요약에 세 키 표시. 완료기준 어휘 `Test(unit):`/`Test(e2e):`/`Covered-by:` 신설(무태그 `Test:`=unit 하위호환, `Test(e2e):`는 정책 근거 한 줄 필수) — planner가 태그 제안, implementer는 e2e 직접 실행 금지, qa는 정책 위반 e2e를 `fail`(사유 `policy`)로 감사. `test_command` 미설정 시 러너는 `runner skipped (no test_command)` — 빨강 아님, 감사는 "실행 증거 없음"으로 진행
+- **README 기여 섹션(#58)** — PR은 `develop`로, `main`은 stable(릴리스 때만 이동), 릴리스는 develop bump → develop→main PR → 태그(`release/*` 브랜치 없음). 영·한 대칭
+
+### Changed
+- GitHub 디폴트 브랜치 `develop` → `main` — 방문자·`/plugin marketplace add`·`git clone`이 항상 마지막 릴리스를 받도록 (레포 설정 변경, 2026-08-31)
+
 ## [1.1.0] - 2026-07-30
 
 구현 루프 비용 절감(qa 실행/감사 분리) + PR 본문의 QA 대본화.
