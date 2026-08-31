@@ -133,7 +133,7 @@ dobiflow는 orchestrator-workers 패턴이라, **되돌리기 어렵거나 바�
 서브에이전트(issue-triage·planner·implementer·policy-checker·code-reviewer·qa)는 읽기·구현·판정만
 하고 부작용을 내지 않는다 — 그래서 재시도해도 안전하고, 승인 게이트가 실제로 작동한다.
 
-**"실행"은 손 에이전트 둘에 위임한다 — `git-writer`(git/gh)와 `qa-runner`(테스트).**
+**"실행"은 손 에이전트 둘에 위임한다 — `git-writer`(git/gh)와 `qa-runner`(테스트).** 검사·구현 6 + 손 2 = 서브에이전트 총 8개.
 qa-runner는 받은 명령만 돌려 verify.log를 남기고, **소스·스냅샷·픽스처는 고치지 않는다**
 (자가체크에선 `test_command`(unit), 머지 게이트에선 `full_verify_command`+`e2e_command` — 명령 선택은 부르는 쪽 몫이다)
 (초록을 만들어낼 수단이 없어야 자가승인이 불가능하다). 판정은 안 한다 — 그건 qa 몫이다.
