@@ -223,6 +223,12 @@ dobiflow는 전부 **주인님 컴퓨터에서** 돌아가서, 도비가 지키�
 - **Serena MCP** (선택) — 심볼 단위 코드 탐색. 없으면 grep으로 동작.
   user 스코프 등록: `claude mcp add --scope user serena -- serena start-mcp-server --context claude-code`
 
+## 기여하기
+
+- `main`은 stable 라인이에요 — 릴리스 때만 움직이니까, 기본으로 보이고 설치되는 건 마지막 릴리스 버전이에요.
+- 일상 작업은 `develop`에 모여요. **PR은 `main`이 아니라 `develop`을 대상으로** 열어주세요.
+- 릴리스: `develop`에서 버전 bump → `develop → main` PR → 머지 커밋에 태그. `release/*` 브랜치는 없어요.
+
 ## 라이선스
 
 MIT

@@ -231,6 +231,12 @@ Drop an executable script at either location (or both):
 - **Serena MCP** (optional) — symbol-level code search. Falls back to grep if absent.
   Register at user scope: `claude mcp add --scope user serena -- serena start-mcp-server --context claude-code`
 
+## Contributing
+
+- `main` is the stable line — it only moves on a release, so what you see and install by default is the last released version.
+- Day-to-day work lands on `develop`. **Open pull requests against `develop`**, not `main`.
+- Releases: version bump on `develop` → `develop → main` PR → tag on the merge commit. No `release/*` branches.
+
 ## License
 
 MIT
