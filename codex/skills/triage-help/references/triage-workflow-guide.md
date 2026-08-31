@@ -122,7 +122,8 @@ main ────────────────▶ ⑤ Converge: A→main 
 ## ⚙️ Config (`/triage-init` auto-generates it)
 
 Each project's own values go into `.claude/triage.config.json`:
-- Repo name, default branch, lint command, test command
+- Repo name, default branch, lint command, **test command (unit — runs every self-check round)** and, if the project has one,
+  **e2e command (runs at merge gates only)** + `test_policy` (how much new e2e the loop may write — default `ui-flow-only`)
 - Policy doc list, convention doc, tech stack, architecture
 - **Commit rules** (that project's style takes priority — Conventional, gitmoji, or Korean)
 - Label/branch prefixes, whether CODEOWNERS exists, whether Serena is used
@@ -144,7 +145,11 @@ If things change later, run `/triage-init` again to refresh (existing config is 
   stops and reports — it never forces a PR up.
 - **Iteration is cheap** — from the 2nd round on, it's not a full re-check but **the previous issues + only what changed this round**.
   Heavy verification like a full build isn't repeated inside the loop but done once at APPROVE time
-  (`loop.full_verify_command`, when set).
+  (`loop.full_verify_command`, when set) — **and so is e2e (`e2e_command`)**.
+- **Test level split** — completion criteria carry **how** they're verified: `Test(unit):` (the default — runs every round),
+  `Test(e2e):` (browser-level, only within `test_policy` and only run at merge gates), `Covered-by:` (an existing test already covers it),
+  `PR self-check:` (a human confirms). So a self-check round stays fast (unit only) while e2e still guards the merge — and
+  qa flags an e2e written outside the policy as a failure.
 - **Self-check separation** — domain policy checks (policy-checker) and general code review (code-reviewer) are kept separate,
   and **test execution (qa-runner) is separated from test judgment (qa)** — the runner reports facts only (`ran`/`did-not-run`/`blocked-before-tests`)
   and has no way to manufacture green, while qa runs no tests at all and grades on the runner's verify.log. If the run is red, the audit is skipped that round

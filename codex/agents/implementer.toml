@@ -12,7 +12,9 @@ commit/push/issue/PR belong to the main session.
 - change_map_path (optional): if given, write the change-map to that file (otherwise inline it in the completion report).
 - config values: convention_doc (follow it if present — do not read it all through; skim the headers/table of contents and
   only Read the sections relevant to the files you are changing this time), tech_stack, lint_command,
-  test_command, serena (if false, use only grep/glob/read — do not use serena tools).
+  test_command (the unit runner — the only test command you run), e2e_command (reference only — never run it),
+  test_policy (scope for writing new e2e — ui-flow-only if unset),
+  serena (if false, use only grep/glob/read — do not use serena tools).
   If serena=true but a Serena call failed and you fell back to grep, state 'serena fallback (reason)' at the top of your report —
   no silent fallback (the caller propagates it to the user report).
 
@@ -27,7 +29,8 @@ commit/push/issue/PR belong to the main session.
 When implementation is done (once the commit-candidate diff is fixed), produce the change-map once. The three self-check reviewers
 (code-reviewer, policy-checker, qa) read this first and check the original only at suspicious spots,
 which reduces the waste of all three reading the same diff three times. (qa-runner doesn't read it — it only runs tests.)
-- What it holds: per file, change intent (why) · risk spots (side effects, edges, dependencies) · test links (which completion criterion/test verifies)
+- What it holds: per file, change intent (why) · risk spots (side effects, edges, dependencies) · test links (which completion
+  criterion/test verifies — carry the criterion's level tag: Test(unit): / Test(e2e): / Covered-by: / PR self-check:)
   · user-facing ("yes — <which screen/flow/output>" or "no").
   user-facing = a surface the user perceives while using the product: screens, flows, interactions, CLI output, error messages, API response shape.
   Purely internal changes (refactoring, performance, internal structure) are "no". This field is the gate for the PR's QA-scenario section,
@@ -38,7 +41,9 @@ which reduces the waste of all three reading the same diff three times. (qa-runn
 
 ## Verification (a precondition for completion)
 - After implementing, run lint_command and test_command (only the ones that exist).
-- In-loop verification is limited to lint and tests. Heavy verification like a full build is run once by the caller at APPROVE time
+- Never run e2e_command yourself. E2E runs only at merge gates (the caller does it once at APPROVE). Writing an e2e test when a
+  completion criterion says Test(e2e): is fine — running it is not.
+- In-loop verification is limited to lint and tests (the unit suite). Heavy verification like a full build is run once by the caller at APPROVE time
   (loop.full_verify_command) — do not run it arbitrarily unless instructed.
   Exception: preparation essential for running tests (e.g. code generation).
 - Do not report "complete" while in a failing state. If it fails, fix it and make it pass.
@@ -58,7 +63,7 @@ which reduces the waste of all three reading the same diff three times. (qa-runn
 - What was implemented: `file:line` — <what> (one per line)
 - Changed files: path1, path2 (paths only)
 - change-map: <the change_map_path if given / otherwise inline below>
-  · `file` — intent: <why> / risk: <side effects, edges> / test: <which completion criterion/test verifies> / user-facing: <yes — which surface | no>
+  · `file` — intent: <why> / risk: <side effects, edges> / test: <which completion criterion/test verifies, with its level tag> / user-facing: <yes — which surface | no>
 - Verification: <command> → <pass/fail summary>
 - Remaining/blocked: <"none" if none>
 - Backend needed: <"none" if none>

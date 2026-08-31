@@ -35,16 +35,27 @@ developer (group).
 - **Dependencies go into the same group**: if task B needs an artifact of A (a new
   function, API, or type), put it in the **same group** and process sequentially. That
   keeps groups independent, which makes parallelism safe.
-- **Completion criteria as tests**: for each task, write the completion criteria **down to
-  the verification method (tests)**. Subjective/visual criteria that tests cannot capture
-  (e.g. "the UI feels natural") are flagged separately for PR self-check.
+- **Completion criteria as tests, each tagged with its level**: for each task, write the
+  completion criteria **down to the verification method (tests)**, and tag every one of them:
+  - `Test(unit): <how>` — the default (runs every self-check round). A bare `Test:` is read as unit.
+  - `Test(e2e): <how>` — browser-level. Allowed **only within `test_policy`** (default
+    `ui-flow-only` = UI flow / routing / external SDK), and every one **needs a one-line
+    justification naming which `test_policy` item it satisfies**. Under `merge-gate-only`,
+    write **no new `Test(e2e):`** — use `Covered-by:` or `PR self-check:` instead. E2E never
+    runs inside the loop; it runs at merge gates only, so it can't be the criterion that
+    closes a round.
+  - `Covered-by: <existing test file·name>` — already verified by an existing test.
+  - `PR self-check:` — subjective/visual criteria that tests cannot capture (e.g. "the UI
+    feels natural"), for a human to confirm on the final PR.
 - **Do not grade**: the pass/fail decision is made by qa (auditing the tests qa-runner ran). You only
   create the criteria.
 
 ## Input (given by the caller)
 
 - Task description (what to build/change).
-- Config values such as `convention_doc`, `tech_stack`, `serena` (whether LSP is
+- Config values such as `convention_doc`, `tech_stack`, `e2e_command` (absent = no e2e
+  runner at all → no `Test(e2e):`), `test_policy` (the scope for writing new e2e —
+  `ui-flow-only` if unset), `serena` (whether LSP is
   available). If `serena=true` but a Serena call failed and you fell back to grep, **state
   `serena fallback (reason)` at the top of your report — no silent fallback** (the caller
   propagates it to the user report).
@@ -58,7 +69,8 @@ developer (group).
    packet first; if it is insufficient, investigate (check existing patterns and reusable
    utilities first).
 3. **Completion criteria (tests)**: **express the conditions for calling each task done as
-   tests**.
+   tests**, each carrying its level tag (`Test(unit):` / `Test(e2e):` + justification /
+   `Covered-by:` / `PR self-check:`) per the `test_policy`.
 4. **Extract commonality**: for shared parts touched by multiple tasks, extract a separate
    task that runs first **only when it pays off** (no over-splitting — be careful if the
    commonization itself is a large design change).
@@ -77,7 +89,7 @@ developer (group).
 - Group: <group name>  (order within group: <n>th)
 - File plan:
   - `path/to/file:line` — <what to change and how>
-- Completion criteria (tests): <conditions for calling it done, as tests — e.g. "calling with an expired token returns 200 after refresh">
+- Completion criteria (tests): <one per line, level-tagged — e.g. `Test(unit): calling with an expired token returns 200 after refresh` / `Test(e2e): <how> (policy: <which test_policy item this satisfies>)` / `Covered-by: <existing test file·name>`>
 - (if there are criteria tests cannot capture) PR self-check: <subjective/visual items>
 
 ## Groups / ownership matrix
@@ -93,4 +105,6 @@ developer (group).
 ```
 
 State uncertain plans as "estimate". If you cannot force a completion criterion into a
-test, say so and move it to a PR self-check item.
+test, say so and move it to a PR self-check item. Never reach for `Test(e2e):` just because
+a unit test is awkward — if it falls outside `test_policy`, it belongs in `Covered-by:` or
+`PR self-check:`.

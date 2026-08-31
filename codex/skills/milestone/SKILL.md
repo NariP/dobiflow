@@ -19,7 +19,7 @@ way to a final PR. Input: `$ARGUMENTS`
 
 - **The controller (main) decides and delegates. The subs execute.**
   - Deciding, writing state files (plan.md etc.), assembling the values to hand off to subs = controller.
-  - **git/gh execution (branch·worktree·PR·merge·close·cleanup) = `git-writer`.** **Running tests·full_verify = `qa-runner`** (judging = `qa`).
+  - **git/gh execution (branch·worktree·PR·merge·close·cleanup) = `git-writer`.** **Running tests·full_verify·e2e = `qa-runner`** (judging = `qa`).
     The controller does not directly run these heavy, side-effecting, raw-output-spewing operations. But reading/writing
     state files (plan.md·search-cache) and light local lookups (checking a SHA·branch name) are done by the controller directly —
     they're neither heavy enough to delegate nor do they pile up raw output.
@@ -53,7 +53,7 @@ a new group (re-run the ownership-matrix overlap check — if they overlap, run 
 this approval is a plan approval like ⑤, so even under bypass it halts here) →
 ④ **git-writer creates the new issue** and pins #N in plan.md (the §⑥ convention) → ⑤ run it in that group via the **proper task loop** (§⑧),
 then rejoin the group-PR → final-PR flow (if the final PR is already open, update it — **before updating, re-confirm ⑩'s debt-test audit and
-full_verify** so an added task's tests don't slip into the final PR without an audit).
+full_verify (+ `{e2e_command}` if set)** so an added task's tests don't slip into the final PR without an audit).
 
 ## Milestone stacking (a follow-up milestone on top of an unmerged one)
 
@@ -64,7 +64,7 @@ into C (e.g. `/work` stage 0 multi-detection ⓒ). The base choice is locked in 
 ② **Absorbing B** — cherry-pick only the tasks worth keeping (one commit per task means task-level selection is possible; for a contiguous range use
   `git cherry-pick <start>..<end>` in one go. Merge+revert leaves an "added then removed" trace in history, so it isn't used).
   Include the selection (B tasks to keep/discard) in the §⑤ approval materials.
-  Right after stacking, run **full_verify once** — A and B may each be green yet the combination can break, and without this gate tasks pile up on a broken base.
+  Right after stacking, run **full_verify once** (+ `{e2e_command}` once if set) — A and B may each be green yet the combination can break, and without this gate tasks pile up on a broken base.
   The cherry-picked B tasks' tests are also **in scope for C's ⑩ debt audit** (they weren't audited on B's side).
 ③ **C's final-PR base = A's branch** (not main) — opening against main mixes all of A's changes into the diff, making review impossible.
   Once A merges into main and its branch is deleted, GitHub auto-retargets the C PR to main.
@@ -89,10 +89,10 @@ if needed `mcp__serena__activate_project <repo absolute path>` once (on failure,
 - Right before delegating, do the **Serena idempotent check** (the stage-0 activation procedure) — this is a search-stage entry point. Pass issue-triage·planner
   the `serena` flag and the **repo absolute path**, and propagate the `serena fallback (reason)` note at the head of their reports into the user report.
 - Understand the input (if it's a link, read the source). **Produce an evidence packet via issue-triage** (relevant file:line·symbols·suspected cause).
-- **Delegate to planner**: pass the evidence packet + config (`convention_doc`·`tech_stack`·`serena`). The planner splits into tasks.
+- **Delegate to planner**: pass the evidence packet + config (`convention_doc`·`tech_stack`·`e2e_command`·`test_policy`·`serena`). The planner splits into tasks.
 
 ### ② File plan · ③ Grouping (planner)
-- The planner writes each task's file plan + **completion criteria (as tests)**, groups related·dependent tasks into the **same group**, and
+- The planner writes each task's file plan + **completion criteria (as tests, each tagged `Test(unit):`/`Test(e2e):`/`Covered-by:`/`PR self-check:` — `Test(e2e):` only within `{test_policy}`)**, groups related·dependent tasks into the **same group**, and
   uses an **ownership matrix** to mechanically check file overlap between groups (merge/warn on overlap). Factor out shared parts as a separate task only when it pays off.
 - Record the planner output in `plan.md`. If the task count exceeds `{milestone.max_issues}`, confirm "split into multiple milestones / proceed?".
 
@@ -125,7 +125,7 @@ if needed `mcp__serena__activate_project <repo absolute path>` once (on failure,
 ### ⑧ Execution (groups = parallel, within a group = sequential)
 - **Parallel width `{milestone.max_parallel}`** (1=sequential under halt mode). Each group runs its tasks **sequentially** in its own worktree:
   - Each task = a **proper loop.md loop** (triage-fix=bug/task-run=feature). Hand off: loop.md path, planner plan,
-    `base_branch=group branch`, config (`test_command`·`serena`·`models`…). Because it's milestone mode the task loop **creates no PR·issue branch**.
+    `base_branch=group branch`, config (`test_command`·`e2e_command`·`test_policy`·`serena`·`models`…). Because it's milestone mode the task loop **creates no PR·issue branch**.
   - **Serena worker policy (per mode — state it in the worker spawn prompt)**: **parallel (bypass)** = workers **must not call Serena
     (grep/Glob/Read only)** — parallel workers contend over the single active-project slot, and a mistaken call returns results based on the main repo, causing
     confusion (workers have low search demand thanks to the planner plan+search-cache, so the actual loss is small). **Sequential (halt)** = only when a worktree was
@@ -148,6 +148,7 @@ Once a group's tasks are all done:
 - **Create commit M**: git-writer `op=prepare-merge` (combine [latest milestone + group] in a temporary verification worktree) → **return M's SHA**.
   On a merge conflict it's failed here → handle as red below.
 - **Pre-merge verification (`qa-runner`)**: run `{loop.full_verify_command}` on the returned M (verification worktree), merge-queue style.
+  **If `{e2e_command}` is set, run it on the same M too** — this is a merge gate, and e2e never runs inside the task loop; a red e2e is handled the same as a red full_verify below.
   This point is **pure execution** (no test-adequacy audit — that already happened per task), so it's `qa-runner` with `{models.qa-runner}`, not `qa`.
   Green/red comes from the runner's status + verify.log; **the main session reads it as the merge gate** (the runner issues no verdict).
   - **green** → (halt=after human merge approval / bypass=immediately) git-writer `op=merge` fast-forward-only confirms **that same verified M as-is**
@@ -156,10 +157,10 @@ Once a group's tasks are all done:
 - If another group merged first and the milestone advanced, rebuild M (re-run prepare-merge) and re-verify (repeat if stale).
 
 ### ⑩ Final PR ✋
-- After all groups are merged or confirmed·marked unmerged, run the final `full_verify` (`qa-runner` — pure execution) once.
+- After all groups are merged or confirmed·marked unmerged, run the final `full_verify` (`qa-runner` — pure execution) once, **plus `{e2e_command}` once if set**.
 - **Debt-test audit (after the final full_verify is green · before creating the final PR)** — only for tests the whole milestone added,
   classify each by "if it breaks, is it a bug or a refactor?" (no proposing changes to existing tests); remove debt via a **cleanup commit**
-  (milestone branch, git-writer) → re-confirm `full_verify` (qa-runner; if red, roll back the removal·keep it). If there are 0 debt items, proceed as-is.
+  (milestone branch, git-writer) → re-confirm `full_verify` (qa-runner; if red, roll back the removal·keep it). **This re-confirm is unit-only — don't re-run `{e2e_command}`** (cost; the removal only touched unit tests). If there are 0 debt items, proceed as-is.
 - git-writer **opens the PR from the milestone branch → main and stops**
   (under stacking the base is the A branch, not main — §Milestone stacking ③. **Stacked-merge caution**: before merging C, delete A's **remote** branch
   first — §Milestone stacking ⑤ retarget warning). If any group is unmerged, make it a draft.
