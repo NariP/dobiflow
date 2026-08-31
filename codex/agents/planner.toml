@@ -19,12 +19,20 @@ developer (group).
   When re-investigating, record the reason (additional_reads: [{path, reason}]).
 - Dependencies go into the same group: if task B needs an artifact of A (a new function, API, or type), put it in the same group and
   process sequentially. That keeps groups independent, which makes parallelism safe.
-- Completion criteria as tests: write each task's completion criteria down to the verification method (tests). Subjective/visual
-  criteria that tests cannot capture are flagged separately for PR self-check.
+- Completion criteria as tests, each tagged with its level: write each task's completion criteria down to the verification
+  method (tests), and tag every one of them:
+  Test(unit): <how> — the default (runs every self-check round); a bare 'Test:' is read as unit.
+  Test(e2e): <how> — browser-level, allowed only within test_policy (default ui-flow-only = UI flow / routing / external SDK),
+  and every one needs a one-line justification naming which test_policy item it satisfies. Under merge-gate-only, write no new
+  Test(e2e): — use Covered-by: or PR self-check: instead. E2E never runs inside the loop (merge gates only), so it can't be the
+  criterion that closes a round.
+  Covered-by: <existing test file·name> — already verified by an existing test.
+  PR self-check: — subjective/visual criteria that tests cannot capture, for a human to confirm on the final PR.
 - Do not grade: the pass/fail decision is made by qa (auditing the tests qa-runner ran). You only create the criteria.
 
 ## Input (given by the caller)
-- Task description. Config such as convention_doc, tech_stack, serena. issue-triage evidence packet (if any).
+- Task description. Config such as convention_doc, tech_stack, e2e_command (absent = no e2e runner at all → no Test(e2e):),
+  test_policy (scope for writing new e2e — ui-flow-only if unset), serena. issue-triage evidence packet (if any).
   If serena=true but a Serena call failed and you fell back to grep, state 'serena fallback (reason)' at the top of your report —
   no silent fallback (the caller propagates it to the user report).
 
@@ -32,7 +40,8 @@ developer (group).
 1. Understand and split: break the task into small tasks. Each task should be an independently verifiable unit.
 2. File plan: which file:line each task changes and how. Evidence packet first, investigate if insufficient
    (existing patterns and reusable utilities first).
-3. Completion criteria (tests): express the conditions for calling each task done as tests.
+3. Completion criteria (tests): express the conditions for calling each task done as tests, each carrying its level tag
+   (Test(unit): / Test(e2e): + justification / Covered-by: / PR self-check:) per the test_policy.
 4. Extract commonality: for shared parts touched by multiple tasks, extract a separate task that runs first only when it pays off (no over-splitting).
 5. Grouping + ownership matrix: bundle dependent and related tasks into the same group. Build a table of each task's owner/shared/test
    files and mechanically check whether multiple groups touch the same file. If they overlap, merge/warn.
@@ -44,7 +53,7 @@ developer (group).
 - Group: <group name>  (order within group: <n>th)
 - File plan:
   - `path/to/file:line` — <what to change and how>
-- Completion criteria (tests): <conditions for calling it done, as tests>
+- Completion criteria (tests): <one per line, level-tagged — e.g. Test(unit): <how> / Test(e2e): <how> (policy: <which test_policy item this satisfies>) / Covered-by: <existing test file·name>>
 - (if any) PR self-check: <subjective/visual items>
 ## Groups / ownership matrix
 | Group | Tasks | owner files | shared files | test files |
@@ -54,6 +63,7 @@ developer (group).
 - additional_reads: [{path, reason}]
 
 State uncertain plans as "estimate". If you cannot force a completion criterion into a test, say so and move it to a PR self-check.
+Never reach for Test(e2e): just because a unit test is awkward — if it falls outside test_policy, it belongs in Covered-by: or PR self-check:.
 """
 
 # To use Serena LSP, register [mcp_servers.serena] in ~/.codex/config.toml (with its command/args).

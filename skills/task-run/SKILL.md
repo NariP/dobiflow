@@ -20,7 +20,7 @@ For bugs the cause dictates the answer, but a general task has many possible app
 
 ### Step 0 — Load config
 Same as `triage-fix`. Read `triage.config.json` from the cwd (or the routed repo).
-If absent, fall back (repo=git remote, default_branch=main, lint auto-detect, label_prefix="", loop.max_iterations=3, no loop.full_verify_command). Key values: `repo`, `default_branch`, `lint_command`, `test_command`, `convention_doc`, `tech_stack`, `commit_convention`, `branch_prefix`, `codeowners`, `serena`, `policy_docs`, `loop`, `models`.
+If absent, fall back (repo=git remote, default_branch=main, lint auto-detect, label_prefix="", loop.max_iterations=3, no loop.full_verify_command, `e2e_command` = unset → none, `test_policy` = unset → `ui-flow-only`). Key values: `repo`, `default_branch`, `lint_command`, `test_command`, `e2e_command`, `test_policy`, `convention_doc`, `tech_stack`, `commit_convention`, `branch_prefix`, `codeowners`, `serena`, `policy_docs`, `loop`, `models`.
 **When spawning subagents, if `{models}` is set, launch them with the model from `config.models[<agent>]`** (absent → inherit — opt-in override).
 **Serena activation is also the same as `triage-fix` step 0** — if `serena=true`, the main session checks via `mcp__serena__get_current_config`, then
 runs `mcp__serena__activate_project <repo absolute path>` once if needed (on failure, note it in one line and continue). The idempotency check runs **only at two points: step 0 and just before the step 2
@@ -75,13 +75,16 @@ The structure and loop.md template are **the same as `triage-fix` step 5** (incl
   Once setup is done, **emit an event**: `work-started` — args `branch=<branch name> title="<issue title>" issue_url=<full issue URL>` (§event emission).
 - **Loop (up to `{loop.max_iterations}` times, default 3):**
   1. Delegate to `implementer` — loop.md path + this iteration's directive (iteration 1 = the **design** approved in step 4;
-     from iteration 2 = the prior findings) + config (`convention_doc`·`tech_stack`·`lint_command`·`test_command`·`serena`)
+     from iteration 2 = the prior findings) + config (`convention_doc`·`tech_stack`·`lint_command`·`test_command`·`e2e_command`·`test_policy`·`serena`)
      + **`change_map_path`** (`change-map.md` in the loop.md folder). Spell out in the directive to **follow existing patterns and conventions** (no over-abstracting).
      Have it **write tests satisfying the completion criteria**, pass lint, report + **leave the change-map at that path once** (running tests is qa-runner's job, judging is qa's).
   2. Self-check — **two phases, all read-only. Phase A = `policy-checker`+`code-reviewer`+`qa-runner` in parallel**
-     (pass `{policy_docs}`·`{convention_doc}`·`{tech_stack}`·`{serena}`; to qa-runner **`{test_command}` + the verify.log path** — it only executes,
-     reporting `ran`/`did-not-run`/`blocked-before-tests` + failing test names, **no verdict**) → **phase B = `qa` (audit), only if the runner is green**
-     (pass **the completion criteria (loop.md) + the runner's verify.log path**; qa has no Bash — it audits test adequacy and issues the composite verdict).
+     (pass `{policy_docs}`·`{convention_doc}`·`{tech_stack}`·`{serena}`; to qa-runner **`{test_command}` (the unit runner — never `{e2e_command}`) + the verify.log path** — it only executes,
+     reporting `ran`/`did-not-run`/`blocked-before-tests` + failing test names, **no verdict**; **if `{test_command}` is unset, skip the runner** and
+     record `runner skipped (no test_command)` in loop.md — not red, the audit still runs) → **phase B = `qa` (audit),
+     unless the runner is red or `blocked-before-tests`** (a skipped runner still audits, with **no execution evidence**)
+     (pass **the completion criteria (loop.md) + the runner's verify.log path + `{test_policy}`·`{e2e_command}`**
+     — so qa can audit policy-violating e2e; qa has no Bash — it audits test adequacy and issues the composite verdict).
      **fail-fast: runner red/`blocked-before-tests` → skip the audit this round** (REQUEST_CHANGES either way) and **record `audit skipped (red)` in loop.md**
      — a skipped audit is never "audit passed". If `{models}` is set, spawn each with its model.
      **Pass the list of changed-file paths + `change_map_path`** (the "Changed files" field from the implementer report + the change-map path).
@@ -89,11 +92,12 @@ The structure and loop.md template are **the same as `triage-fix` step 5** (incl
      in the prompt** — if a diff is needed, the checker opens the file itself via its own Read (saves context).
      **Iteration 1 = full inspection, from iteration 2 = re-verify mode** — pass only the prior findings + this iteration's **changed-file paths** (+ the updated change_map_path)
      to look at "whether findings are resolved + new violations in the changes" only (no full recheck; applies to the checkers and the phase-B audit —
-     **qa-runner always runs the tests in full**). A runner red or a qa failure (test inadequacy) is also REQUEST_CHANGES.
+     **qa-runner always runs the tests in full** — "in full" = the whole `{test_command}` unit suite, never `{e2e_command}`). A runner red or a qa failure (test inadequacy) is also REQUEST_CHANGES.
      The `serena fallback (reason)` note in the subagent report is propagated to the user report.
   3. Judgment — ❌violation = **REQUEST_CHANGES** (record findings in loop.md, then re-delegate) / even if only ⚠️, it may be escalated to ❌
      if it's a real regression, data loss, or security exposure (record the reason in loop.md) / no ❌ = **APPROVE** —
-     if `{loop.full_verify_command}` is set, run it once here (full build, etc.; on failure REQUEST_CHANGES into
+     if `{loop.full_verify_command}` is set, run it once here (full build, etc.), and **in the same place, if `{e2e_command}` is set, run it once too**
+     (qa-runner — **e2e runs only at merge gates like this one, never inside a self-check round**; on either failure REQUEST_CHANGES into
      the next iteration), and on pass record ⚠️ in the PR self-check and go to step 5.5 / implementer **stuck** = halt·report.
      Right after recording the judgment in loop.md, **emit an event**: `iteration-completed` — args
      `iteration=<iteration> verdict=<approve|request_changes|blocked>` (§event emission).
@@ -154,7 +158,11 @@ Generate the issue body **in the user's language** (match the language they wrot
 
 - **Goal** — 1-3 lines on what will be built/changed.
 - **Design** — approach (the core method); change scope as `path/...` (name any existing pattern/util to reuse); if there were alternatives, one line on why this way.
-- **Completion criteria** — checkbox items for "done when this works", ideally as `Test: <how to verify>` (implementer writes the test, qa-runner runs, qa judges). Subjective·visual items that a test can't capture are marked `PR self-check:` for a human to confirm on the final PR.
+- **Completion criteria** — checkbox items for "done when this works", each tagged with **how it is verified** (implementer writes the test, qa-runner runs, qa judges):
+  - `Test(unit): <how to verify>` — the default. Runs every self-check round via `{test_command}`. A bare `Test:` is read as unit (backward compatible).
+  - `Test(e2e): <how to verify>` — browser-level only. Allowed **only within `{test_policy}`** (default `ui-flow-only` = UI flow / routing / external SDK), and needs a **one-line justification naming which policy item it satisfies**. Under `merge-gate-only`, write no new `Test(e2e):` — use `Covered-by:` or `PR self-check:`. E2E never runs inside the loop; it runs at merge gates only.
+  - `Covered-by: <existing test file·name>` — already verified by an existing test; nothing new to write.
+  - `PR self-check:` — subjective·visual items a test can't capture, for a human to confirm on the final PR.
 - **Source** — original link or text.
 
 End with a machine-generated marker (e.g. `🤖 auto-generated`).

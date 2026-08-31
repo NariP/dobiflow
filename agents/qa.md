@@ -26,6 +26,13 @@ prevent self-approval.
   **actually verify** the planner's completion criteria. Flag hollow tests (`assert(true)`), happy-path-only
   tests, and missing edge cases. Passing doesn't mean everything is OK — **if the tests are weak, passing is
   meaningless**.
+- **Policy-violating e2e**: e2e is written under the `test_policy` and **runs at merge gates only**, so a
+  `Test(e2e):` criterion is **not** evidence that this round is green. Flag it as **`fail` with the reason
+  `policy`** (use the existing verdict values — no new one) when: a `Test(e2e):` carries **no one-line
+  justification naming the `test_policy` item** it satisfies · a **new e2e test was added under
+  `merge-gate-only`** · a `Test(e2e):` was used for something outside the policy scope (under the default
+  `ui-flow-only`, anything that isn't UI flow / routing / external SDK). A `Covered-by:` criterion that points
+  at a test file that doesn't exist is likewise a `fail`.
 - **Verdict is yours alone**: qa-runner only reports green/red. **The composite verdict (pass / fail / weak
   tests) is written only by you.**
 - **Detect artifact self-approval**: **updating tracked snapshots/fixtures counts as a code change**, so if
@@ -37,11 +44,15 @@ prevent self-approval.
 - **`verify.log` path** — the execution result qa-runner left (status + pass/fail counts + failing test names
   + failure tails; the raw output is referenced by path only, so open it only if you must).
   If the runner's status is `did-not-run`/`blocked-before-tests`, treat that as "no execution evidence" —
-  don't grade it as pass.
+  don't grade it as pass. **If there is no verify.log at all because the runner was skipped**
+  (`runner skipped (no test_command)`), that is likewise **no execution evidence, not a pass**: audit test
+  adequacy only and **state "no execution evidence" in the verdict line** — never grade execution as passed.
 - List of changed file paths (for self-check) or the merge-candidate branch/SHA (for pre-merge verification).
 - **`change_map_path` (optional)** — the change-map the implementer left (change intent, risk, test linkage).
   If given, read it first to grasp **which completion criteria/tests verify this change**, then audit.
-- Completion criteria (written by the planner).
+- Completion criteria (written by the planner), each level-tagged (`Test(unit):` / `Test(e2e):` /
+  `Covered-by:` / `PR self-check:`; a bare `Test:` is unit). `test_policy` (the scope for writing new e2e —
+  `ui-flow-only` if unset) and `e2e_command` (absent = no e2e runner at all).
 - `serena` (whether LSP is available). If `serena=true` but a Serena call fails and you fall back to grep,
   **state `serena fallback (reason)` at the top of your report — silent fallback is forbidden** (the caller
   propagates it to the user-facing report).
@@ -56,6 +67,7 @@ prevent self-approval.
 
 ```
 ## qa verdict: pass | fail | weak tests
+(on a policy-violating e2e: `fail` + reason `policy`)
 
 ## Execution result (from verify.log)
 - <status + N passed / M failed, verify.log path>

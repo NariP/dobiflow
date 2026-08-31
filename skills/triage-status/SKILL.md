@@ -16,7 +16,8 @@ It does not fix code or create issues/PRs. Use it to see what is open and what i
 
 0. **Load config**: read `.claude/triage.config.json` in the cwd to obtain `{repo}`,
    `{label_prefix}`, `{branch_prefix}`, plus the values shown in the config summary —
-   `{models}`, `{default_branch}`, `{loop}`, `{worktree}`, `{serena}`,
+   `{models}`, `{default_branch}`, `{loop}`, `{test_command}`, `{e2e_command}`,
+   `{test_policy}`, `{worktree}`, `{serena}`,
    `{milestone.base_branch}`. Keep the absolute path of the file you read (to show it).
    If absent, `{repo}` = auto-detected via `git remote get-url origin`, and
    `{label_prefix}` = `""`.
@@ -46,6 +47,8 @@ Show the status **in the user's language** (match the language they wrote in), w
   `issue-triage` · `code-reviewer` · `policy-checker` · `qa` · `qa-runner` · `git-writer`; a role missing from
   `{models}` shows as `inherit`), then short bullets for the main settings: `repo`,
   `default_branch`, `loop.max_iterations`, `loop.full_verify_command` (`none` if unset),
+  `test_command` (unit — runs every self-check round; `none` if unset),
+  `e2e_command` (`none` if unset — merge gates only), `test_policy` (`ui-flow-only` if unset),
   `worktree`, `serena`, `milestone.base_branch`. End with the path of the config file that was
   read. **If there is no config file**, don't break — show just one line:
   "no config — `/triage-init` recommended".

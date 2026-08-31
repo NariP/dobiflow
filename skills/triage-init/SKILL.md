@@ -28,7 +28,9 @@ Collect via Bash/Read/Glob:
 | `default_branch` | `gh repo view --json defaultBranchRef -q .defaultBranchRef.name` (falls back to `main`) |
 | `pm` | lockfile (`pnpm-lock.yaml`→pnpm, `package-lock.json`→npm, `yarn.lock`→yarn) |
 | `lint_command` | match `package.json` scripts in the order `lint:fix` > `lint` > `format` (`{pm} <script>`) |
-| `test_command` | match `package.json` scripts: `test:run` > `test` |
+| `test_command` | **the fast unit/integration runner only.** Match `package.json` scripts: `test:run` > `test`, but **exclude scripts that run playwright/cypress** (read the script body, not just its name) — those go to `e2e_command`. Omit the field if the only runner is e2e |
+| `e2e_command` | (optional) the browser/E2E runner. Match `test:e2e` > `e2e`, or a script whose body runs `playwright test` / `cypress run` (`{pm} <script>`). **Omit the field if none.** When detected, add a one-line hint: consider a fail-fast flag in that script (`--max-failures` / `--bail`) — e2e runs at merge gates, where a long red run is pure cost |
+| `test_policy` | (optional enum) **scope for writing new e2e** — `ui-flow-only` (default: only UI-flow / routing / external-SDK criteria may be written as `Test(e2e):`) / `merge-gate-only` (no new e2e inside loops; existing e2e still runs at merge gates) / `unrestricted` (no limit). This governs **writing** only — **execution timing is fixed regardless of policy**: self-check rounds run `test_command` only, `e2e_command` runs at merge gates only |
 | `tech_stack` | identify from `package.json` deps (react-query/zustand/react-hook-form/zod/axios/next/swr, etc.) |
 | `policy_docs` | glob `.claude/docs/*.md`. Attach each file's first header line as a summary |
 | `convention_doc` | check for `.claude/CLAUDE.md`, `CLAUDE.md`, or `.claude/docs/conventions.md` |
@@ -44,11 +46,17 @@ Collect via Bash/Read/Glob:
 | `milestone` | Milestone feature values. `base_branch`: if unset, `default_branch` (the final PR target). `max_issues`: default `10` (max number of tasks). `max_parallel`: default `3` (parallel group width — caps worktree cost; `1` means sequential). `install_command`: if `package.json` exists, suggest `{pm} install` (to prepare a new worktree's dependencies); omit for stacks that don't need it |
 | `models` | **Detect the camp, then generate provider-specific defaults.** Which camp: if `~/.codex/` or traces of a codex run exist, **Codex camp**; otherwise **Claude camp** (default). **Mapping principle = planning/judgment/verification roles (planner/implementer/issue-triage/code-reviewer/policy-checker/qa) = higher-tier model / judgment-free "hands" agents (git-writer — runs gh/git with the finished values it's given; qa-runner — runs the test command and reports the result) = lower-tier model.** This split is the multi-agent standard of orchestrator=strong model, worker=cheap. **⚠️ qa (the audit) is not a downshift target** — as the arbiter that audits completion-criteria tests and rules pass/fail, it keeps the strong model (config.models.qa applies globally to self-checks too). **qa-runner is a different role** — it only executes and reports a status, so its default is the cheap tier: `haiku` (basis: a pre-decision scenario evaluation over 2 dry-run rounds — safeguards held 5/5, overreach removed 5/5; same precedent as git-writer's "downshift once the scenario evaluation passes"). Claude: `{planner:"opus", implementer:"opus", issue-triage:"opus", code-reviewer:"opus", policy-checker:"opus", qa:"opus", qa-runner:"haiku", git-writer:"sonnet"}`. Codex: apply the same principle with the higher/lower tiers of the gpt line available at that time (model names finalized at generation time). **Dropping git-writer further, down to a Haiku tier, is only allowed after passing a per-op scenario evaluation (command ordering and adherence to prohibitions across missing stage / merge SHA mismatch / conflict / dirty worktree / same-name milestone / remote-delete failure)** — git-writer also has no open judgment, but it's not low-risk (reusing the same Milestone, merging the verified SHA as-is, deleting remote branches), so the default is sonnet. **Agent files keep `model: inherit` — this config overrides it (opt-in). If unspecified or no config, inherit** |
 
+**E2E-only projects (no unit runner, only an e2e script):** omit `test_command`, set `e2e_command`, and **warn in one line** —
+"self-check rounds will have no test execution (e2e runs at merge gates only) — adding a unit runner such as vitest is recommended".
+
 ## Step 2 — User confirmation (AskUserQuestion)
 
 Only ask about mis-send risks and taste values:
 - **`repo`** — confirm once whether the detected value is correct (the core of mis-send prevention).
 - **`label_prefix`** — issue-title prefix. Empty by default. Enter one if you need a project-distinguishing marker (e.g. `[gr] `).
+- **`test_policy`** — **ask only when `e2e_command` was detected** (one question): how much new e2e may the loop write?
+  `ui-flow-only` (default — UI flow / routing / external SDK only) · `merge-gate-only` (write no new e2e; run the existing suite at gates only) · `unrestricted`.
+  **If no e2e was detected, don't ask** — the default applies.
 - Only additionally confirm values that **failed/were ambiguous** in Step 1 (0 policy docs, no CLAUDE.md, no lint, etc.).
 
 ## Step 3 — Write the file
@@ -79,6 +87,10 @@ To use event hooks (notifications, task collection), note in **one line only** t
   "pm": "pnpm",
   "lint_command": "pnpm biome check --write .",
   "test_command": "pnpm test:run",
+  // unit/integration runner above (self-check rounds) — e2e below (merge gates only). Omit e2e_command if there is none.
+  "e2e_command": "pnpm test:e2e",
+  // scope for writing new e2e: "ui-flow-only" (default) | "merge-gate-only" | "unrestricted". Execution timing is fixed regardless.
+  "test_policy": "ui-flow-only",
   "tech_stack": { "server_state": "react-query", "client_state": "zustand", "form": "react-hook-form+zod", "http": "axios" },
   "policy_docs": [".claude/docs/layout-policy.md", "..."],
   "convention_doc": ".claude/CLAUDE.md",

@@ -29,8 +29,10 @@ The input can be a Notion link, a Slack link, or plain text — anything. Read t
   - `label_prefix` = `""` (no prefix)
   - `loop.max_iterations` = unset → `3` (max implementation-loop iterations)
   - `loop.full_verify_command` = unset → none (skip heavy verification at APPROVE — loop verification is lint/test only)
-- Later steps use config values such as `{repo}`, `{default_branch}`, `{lint_command}`, `{test_command}`, `{policy_docs}`,
-  `{label_prefix}`, `{branch_prefix}`, `{bug_label}`, `{codeowners}`,
+  - `e2e_command` = unset → none (skip the e2e gate run — e2e never runs inside the loop anyway)
+  - `test_policy` = unset → `ui-flow-only` (scope for **writing** new e2e; execution timing is fixed regardless)
+- Later steps use config values such as `{repo}`, `{default_branch}`, `{lint_command}`, `{test_command}`, `{e2e_command}`,
+  `{test_policy}`, `{policy_docs}`, `{label_prefix}`, `{branch_prefix}`, `{bug_label}`, `{codeowners}`,
   `{serena}`, `{convention_doc}`, `{tech_stack}`, `{commit_convention}`, `{loop}`, `{models}`, `{milestone}`.
 - **Model override when spawning subagents:** if `{models}` is set, spawn each subagent with the model from
   `config.models[<agent>]` (e.g. `models.implementer`, `models.qa`). If unset, inherit the session model (current behavior).
@@ -121,7 +123,7 @@ In this step the main session **does not implement directly** — it only acts a
 **Loop (up to `{loop.max_iterations}` rounds, default 3):**
 1. **Implement — delegate to the `implementer` subagent.** Pass: the loop.md path, this round's instruction
    (round 1 = the issue's fix plan; from round 2 = the previous round's REQUEST_CHANGES findings),
-   config (`convention_doc`·`tech_stack`·`lint_command`·`test_command`·`serena`),
+   config (`convention_doc`·`tech_stack`·`lint_command`·`test_command`·`e2e_command`·`test_policy`·`serena`),
    and **`change_map_path`** (the `change-map.md` in the loop.md folder). The implementer implements with minimal edits and
    **writes a test that satisfies the completion criteria**, then makes **lint pass** before reporting, and **leaves a change-map at that path once**
    (per-file change intent · risk · test linkage — read first by the self-check subagents). **Running tests is qa-runner's job, judging pass/fail is qa's** (self-check below). If it can't be solved, report "blocked" (no done-report in a failing state).
@@ -132,9 +134,13 @@ In this step the main session **does not implement directly** — it only acts a
    - **Phase A — three subagents in parallel**:
      - **`policy-checker`** — domain policy violations. **Pass the `{policy_docs}` list as an arg** (if empty, "no policy docs" → pass).
      - **`code-reviewer`** — general code quality. **Pass `{convention_doc}`+`{tech_stack}`** (if absent, general best practices).
-     - **`qa-runner`** — test execution only. **Pass `{test_command}` + the verify.log path.** Reports
+     - **`qa-runner`** — test execution only. **Pass `{test_command}` (the unit runner — never `{e2e_command}`) + the verify.log path.**
+       **If `{test_command}` is unset, skip the runner entirely** and record `runner skipped (no test_command)` in the loop.md iteration log —
+       that is **not red** (the phase-B audit still runs). Reports
        **`ran` / `did-not-run` / `blocked-before-tests` + failing test names** — **no verdict** (judgment is qa's/main's).
-   - **Phase B — `qa` (audit), only if the runner is green**: **pass the completion criteria (loop.md) + the runner's verify.log path.**
+   - **Phase B — `qa` (audit), unless the runner is red or `blocked-before-tests`** (a skipped runner —
+     `runner skipped (no test_command)` — still audits, with **no execution evidence**): **pass the completion criteria (loop.md)
+     + the runner's verify.log path + `{test_policy}`·`{e2e_command}`** (so qa can audit policy-violating e2e).
      qa runs no tests — it audits whether the tests actually verify the criteria and issues the composite verdict. Hollow, happy-path-only, or missing edges = fail.
    - **fail-fast: if the runner is red (test failure) or `blocked-before-tests`, skip the audit this round** — it's REQUEST_CHANGES either way.
      **Record `audit skipped (red)` in the loop.md iteration log** — a skipped audit is **never** to be read as "audit passed".
@@ -143,7 +149,8 @@ In this step the main session **does not implement directly** — it only acts a
    - **Round 1 = full check** (all changed files of this task). **From round 2 = re-verify mode** — no full recheck.
      Pass: ① the previous findings list ② the **changed-file paths** this round's implementer reported (+ the updated `change_map_path`).
      Only two check questions — "were the findings resolved + did the change create a new violation" (the full pass was already done in round 1).
-     Re-verify mode applies to the checkers and to the phase-B audit; **qa-runner always runs the tests in full** (a partial run proves nothing).
+     Re-verify mode applies to the checkers and to the phase-B audit; **qa-runner always runs the tests in full** (a partial run proves nothing) —
+     "in full" means **the whole `{test_command}` unit suite**, never `{e2e_command}`.
 3. **Verdict (main session):**
    - implementer reports **blocked** → stop the loop immediately, report to the user (no commit/PR).
    - ❌ **violations present (policy/code), qa-runner red/blocked-before-tests, or qa fail (weak tests)** → **REQUEST_CHANGES**:
@@ -151,7 +158,9 @@ In this step the main session **does not implement directly** — it only acts a
    - Even if there are only ⚠️, if judged to be **real regression, data loss, or security exposure**, you may promote it to ❌ and REQUEST_CHANGES
      — record the promotion reason in loop.md (a safety net for when a checker classified severity too low).
    - No ❌ (only ⚠️/💡) → **APPROVE**: if `{loop.full_verify_command}` exists, **run it once here**
-     (heavy verification like a full build — not every round, only at APPROVE). If it fails, take the failure
+     (heavy verification like a full build — not every round, only at APPROVE). **In the same place, if `{e2e_command}` exists,
+     run it once too** (qa-runner) — **e2e runs only at merge gates like this one, never inside a self-check round**.
+     If either fails, take the failure
      as findings and REQUEST_CHANGES into the next round. On pass (or no command), summarize the ⚠️ for the PR "## self-check"
      and end the loop → Step 5.5.
    - Right after recording the verdict in loop.md, **emit event**: `iteration-completed` — args
@@ -244,7 +253,11 @@ Generate the issue body **in the user's language** (match the language they wrot
 - **Problem** — 1-3 lines on what's wrong.
 - **Reproduction** — `Location:` (screen path), numbered steps, then `Expected:` vs `Actual:`.
 - **Cause analysis (issue-triage result)** — related locations as `path/to/file:line — <role>`; flow (entry point → ... → failure point); the most likely cause (mark it "guess" if speculative).
-- **Resolution** — where and how to fix it; if the backend is needed, what to request from it.
+- **Resolution** — where and how to fix it; if the backend is needed, what to request from it. Write the "done when this works" items as a checklist, each tagged with **how it is verified**:
+  - `Test(unit): <how to verify>` — the default. Runs every self-check round via `{test_command}`. A bare `Test:` is read as unit (backward compatible).
+  - `Test(e2e): <how to verify>` — browser-level only. Allowed **only within `{test_policy}`** (default `ui-flow-only` = UI flow / routing / external SDK), and needs a **one-line justification naming which policy item it satisfies**. Under `merge-gate-only`, write no new `Test(e2e):` — use `Covered-by:` or `PR self-check:`. E2E never runs inside the loop; it runs at merge gates only.
+  - `Covered-by: <existing test file·name>` — already verified by an existing test; nothing new to write.
+  - `PR self-check:` — subjective·visual items a test can't capture, for a human to confirm on the final PR.
 - **Source** — original link (Notion/Slack).
 
 End with a machine-generated marker (e.g. `🤖 auto-generated`).
@@ -278,21 +291,22 @@ The content filled in follows whatever is copied from the issue — user-facing 
 - Issue: <full URL> / Branch: <branch-name> / Max iterations: <loop.max_iterations>
 
 ## Completion criteria (copied from the issue — do not edit mid-loop; express as tests where possible)
-- [ ] <expected behavior/resolution — as "Test: <how to verify>". implementer writes it, qa-runner runs, qa judges>
-- (Subjective·visual items a test can't capture are marked "PR self-check:" → a human confirms on the final PR)
+- [ ] <expected behavior/resolution — tagged with its verification level. implementer writes it, qa-runner runs, qa judges>
+- Levels: `Test(unit): <how>` (default — runs every round; a bare `Test:` is read as unit) / `Test(e2e): <how>` (+ a one-line justification naming the `test_policy` item it satisfies — merge gates only, never inside the loop) / `Covered-by: <existing test file·name>` / `PR self-check:` (subjective·visual — a human confirms on the final PR)
 
 ## Related locations (verbatim copy of the step-2 issue-triage return — implementer starts here before re-searching)
 - `path/to/file:line` — <role> / flow: <entry point → ... → failure point>
 
 ## Verification commands
-- lint: `<lint_command>` / test: `<test_command>` (or "none")
+- lint: `<lint_command>` / test (unit — every round): `<test_command>` (or "none")
+- e2e: `<e2e_command>` (or "none" — merge gates only, never inside the loop) / test_policy: `<test_policy>`
 - Once at APPROVE: `<loop.full_verify_command>` (or "none" — not run inside the loop)
 - change-map: `<loop.md folder>/change-map.md` (implementer leaves it each iteration → read first by the self-check subagents)
 
 ## Iteration log
 ### Round 1
 - Implementation: <implementer report summary, 1-2 lines> / Verdict: APPROVE | REQUEST_CHANGES | blocked
-- Test run: <qa-runner status + result> / Audit: <qa verdict, or `audit skipped (red)` — never counts as a pass>
+- Test run: <qa-runner status + result, or `runner skipped (no test_command)` — no execution evidence, not a pass> / Audit: <qa verdict, or `audit skipped (red)` — never counts as a pass>
 - Findings: <on REQUEST_CHANGES — what carries to the next round>
 ```
 
