@@ -74,11 +74,6 @@ Skills are exposed under the `dobiflow:` namespace (`dobiflow:work`, `dobiflow:m
 Subagents (`~/.codex/agents/*.toml`) still go through `install.sh` — the Codex plugin
 manifest supports skills/MCP/hooks but not agent roles.
 
-**Updating:** Codex loads skills from a cache snapshot and refreshes it when the version
-in `.codex-plugin/plugin.json` changes — bump the version and the next session picks it up.
-To force-refresh without a bump: `codex plugin remove dobiflow@dobiflow && codex plugin add dobiflow@dobiflow`.
-(`codex plugin marketplace upgrade` only refreshes Git marketplaces, not local ones.)
-
 ### Claude Code + Codex CLI (script)
 
 After cloning, `install.sh` auto-detects which CLIs (claude/codex) are present
@@ -93,7 +88,7 @@ cd dobiflow
 ```
 
 > `--link` installs symlinks instead of copies — afterwards a plain `git pull` (or any local edit)
-> takes effect immediately, no reinstall. Only use it on machines where you keep the clone around.
+> takes effect immediately, no reinstall. Only use it on machines where you keep the clone around (deleting the clone breaks the install).
 
 | Target | Install location |
 |--------|------------------|
@@ -102,6 +97,14 @@ cd dobiflow
 
 > To use Serena LSP on Codex, register `[mcp_servers.serena]` in `~/.codex/config.toml`
 > (optional — falls back to grep if absent).
+
+### Updating
+
+- **Claude (plugin)** — update the `dobiflow` marketplace in `/plugin` (Marketplaces → dobiflow → update); the next session loads the new version.
+- **Codex (plugin + script)** — `git pull` the clone. Skills refresh automatically on the next session once the version in `.codex-plugin/plugin.json` changed; if the release touched agents (`codex/agents/*.toml`), also run `./install.sh --codex-only`. Force-refresh without a version bump: `codex plugin remove dobiflow@dobiflow && codex plugin add dobiflow@dobiflow` (`codex plugin marketplace upgrade` only refreshes Git marketplaces, not local ones).
+- **`--link` installs** — `git pull` is all you need (symlinks pick up changes immediately).
+
+A session-start notice checks for new releases once a day and prints these steps when you're behind.
 
 ## Quick start
 
@@ -151,6 +154,7 @@ Forgot how? `/triage-help` (Dobby will remind you).
    │                 → policy-checker + code-reviewer + qa-runner (Dobbys work in parallel — the runner only runs tests)
    │                 → tests green? → qa Dobby audits the tests and rules pass/fail (red → audit skipped, straight to a re-fix)
    │                 → ❌ findings? Dobby fixes himself (max 3, configurable)
+   ├─ gate ✅      → at APPROVE: full_verify + e2e once (merge gate) · debt-test audit (only tests with regression value survive)
    └─ PR           → main writes the message/body, git-writer Dobby runs commit+push+PR → URL
                      → 🧦 Dobby is free!
 ```
@@ -188,12 +192,13 @@ dobiflow runs everything **on your machine**, so Dobby keeps a few rules:
 - **Implementation loop** — an implementer Dobby codes while reviewer Dobbys judge; findings trigger automatic re-implementation until green (bounded — stops and reports instead of forcing a PR)
 - **Milestones for big work** — when a request is too big for one PR, Dobby splits it into tasks, groups related ones (a group = one dev), and runs groups in parallel (git worktrees) with per-group PRs merged behind a merge-queue-style verify, then a final PR to main — always human-merged. A planner Dobby plans, a qa-runner Dobby runs the tests
 - **Single-task worktree (opt-in)** — with `worktree: true` in the config, even a single bug/feature is built in its own git worktree, so your main working tree stays free while Dobby works (off by default — dependency install cost; falls back to the normal flow if creation fails)
-- **Split self-check** — domain-policy check + general code review + QA (acceptance-criteria tests) run separately (read-only Dobbys)
+- **Split self-check** — two phases: policy check + code review + a qa-runner Dobby that only executes tests (phase A, in parallel), then a read-only qa Dobby audits the tests and rules pass/fail (phase B). The auditor can't run tests and the runner can't judge — no one grades their own work
+- **Test levels** — acceptance criteria carry a level: `Test(unit):` / `Test(e2e):` / `Covered-by: <existing test>`. Self-check rounds run only the unit suite (`test_command`); e2e (`e2e_command`, optional) runs once at merge gates, and `test_policy` (default `ui-flow-only`) bounds where new e2e may be written — a heavy Playwright suite can no longer slow every loop round
 - **QA scenario in the PR body** — when a change touches what users perceive (screens, flows, CLI output, error messages, API responses — tracked per file in the change-map), the PR body gets a user-flow scenario (setup / steps / checkpoints incl. must-show·must-not-show·regression / pre-fix behavior) that a human or an AI browser can follow to verify. Internal-only PRs get no section at all — no empty "N/A" shells
 - **Debt-test audit** — right before the PR, Dobby audits only the tests this loop added ("if it breaks, is it a bug or a refactor?") — only tests with regression value reach main
 - **Post-merge cleanup** — say "merged" and Dobby tags (if the repo does tags) and sweeps merged local branches, worktrees and leftover loop folders — unmerged ones are never touched
 - **Context-thrifty writes** — a `git-writer` Dobby runs issue/commit/push/PR as pure execution; main writes the message/body, git-writer just runs `gh`/`git` and returns the URL, so verbose `git log`/`diff`/`gh` output never piles up in the main session
-- **Update notice** — once a day at session start, Dobby checks the latest dobiflow release and prints how to update (Claude: plugin marketplace / Codex: auto) — 24h cache, network failures stay silent
+- **Update notice** — once a day at session start, Dobby checks the latest dobiflow release and prints how to update (Claude: plugin marketplace / Codex: `git pull`, plus `install.sh --codex-only` when agents changed) — 24h cache, network failures stay silent
 - **Code search** — symbol-level via Serena LSP when available, grep fallback otherwise
 
 ## Event hooks (optional)
