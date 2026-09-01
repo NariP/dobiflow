@@ -4,6 +4,13 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 [유의적 버전](https://semver.org/lang/ko/)을 사용합니다.
 
+## [1.2.1] - 2026-09-01
+
+문서 패치 — main(디폴트 브랜치)의 README가 v1.2.0 동작과 업데이트 절차를 설명하도록.
+
+### Changed
+- **README 업데이트 안내 통합 + v1.2.0 문서 동기화(#60)** — 설치 섹션 끝에 Updating/업데이트 섹션 신설(Claude 마켓플레이스 / Codex `git pull` + 에이전트 변경 시 `install.sh --codex-only` / `--link`), Codex 블록의 인라인 Updating 문단은 이동. 자가체크 불릿을 2단계(Phase A 실행 ∥ / Phase B 감사)로 갱신, 테스트 레벨(`Test(unit):`/`Test(e2e):`/`Covered-by:`, `e2e_command`·`test_policy`) 불릿 신설, How Dobby works 다이어그램에 게이트 줄(APPROVE 시 full_verify+e2e 1회 · 부채 테스트 감사) 추가, 업데이트 알림 불릿의 "Codex: 자동 반영"을 실제 안내 문구와 일치, EN `--link` 경고 보강(영·한 대칭). docs/architecture.md 부작용 경계에 서브에이전트 총 8개 명시. 스킬·에이전트 변경 없음(Codex 에이전트 재설치 불필요)
+
 ## [1.2.0] - 2026-09-01
 
 완료기준 테스트 레벨 분리 — e2e를 자가체크에서 떼어 머지 게이트로.
