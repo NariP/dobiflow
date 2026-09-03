@@ -15,7 +15,7 @@
 ![Codex](https://img.shields.io/badge/Codex-CLI-000000)
 ![runs local](https://img.shields.io/badge/runs-100%25%20local-success)
 ![no API cost](https://img.shields.io/badge/extra%20API%20cost-%240-blue)
-![version](https://img.shields.io/badge/version-1.3.2-lightgrey)
+![version](https://img.shields.io/badge/version-1.4.0-lightgrey)
 ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 Throw one bug or one task in a single line — Dobby finds the cause, files a GitHub
@@ -240,6 +240,12 @@ cache reads/writes and how much caching saved.
 It covers the **whole session** — not just what dobiflow spent, but other skills and
 ordinary conversation too. The report says so on its first line, and says when it has been
 narrowed to a point in time.
+
+**On Codex it shows less, and says so.** Codex publishes no rates, so the report shows
+tokens with no cost figure; and because agents running inside a session write their turns
+into that session's own record, there is nothing to split — the table is a single total row
+rather than a per-agent breakdown. In exchange it adds one thing Claude has no equivalent
+of: how much of your plan quota the current window has used.
 
 It reads the local session transcript only — nothing is sent anywhere. It runs via
 `~/.dobiflow/bin/dobiflow-cost` (installed by install.sh) and is silently skipped when absent,

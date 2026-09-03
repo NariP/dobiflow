@@ -4,6 +4,36 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 [유의적 버전](https://semver.org/lang/ko/)을 사용합니다.
 
+## [1.4.0] - 2026-09-03
+
+비용 리포트 Codex 지원 + `--since` 정확도 수정.
+
+### Added
+- **비용 리포트 Codex 지원(#76)** — Codex에서는 리포트가 아무것도 출력되지 않았다.
+  `codex/skills` 3개가 정리 단계에서 리포트를 제안하고 install.sh도 Codex 홈에 바이너리를
+  설치하는데 스크립트는 Claude 형식만 읽었다. Codex는 기록 위치(`~/.codex/sessions/<날짜>/`,
+  `archived_sessions/`)와 구조(`type=event_msg` + `payload`, 토큰은 `payload.token_count`의
+  누적값)가 완전히 다르다. 집계 규칙은 실측 + Codex CLI 교차확인으로 확정 — 마지막
+  `token_count`의 `total_token_usage`를 읽고(누적이라 합산 금지), 순수 input은
+  `input_tokens - cached_input_tokens`(안 빼면 12배 과대), `reasoning_output_tokens`는
+  `output_tokens`에 이미 포함(더하면 이중 계상), 모델은 `turn_context.model`
+  (`rate_limits.limit_name`은 요금제 이름이라 부적합). `--since`는 컷오프 이후
+  `last_token_usage` 델타를 중복 제거 후 합산한다(`token_count` 줄이 그대로 중복 기록됨).
+  파일 선택 시 `originator=codex_exec` 스폰을 건너뛴다 — dobiflow가 `codex exec`를 호출해
+  같은 트리에 자기 rollout을 남기므로, 안 거르면 2만 토큰짜리 스폰을 세션 전체로 보고한다.
+  **Codex는 금액을 계산하지 않는다**(공개 단가 없음, Codex 본인도 "uncertain"). 대신 Claude엔
+  없는 **플랜 사용률**을 한 줄 표시한다. 형식은 경로가 아니라 내용으로 판별하며 Claude 경로·출력은
+  불변(392회 바이트 동일 확인). 검증은 ccusage 12개 세션 3지표 전부 일치.
+  알려진 한계: 세션 내 에이전트별 분해 불가(같은 누적값에 섞임), `cache_write_input_tokens` 검증 불가.
+
+### Fixed
+- **`--since`가 걸친 비동기 에이전트를 전액 누락(#74)** — 컷오프 필터가 launch 줄
+  타임스탬프에만 걸려, launch가 컷오프 이전이면 그 에이전트가 통째로 제외됐다. 실측 —
+  10분 39초 실행한 에이전트의 작업 52%가 컷오프 이후였는데 집계액은 $0. 오래 걸린
+  에이전트일수록 컷오프에 걸릴 확률이 높아 비싼 것부터 누락되는 편향이 있었다.
+  `outputFile` 안 각 줄의 자체 타임스탬프로 필터한다. 수정 전 곡선이 5분 내내 평평했던 것이
+  (그 시간 에이전트가 일하는 중) 매끄러운 감소로 바뀐다.
+
 ## [1.3.2] - 2026-09-03
 
 비용 리포트 정확도 수정 — 같은 요청을 중복 계상하던 문제. 실제 청구액과 1% 이내로 맞는다.

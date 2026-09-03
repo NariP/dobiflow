@@ -1,11 +1,18 @@
 #!/usr/bin/env bash
 # dobiflow cost & time report — printed on request at the post-merge cleanup step.
-# Reads the Claude Code session transcript (JSONL) and aggregates tokens, cost and
-# active working time per source (main session + each subagent type).
+# Reads the agent session transcript (JSONL) and aggregates tokens, cost and active
+# working time.
+#
+# Two transcript formats are supported and told apart by sniffing the file content,
+# never by its path — both are `.jsonl` and `--transcript` may point anywhere:
+#   * Claude Code — usage on `type:"assistant"` lines, broken down per subagent, priced.
+#   * Codex       — cumulative `token_count` events, one total row, no price (the rates
+#                   are not published; Codex itself reports them as uncertain).
 #
 # Usage: dobiflow-cost [options]
 #   --transcript <path>   transcript JSONL path (skips session/cwd resolution)
-#   --session <id>        session id; resolved under ~/.claude/projects/<cwd-slug>/<id>.jsonl
+#   --session <id>        session id; resolved under ~/.claude/projects/<cwd-slug>/<id>.jsonl,
+#                         or as a Codex rollout file whose name ends with that id
 #   --since <ISO8601>     ignore lines before this timestamp (scope = this task, not the session)
 #   --verbose             expand the table with input / cache write / cache read / output
 #   --lang <ko|en>        output language (default: en)
@@ -33,8 +40,94 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+# True when a rollout was written by a `codex exec` spawn rather than a real user session.
+#
+# `codex exec` leaves its own rollout in the same tree, tagged
+# `session_meta.originator == "codex_exec"` (a real session reads "Codex Desktop"). Those
+# spawns are short and cheap — one measured at 20,985 tokens beside real sessions of 57M —
+# so picking one by mtime alone would report a rounding error as "the session". dobiflow
+# itself shells out to `codex exec`, so this is the common case, not an edge case.
+#
+# The marker sits on `session_meta`, which Codex writes first, so the head of the file is
+# enough. Anything unreadable or unrecognised counts as NOT a spawn: skipping a real
+# session by mistake means silence, which is the worse failure.
+codex_is_exec_spawn() {
+  head -5 "$1" 2>/dev/null | grep -q '"originator" *: *"codex_exec"'
+}
+
+# Newest Codex rollout that is not a `codex exec` spawn, printed on stdout (empty when
+# there is none).
+#
+# Codex keeps sessions in two places and both are needed: `sessions/` holds the live and
+# recent ones (the session running right now is only ever there), `archived_sessions/`
+# the retired ones. Looking at just one of them would miss the current session.
+#
+# `sessions/` is a YYYY/MM/DD tree that grows without bound — thousands of files here —
+# so walking it whole on every run is wasteful. Descend newest-first instead and stop at
+# the first acceptable file; a rollout always lives under its own date. The spawn check
+# adds one `head` per candidate and stops at the first non-spawn, so the scan stays a
+# handful of reads rather than a walk of the tree.
+codex_latest_rollout() {
+  local root="${CODEX_HOME:-$HOME/.codex}"
+  local newest="" y m d cand c
+
+  for y in $(ls -1 "$root/sessions" 2>/dev/null | sort -r); do
+    for m in $(ls -1 "$root/sessions/$y" 2>/dev/null | sort -r); do
+      for d in $(ls -1 "$root/sessions/$y/$m" 2>/dev/null | sort -r); do
+        for c in $(ls -t "$root/sessions/$y/$m/$d"/rollout-*.jsonl 2>/dev/null); do
+          codex_is_exec_spawn "$c" && continue
+          newest="$c"; break
+        done
+        [ -n "$newest" ] && break
+      done
+      [ -n "$newest" ] && break
+    done
+    [ -n "$newest" ] && break
+  done
+
+  # The archive is flat, so one `ls -t` covers it. The same spawn filter applies — a
+  # finished `codex exec` run gets archived like any other session. Compare against the
+  # live pick by mtime and keep whichever is newer.
+  cand=""
+  for c in $(ls -t "$root/archived_sessions"/rollout-*.jsonl 2>/dev/null); do
+    codex_is_exec_spawn "$c" && continue
+    cand="$c"; break
+  done
+  if [ -n "$cand" ]; then
+    if [ -z "$newest" ] || [ "$cand" -nt "$newest" ]; then
+      newest="$cand"
+    fi
+  fi
+
+  [ -n "$newest" ] && printf '%s\n' "$newest"
+}
+
+# The Codex rollout whose filename ends with <session id>, printed on stdout.
+# Codex names its files rollout-<ISO timestamp>-<session id>.jsonl, so the id alone
+# identifies one. The flat archive is checked first, then the date tree newest-month-first;
+# the glob does the matching per month, so this stays a handful of directory reads rather
+# than a walk of every one of the thousands of files.
+codex_rollout_by_session() {
+  local id="$1"
+  local root="${CODEX_HOME:-$HOME/.codex}"
+  local hit y m
+
+  hit="$(ls -1 "$root/archived_sessions"/rollout-*-"$id".jsonl 2>/dev/null | head -1)"
+  [ -n "$hit" ] && { printf '%s\n' "$hit"; return; }
+
+  for y in $(ls -1 "$root/sessions" 2>/dev/null | sort -r); do
+    for m in $(ls -1 "$root/sessions/$y" 2>/dev/null | sort -r); do
+      hit="$(ls -1 "$root/sessions/$y/$m"/*/rollout-*-"$id".jsonl 2>/dev/null | head -1)"
+      [ -n "$hit" ] && { printf '%s\n' "$hit"; return; }
+    done
+  done
+}
+
 # Resolve the transcript: explicit path wins, else ~/.claude/projects/<cwd-slug>/<session>.jsonl
 # where <cwd-slug> is the absolute cwd with every '/' and '.' replaced by '-'.
+#
+# Claude resolution is tried first and unchanged, so behaviour under Claude never shifts;
+# Codex is only consulted once that has come up empty.
 if [ -z "$TRANSCRIPT" ]; then
   PROJECTS_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects"
   SLUG="$(printf '%s' "$PWD" | tr '/.' '--')"
@@ -43,6 +136,18 @@ if [ -z "$TRANSCRIPT" ]; then
   else
     # No session id — fall back to the most recently modified transcript of this project.
     TRANSCRIPT="$(ls -t "$PROJECTS_DIR/$SLUG"/*.jsonl 2>/dev/null | head -1)"
+  fi
+
+  # Nothing under ~/.claude — we may be running under Codex, which stores sessions
+  # elsewhere in a different shape. A session id there is a rollout id, not a filename.
+  if [ ! -f "$TRANSCRIPT" ]; then
+    if [ -n "$SESSION" ]; then
+      CODEX_HIT="$(codex_rollout_by_session "$SESSION")"
+      [ -n "$CODEX_HIT" ] || CODEX_HIT="$(codex_latest_rollout)"
+    else
+      CODEX_HIT="$(codex_latest_rollout)"
+    fi
+    [ -n "$CODEX_HIT" ] && TRANSCRIPT="$CODEX_HIT"
   fi
 fi
 
@@ -249,12 +354,26 @@ def strip_plugin_prefix(name):
     return name
 
 
-def read_async_usage(result, deduper):
+def read_async_usage(result, deduper, since_ts=None):
     """Record usage for a background-launched subagent into `deduper`.
 
     Async launches record no usage on the tool-result line — only a pointer to a
     JSONL transcript in `outputFile`. Walk that file and hand each assistant line's
     usage to the deduper, which collapses the repeats of one request.
+
+    `since_ts` filters on each `.output` line's OWN timestamp, not the launch line's.
+    An async agent commonly outlives the cutoff: it is launched before, and keeps
+    working after. Filtering by the launch timestamp drops such an agent whole,
+    including everything it did after the cutoff — measured at 52% of one agent's
+    work, $3.10 reported as $0. The bias is systematic, because the longer an agent
+    runs the likelier it straddles a cutoff, so the most expensive agents are exactly
+    the ones that vanish. There is no over-counting to trade off against: across 15
+    measured agents the launch line and the first `.output` line were at most 1s
+    apart, so "launched after the cutoff but worked before it" does not occur.
+
+    A line carrying no parseable timestamp is COUNTED, never skipped. The add-on
+    principle of this script is that failures degrade toward over-reporting; a silent
+    under-count is the worse error and is precisely the bug this filter fixes.
 
     Returns True when at least one usage line was found. Anything unusable
     (missing/unreadable/malformed file, no attributionAgent, no usage) yields False —
@@ -279,6 +398,11 @@ def read_async_usage(result, deduper):
                 # These files mix bare ints/strings in with the objects.
                 if not isinstance(entry, dict):
                     continue
+                if since_ts is not None:
+                    line_ts = parse_ts(entry.get("timestamp"))
+                    # No timestamp -> keep the line (see the docstring).
+                    if line_ts is not None and line_ts < since_ts:
+                        continue
                 if entry.get("type") != "assistant":
                     continue
                 message = entry.get("message")
@@ -301,7 +425,204 @@ def read_async_usage(result, deduper):
     return found
 
 
+# --- Format detection -------------------------------------------------------
+# Both formats are `.jsonl` and --transcript may point at either, so the file is
+# recognised by what is inside it, never by where it sits or what it is called.
+#
+# Only the head is read: the marker of each format appears early (Codex opens with
+# `session_meta`, Claude has assistant usage within the first few exchanges) and a
+# rollout can run to tens of thousands of lines. A file matching neither marker is
+# not an error — the caller gets silence and exit 0, as it always has.
+SNIFF_MAX_LINES = 400
+
+CODEX_LINE_TYPES = ("event_msg", "response_item", "session_meta", "turn_context", "world_state")
+
+
+def detect_format(path):
+    """'claude' | 'codex' | None, decided by the first recognisable line."""
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+            for idx, line in enumerate(fh):
+                if idx >= SNIFF_MAX_LINES:
+                    break
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except Exception:
+                    continue
+                if not isinstance(entry, dict):
+                    continue
+                # Claude: usage hangs off message on an assistant line.
+                if entry.get("type") == "assistant":
+                    message = entry.get("message")
+                    if isinstance(message, dict) and isinstance(message.get("usage"), dict):
+                        return "claude"
+                # Codex: every line carries a `payload` under one of its own line types.
+                if entry.get("type") in CODEX_LINE_TYPES and isinstance(entry.get("payload"), dict):
+                    return "codex"
+    except Exception:
+        return None
+    return None
+
+
+def as_int(value):
+    """Non-negative int from a JSON number, 0 for anything else.
+
+    bool is rejected first — it is an int subclass, so True would read as 1.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return 0
+    try:
+        return max(0, int(value))
+    except Exception:
+        return 0
+
+
+# --- Codex ------------------------------------------------------------------
+# Codex reports usage as `token_count` events carrying two figures:
+#   * `total_token_usage` — CUMULATIVE over the session. The 42 such lines of a measured
+#     session rose monotonically to a final 2,446,362. Summing these would multiply the
+#     total several-fold, so without a cutoff only the LAST one is read.
+#   * `last_token_usage`  — the delta for that one turn. Needed for `--since`, since a
+#     cumulative figure cannot answer "how much since 10:00".
+# (Claude's per-request dedupe has no counterpart here and is not involved.)
+#
+# `token_count` lines REPEAT VERBATIM — two consecutive lines were observed both reading
+# last_in=77,476 / total_in=275,917. `total_token_usage` is monotonic and immune, but
+# summing `last_token_usage` naively double-counts those repeats: measured over 14 live
+# sessions, naive summing missed the cumulative total in 4, while de-duplicating on
+# `total_token_usage.total_tokens` (which is unique per real turn, being a running sum)
+# matched 14/14. So the slice path must de-duplicate before it sums.
+def codex_usage_from_slice(records):
+    """Sum per-turn deltas over post-cutoff `token_count` lines, repeats removed.
+
+    `records` is [(total_tokens_key, last_token_usage)] in file order. The first
+    occurrence of each key wins; later identical lines are the verbatim repeats.
+    """
+    seen = set()
+    totals = {"input_tokens": 0, "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0, "output_tokens": 0}
+    found = False
+    for key, usage in records:
+        if key is not None:
+            if key in seen:
+                continue
+            seen.add(key)
+        for field in totals:
+            totals[field] += as_int(usage.get(field))
+        found = True
+    return totals if found else None
+
+
+def read_codex(path, since_ts=None):
+    """(bucket, timestamps, rate_limits, model) for a Codex rollout.
+
+    `bucket` is None when the file carries no usable `token_count`, which is the
+    normal state of a session that has not called the model yet.
+
+    With `since_ts` the tokens are the sum of the post-cutoff turns; without it they are
+    the last cumulative total, which is the simpler and independently ccusage-verified
+    path. The model is captured REGARDLESS of the cutoff: `turn_context` appears once per
+    session, at the very start, so filtering it by timestamp would lose the model label on
+    every cutoff past the first turn — and, when `token_count` was filtered along with it,
+    made the entire report vanish silently.
+    """
+    bucket = None
+    timestamps = []
+    usage = None
+    rate_limits = None
+    model = None
+    slice_records = []
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except Exception:
+                    continue  # broken line — skip it, never abort
+                if not isinstance(entry, dict):
+                    continue
+
+                ts = parse_ts(entry.get("timestamp"))
+                before_cutoff = since_ts is not None and ts is not None and ts < since_ts
+
+                payload = entry.get("payload")
+                if not isinstance(payload, dict):
+                    continue
+
+                # The model id lives on turn_context. NOT on rate_limits.limit_name,
+                # which names the plan tier ("GPT-5.3-Codex-Spark") and would be
+                # reported as a model that does not exist.
+                #
+                # Read before the cutoff check on purpose — see the docstring.
+                if entry.get("type") == "turn_context":
+                    candidate = payload.get("model")
+                    if isinstance(candidate, str) and candidate:
+                        model = candidate
+                    continue
+
+                if before_cutoff:
+                    continue
+                if ts is not None:
+                    timestamps.append(ts)
+
+                if payload.get("type") != "token_count":
+                    continue
+                info = payload.get("info")
+                if isinstance(info, dict):
+                    total = info.get("total_token_usage")
+                    if isinstance(total, dict):
+                        usage = total          # later lines supersede: cumulative
+                        if since_ts is not None:
+                            delta = info.get("last_token_usage")
+                            if isinstance(delta, dict):
+                                key = total.get("total_tokens")
+                                if isinstance(key, bool) or not isinstance(key, (int, float)):
+                                    key = None   # unusable key -> count the line, never drop it
+                                slice_records.append((key, delta))
+                limits = payload.get("rate_limits")
+                if isinstance(limits, dict):
+                    rate_limits = limits
+    except Exception:
+        pass  # unreadable partway through — report what was gathered so far
+
+    if since_ts is not None:
+        usage = codex_usage_from_slice(slice_records)
+
+    if isinstance(usage, dict):
+        raw_in = as_int(usage.get("input_tokens"))
+        cached = as_int(usage.get("cached_input_tokens"))
+        bucket = Bucket("codex")
+        # `input_tokens` is the gross figure and already contains the cached reads;
+        # counting both would inflate input roughly 12x (2,433,990 vs 195,270 on the
+        # verified session). Floored at 0 so a malformed pair cannot go negative.
+        bucket.inp = max(0, raw_in - cached)
+        bucket.cache_read = cached
+        bucket.cache_write = as_int(usage.get("cache_write_input_tokens"))
+        # `reasoning_output_tokens` is already inside `output_tokens` — adding it
+        # would double-count. (input + output == total holds exactly.)
+        bucket.out = as_int(usage.get("output_tokens"))
+        # No published rate for these models, so tokens are reported without money,
+        # exactly as an unknown Claude model already is.
+        bucket.unknown_model = True
+        # A `token_count` whose figures are all unusable is the same as none at all —
+        # a "0 tokens" report is noise. The Claude path likewise drops empty rows.
+        if bucket.tokens <= 0:
+            bucket = None
+
+    return bucket, timestamps, rate_limits, model
+
+
 since_ts = parse_ts(since) if since else None
+
+fmt = detect_format(transcript)
+if fmt is None:
+    sys.exit(0)   # neither format — stay silent, as before
 
 MAIN_BUCKET = None   # sentinel: records routed to the main row rather than an agent row
 
@@ -311,9 +632,27 @@ timestamps = []
 saw_any = False
 seen_output_files = set()   # async transcripts already consumed (see the isAsync branch)
 deduper = Deduper()  # per-request usage, collapsed across repeated lines
+codex_rate_limits = None
+codex_model = None
+
+if fmt == "codex":
+    codex_bucket, timestamps, codex_rate_limits, codex_model = read_codex(transcript, since_ts)
+    if codex_bucket is not None:
+        main = codex_bucket
+        saw_any = True
+
+
+def claude_lines(fh):
+    """The transcript's lines, or none at all when this is not a Claude transcript.
+
+    Keeps the Claude walk below in one piece and untouched: a Codex file simply never
+    enters it, so nothing about Claude's aggregation can shift.
+    """
+    return fh if fmt == "claude" else ()
+
 
 with open(transcript, "r", encoding="utf-8", errors="replace") as fh:
-    for line in fh:
+    for line in claude_lines(fh):
         line = line.strip()
         if not line:
             continue
@@ -324,11 +663,43 @@ with open(transcript, "r", encoding="utf-8", errors="replace") as fh:
         if not isinstance(entry, dict):
             continue
 
+        result = entry.get("toolUseResult")
+        is_async_launch = isinstance(result, dict) and bool(result.get("isAsync"))
+
         ts = parse_ts(entry.get("timestamp"))
-        if since_ts is not None and ts is not None and ts < since_ts:
+        before_cutoff = since_ts is not None and ts is not None and ts < since_ts
+
+        # An async launch before the cutoff is the one thing --since must NOT drop here:
+        # the agent it started may have kept working long past the cutoff, and only its
+        # `.output` lines can say how much. Dropping it cost a straddling agent its entire
+        # bill (measured: 52% of its work was post-cutoff, $0 counted).
+        #
+        # INVARIANT for anyone adding a branch below: a pre-cutoff line now survives this
+        # point, so any new branch must re-check `before_cutoff` itself. Only the async
+        # branch is exempt, because it filters per `.output` line instead.
+        if before_cutoff and not is_async_launch:
             continue
-        if ts is not None:
+        # Excluded from timestamps either way, so active working time is unaffected.
+        if ts is not None and not before_cutoff:
             timestamps.append(ts)
+
+        # Background-launched subagents carry no agentType and no usage here; their
+        # numbers live in the transcript at result.outputFile. Exclusive with the
+        # two branches below (a launch line has isAsync, never agentType, and is a
+        # `user` line, never `assistant`) — hence the early `continue`.
+        #
+        # Two launch lines can point at the same outputFile (a resumed or retried
+        # agent keeps its id). Reading it twice would count that agent twice, so
+        # track the files already consumed and skip repeats.
+        if is_async_launch:
+            output_file = result.get("outputFile")
+            if isinstance(output_file, str):
+                if output_file in seen_output_files:
+                    continue
+                seen_output_files.add(output_file)
+            if read_async_usage(result, deduper, since_ts):
+                saw_any = True
+            continue
 
         # Main-session usage: assistant lines carrying message.usage.
         message = entry.get("message")
@@ -341,7 +712,6 @@ with open(transcript, "r", encoding="utf-8", errors="replace") as fh:
                 saw_any = True
 
         # Subagent usage: recorded on the Agent tool-call result line.
-        result = entry.get("toolUseResult")
         if isinstance(result, dict) and result.get("agentType"):
             usage = result.get("usage")
             if isinstance(usage, dict):
@@ -353,22 +723,6 @@ with open(transcript, "r", encoding="utf-8", errors="replace") as fh:
                 if bucket is None:
                     bucket = agents[name] = Bucket(name)
                 bucket.add(usage, result.get("resolvedModel"))
-                saw_any = True
-
-        # Background-launched subagents carry no agentType and no usage here; their
-        # numbers live in the transcript at result.outputFile. Exclusive with the
-        # branch above (a launch line has isAsync, never agentType).
-        #
-        # Two launch lines can point at the same outputFile (a resumed or retried
-        # agent keeps its id). Reading it twice would count that agent twice, so
-        # track the files already consumed and skip repeats.
-        elif isinstance(result, dict) and result.get("isAsync"):
-            output_file = result.get("outputFile")
-            if isinstance(output_file, str):
-                if output_file in seen_output_files:
-                    continue
-                seen_output_files.add(output_file)
-            if read_async_usage(result, deduper):
                 saw_any = True
 
 # Fold the deduplicated records into their rows. Deferred to here because a later line
@@ -455,6 +809,87 @@ def analogy(cost):
     return "about %d Big Macs" % count
 
 
+# Plan usage is a Codex-only figure: it ships on every `token_count` line and Claude
+# transcripts carry no equivalent (no used_percent, plan_type or quota anywhere), so the
+# line below simply never renders under Claude.
+def fmt_window(minutes):
+    """A rate-limit window in words: 10080 -> 'this week'. None when unusable."""
+    if minutes <= 0:
+        return None
+    if minutes >= 40320:      # 4 weeks or more
+        return "이번 달" if KO else "this month"
+    if minutes >= 10080:      # a week
+        return "이번 주" if KO else "this week"
+    if minutes >= 1440:       # a day
+        return "오늘" if KO else "today"
+    hours = int(round(minutes / 60.0))
+    if hours >= 1:
+        return ("최근 %d시간" % hours) if KO else ("in the last %dh" % hours)
+    return ("최근 %d분" % int(minutes)) if KO else ("in the last %dmin" % int(minutes))
+
+
+def fmt_reset(resets_at):
+    """'3일 뒤 초기화' / 'resets in 3 days'. None when the epoch is missing or past."""
+    if resets_at <= 0:
+        return None
+    try:
+        import time
+        remaining = resets_at - time.time()
+    except Exception:
+        return None
+    if remaining <= 0:
+        return None
+    days = int(remaining // 86400)
+    if days >= 1:
+        return ("%d일 뒤 초기화" % days) if KO else ("resets in %d days" % days)
+    hours = int(remaining // 3600)
+    if hours >= 1:
+        return ("%d시간 뒤 초기화" % hours) if KO else ("resets in %dh" % hours)
+    minutes = max(1, int(remaining // 60))
+    return ("%d분 뒤 초기화" % minutes) if KO else ("resets in %dmin" % minutes)
+
+
+def plan_usage_line(rate_limits):
+    """One line on how much of the plan quota is used, or None when unavailable.
+
+    Reads `primary` — the window Codex itself surfaces first. `plan_type` and the reset
+    time are decoration: when either is missing the line still prints without it.
+    """
+    if not isinstance(rate_limits, dict):
+        return None
+    primary = rate_limits.get("primary")
+    if not isinstance(primary, dict):
+        return None
+    used = primary.get("used_percent")
+    if isinstance(used, bool) or not isinstance(used, (int, float)):
+        return None
+
+    window = primary.get("window_minutes")
+    window_text = fmt_window(window) if isinstance(window, (int, float)) and not isinstance(window, bool) else None
+
+    parenthetical = []
+    plan = rate_limits.get("plan_type")
+    if isinstance(plan, str) and plan:
+        parenthetical.append(plan.capitalize())
+    resets_at = rate_limits.get("resets_at")
+    if not isinstance(resets_at, (int, float)) or isinstance(resets_at, bool):
+        resets_at = primary.get("resets_at")
+    if isinstance(resets_at, (int, float)) and not isinstance(resets_at, bool):
+        reset_text = fmt_reset(resets_at)
+        if reset_text:
+            parenthetical.append(reset_text)
+
+    if KO:
+        text = "- %s 플랜 사용량 %.0f%%" % (window_text, used) if window_text \
+               else "- 플랜 사용량 %.0f%%" % used
+    else:
+        text = "- Plan quota %.0f%% used %s" % (used, window_text) if window_text \
+               else "- Plan quota %.0f%% used" % used
+    if parenthetical:
+        text += " (" + ", ".join(parenthetical) + ")"
+    return text
+
+
 def display_width(text):
     """Terminal width — CJK / fullwidth characters occupy two columns."""
     import unicodedata
@@ -473,23 +908,39 @@ def render(table):
     return out
 
 
+IS_CODEX = fmt == "codex"
+
 lines = []
-headline = "🧦 %s · %s" % (fmt_duration(active_seconds), fmt_cost(total_cost, any_unknown))
-note = analogy(total_cost)
-if note:
-    headline += " · " + note
+if IS_CODEX:
+    # Tokens instead of money: Codex publishes no rates, and inventing one would be
+    # a made-up bill. The Big Mac analogy is derived from cost, so it goes too.
+    headline = "🧦 %s · %s %s" % (fmt_duration(active_seconds), fmt_tokens(total_tokens),
+                                  "토큰" if KO else "tokens")
+else:
+    headline = "🧦 %s · %s" % (fmt_duration(active_seconds), fmt_cost(total_cost, any_unknown))
+    note = analogy(total_cost)
+    if note:
+        headline += " · " + note
 lines.append(headline)
 
 # State what the figures cover. The table lists agent names, which reads as if those
 # agents spent the whole amount; without --since this is the entire session, other
 # skills and ordinary conversation included. Say so rather than let the reader guess.
 if since:
+    # Both time and tokens are now genuinely scoped to the slice on either format, so
+    # Codex needs no separate wording. (It used to claim the tokens were a session
+    # running total; they are summed per-turn deltas since the cutoff — see read_codex.)
     lines.append("- 이 시점 이후 작업 기준이에요." if KO else
                  "- Covers the work done since that point.")
 else:
     lines.append("- 이 세션 전체 기준이에요 — 다른 스킬과 일반 대화도 포함돼 있어요."
                  if KO else
                  "- Covers this whole session, other skills and ordinary conversation included.")
+
+if IS_CODEX:
+    plan_line = plan_usage_line(codex_rate_limits)
+    if plan_line:
+        lines.append(plan_line)
 
 lines.append("")
 
@@ -499,7 +950,45 @@ label_cost = "비용" if KO else "Cost"
 label_main = "메인" if KO else "Main"
 label_total = "합계" if KO else "Total"
 
-if verbose:
+if IS_CODEX:
+    # One row, and no cost column: Codex reports a single total that already contains
+    # every in-session agent turn (they share this rollout file, so there is nothing to
+    # split), and there is no rate to price it with. A `codex exec` spawn is a separate
+    # session in a file of its own and is not in this figure. The row is labelled with
+    # the model so the reader can see what actually ran.
+    label_codex = codex_model if codex_model else label_total
+    if verbose:
+        table = [[
+            label_source,
+            "입력" if KO else "Input",
+            "캐시 쓰기" if KO else "Cache write",
+            "캐시 읽기" if KO else "Cache read",
+            "출력" if KO else "Output",
+        ], [
+            label_codex,
+            fmt_tokens(main.inp),
+            fmt_tokens(main.cache_write),
+            fmt_tokens(main.cache_read),
+            fmt_tokens(main.out),
+        ]]
+    else:
+        table = [[label_source, label_tokens], [label_codex, fmt_tokens(total_tokens)]]
+    lines += render(table)
+
+    lines.append("")
+    # Say this outright: a reader used to the Claude table would otherwise read the
+    # single row as "no agents ran", when in truth their usage is folded into it.
+    #
+    # Scoped to agents running INSIDE the session on purpose. A `codex exec` spawn gets
+    # its own rollout file, so it is not in this total at all — claiming otherwise would
+    # be the opposite error.
+    lines.append("- Codex는 세션 안에서 도는 에이전트 사용량이 이 기록에 합쳐져 있어 에이전트별로 나눌 수 없어요."
+                 if KO else
+                 "- Codex folds in-session agent usage into this one record, so it cannot be broken down per agent.")
+    lines.append("- 공개된 단가가 없어 금액은 계산하지 않고 토큰만 보여드려요."
+                 if KO else
+                 "- No published rate for these models, so tokens are shown without a cost.")
+elif verbose:
     header = [
         label_source,
         "입력" if KO else "Input",
@@ -548,7 +1037,9 @@ else:
     table.append([label_total, fmt_tokens(total_tokens), fmt_cost(total_cost, any_unknown)])
     lines += render(table)
 
-if any_unknown:
+# Codex prints no cost at all, so the note about partial `+` amounts would refer to
+# figures that are not on screen.
+if any_unknown and not IS_CODEX:
     lines.append("")
     lines.append("- 단가를 모르는 모델이 섞여 있어 `+` 표시 금액은 일부만 반영된 값이에요."
                  if KO else
