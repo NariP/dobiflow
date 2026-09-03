@@ -230,6 +230,20 @@ Drop an executable script at either location (or both):
   when absent; works for both Claude and Codex).
 - See `hooks/examples/` for templates. Hook failures never block Dobby's main work.
 
+### Cost & time report
+
+After a merge, when you ask Dobby to clean up, he offers a **cost·time report** — active work
+time, plus tokens and cost split by the main session and each subagent type (implementer, qa,
+git-writer, …). He asks first; say no and nothing is printed. Ask for detail and it expands to
+cache reads/writes and how much caching saved.
+
+It reads the local session transcript only — nothing is sent anywhere. It runs via
+`~/.dobiflow/bin/dobiflow-cost` (installed by install.sh) and is silently skipped when absent,
+so it can never block a cleanup.
+
+> **Upgrading from v1.2.x?** This release adds a new file under `~/.dobiflow/bin/`, so
+> **re-run `install.sh`** — otherwise Dobby offers the report and then quietly skips it.
+
 ## Dependencies (recommended)
 
 - **GitHub CLI (`gh`)** — creates issues/PRs. Requires auth (`gh auth login`).
