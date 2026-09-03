@@ -4,10 +4,12 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 [유의적 버전](https://semver.org/lang/ko/)을 사용합니다.
 
-## [Unreleased]
+## [1.3.0] - 2026-09-03
+
+머지 후 정리에 비용·시간 리포트 — 작업에 시간·토큰·돈이 얼마나 들었는지 보여준다.
 
 ### Added
-- **머지 후 정리에 비용·시간 리포트(#62)** — 정리 단계(triage-fix·task-run 7단계, milestone ⑩) 끝에
+- **머지 후 정리에 비용·시간 리포트(#62)** (claude+codex) — 정리 단계(triage-fix·task-run 7단계, milestone ⑩) 끝에
   ✋ 한 번 물어보고, 원하면 활성 작업시간 + 메인/서브에이전트 종류별 토큰·비용을 표로 출력.
   집계는 `scripts/dobiflow-cost.sh` 한 곳에 모여 있고 스킬은 호출만 한다(로직 중복 없음).
   로컬 세션 기록만 읽고 외부 전송 없음. 스크립트가 없거나 실패해도 정리를 막지 않는다(항상 exit 0).
