@@ -433,29 +433,26 @@ def fmt_duration(seconds):
 
 # Analogy tiers: (upper bound of the tier, unit price, ko name, en singular, en plural).
 # The unit switches automatically with the magnitude so the count stays a small number.
-ANALOGY_TIERS = [
-    (1.0, 0.8, "사탕", "candy", "candies"),
-    (4.0, 2.0, "삼각김밥", "onigiri", "onigiri"),
-    (15.0, 5.0, "커피", "coffee", "coffees"),
-    (60.0, 12.0, "점심", "lunch", "lunches"),
-    (300.0, 25.0, "치킨", "fried chicken", "fried chickens"),
-    (float("inf"), 120.0, "회식", "team dinner", "team dinners"),
-]
+# One unit for every magnitude: the Big Mac. It is the same object everywhere, so the
+# reader converts without knowing local prices — unlike "lunch" or "team dinner", whose
+# cost varies by country. Priced at the Big Mac Index (US, mid-2026); a stale price only
+# shifts the count slightly, so this needs no upkeep.
+BIG_MAC_USD = 6.0
 
 
 def analogy(cost):
-    """One short line whose unit switches with the magnitude."""
+    """One short line putting the cost in Big Macs."""
     if cost < 0.01:   # rounds to $0.00 — an analogy would be noise
         return None
-    for limit, unit_price, name_ko, singular, plural in ANALOGY_TIERS:
-        if cost < limit:
-            count = max(1, int(round(cost / unit_price)))
-            if KO:
-                return "%s %d개쯤" % (name_ko, count)
-            if count == 1:
-                return "about one %s" % singular
-            return "about %d %s" % (count, plural)
-    return None
+    if cost < BIG_MAC_USD / 2:
+        # Below half a burger, rounding to "1" overstates it — say it plainly instead.
+        return "빅맥 반 개도 안 돼요" if KO else "less than half a Big Mac"
+    count = max(1, int(round(cost / BIG_MAC_USD)))
+    if KO:
+        return "빅맥 %d개쯤" % count
+    if count == 1:
+        return "about one Big Mac"
+    return "about %d Big Macs" % count
 
 
 def display_width(text):
