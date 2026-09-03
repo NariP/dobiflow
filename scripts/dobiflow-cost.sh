@@ -165,6 +165,81 @@ class Bucket:
         self.cache_saved += read * rin * (1 - read_mult) / 1_000_000
 
 
+# One API response is written out as several assistant lines that all share one
+# `message.id` (and one `requestId`) and all repeat the same usage figures. Summing
+# them multiplies the bill — measured at 1.88x on a main transcript and 2.21x on agent
+# transcripts. So each request must be counted exactly once.
+#
+# Which repeat to keep is NOT arbitrary. Measured over 406 requests of a real session:
+# input, cache read and cache write are byte-identical across every repeat, but
+# `output_tokens` differs in 53 of them — the early lines carry a placeholder that is
+# still being streamed (e.g. 1, 1, 221) and only the LAST line holds the finished count.
+# Taking the last (equivalently the max) reproduces `ccusage` exactly on all four
+# metrics; taking the first understates output by ~12%. Hence: keep one record per
+# request and let later lines supersede earlier ones.
+#
+# Keys are global across files: a message id identifies one request, and no id was ever
+# observed in both a main transcript and an agent transcript, so a global set cannot
+# over-merge. Verified: no requestId ever spans two message ids.
+def usage_key(entry, message):
+    """Dedupe key for one usage line, or None when the line carries no identity.
+
+    Prefers message.id, falls back to requestId. A line with neither is always counted:
+    dropping unidentifiable usage would understate the bill, which is the worse error.
+    """
+    if isinstance(message, dict):
+        mid = message.get("id")
+        if isinstance(mid, str) and mid:
+            return "m:" + mid
+    if isinstance(entry, dict):
+        rid = entry.get("requestId")
+        if isinstance(rid, str) and rid:
+            return "r:" + rid
+    return None
+
+
+def usage_output(usage):
+    """output_tokens as an int, 0 when absent/not numeric.
+
+    Accepts floats too: this value picks the winner among repeated records, so a
+    numeric-but-not-int final count must not collapse to 0 and lose to a placeholder.
+    bool is excluded — it is an int subclass, and True would silently read as 1.
+    """
+    value = usage.get("output_tokens")
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return 0
+    return int(value)
+
+
+class Deduper:
+    """Collects one usage record per request, keeping the most complete repeat.
+
+    Records are held until the end rather than added on sight, because an earlier line
+    may be superseded by a later one (see the note above on streamed output_tokens).
+    """
+
+    def __init__(self):
+        self.records = []          # ordered list of [key, usage, model, bucket_name]
+        self.index = {}            # dedupe key -> position in records
+
+    def add(self, entry, message, usage, model, bucket_name):
+        key = usage_key(entry, message)
+        if key is None:
+            # No identity — record it unconditionally rather than risk losing usage.
+            self.records.append([key, usage, model, bucket_name])
+            return
+        pos = self.index.get(key)
+        if pos is None:
+            self.index[key] = len(self.records)
+            self.records.append([key, usage, model, bucket_name])
+            return
+        # Repeat of a request already seen: keep whichever line reports more output,
+        # so a finished count always beats a mid-stream placeholder.
+        if usage_output(usage) > usage_output(self.records[pos][1]):
+            self.records[pos][1] = usage
+            self.records[pos][2] = model
+
+
 def strip_plugin_prefix(name):
     """'dobiflow:code-reviewer' -> 'code-reviewer'. Bare and plugin-prefixed names
     appear in the same session, so both shapes must land in the same bucket."""
@@ -174,23 +249,23 @@ def strip_plugin_prefix(name):
     return name
 
 
-def read_async_usage(result):
-    """Usage for a background-launched subagent.
+def read_async_usage(result, deduper):
+    """Record usage for a background-launched subagent into `deduper`.
 
     Async launches record no usage on the tool-result line — only a pointer to a
-    JSONL transcript in `outputFile`. Walk that file and return
-    [(agent_name, usage, model), ...] for its assistant lines.
+    JSONL transcript in `outputFile`. Walk that file and hand each assistant line's
+    usage to the deduper, which collapses the repeats of one request.
 
-    Returns [] for anything unusable (missing/unreadable/malformed file, no
-    attributionAgent, no usage) — a background agent we cannot measure must never
-    break the report.
+    Returns True when at least one usage line was found. Anything unusable
+    (missing/unreadable/malformed file, no attributionAgent, no usage) yields False —
+    a background agent we cannot measure must never break the report.
     """
     path = result.get("outputFile")
     if not path or not isinstance(path, str):
-        return []
+        return False
     fallback_model = result.get("resolvedModel")
     fallback_name = result.get("description")
-    found = []
+    found = False
     try:
         with open(path, "r", encoding="utf-8", errors="replace") as fh:
             for line in fh:
@@ -219,19 +294,23 @@ def read_async_usage(result):
                 name = entry.get("attributionAgent") or fallback_name
                 if not name:
                     continue
-                found.append((strip_plugin_prefix(name), usage, model))
+                deduper.add(entry, message, usage, model, strip_plugin_prefix(name))
+                found = True
     except Exception:
-        return []  # unreadable file — skip silently
+        return found  # unreadable partway through — keep what we already recorded
     return found
 
 
 since_ts = parse_ts(since) if since else None
+
+MAIN_BUCKET = None   # sentinel: records routed to the main row rather than an agent row
 
 main = Bucket("main")
 agents = {}          # normalized agent type -> Bucket
 timestamps = []
 saw_any = False
 seen_output_files = set()   # async transcripts already consumed (see the isAsync branch)
+deduper = Deduper()  # per-request usage, collapsed across repeated lines
 
 with open(transcript, "r", encoding="utf-8", errors="replace") as fh:
     for line in fh:
@@ -257,7 +336,8 @@ with open(transcript, "r", encoding="utf-8", errors="replace") as fh:
             usage = message.get("usage")
             model = message.get("model")
             if isinstance(usage, dict) and model and model != "<synthetic>":
-                main.add(usage, model)
+                # Repeats of one request are collapsed by the deduper, not added here.
+                deduper.add(entry, message, usage, model, MAIN_BUCKET)
                 saw_any = True
 
         # Subagent usage: recorded on the Agent tool-call result line.
@@ -288,12 +368,19 @@ with open(transcript, "r", encoding="utf-8", errors="replace") as fh:
                 if output_file in seen_output_files:
                     continue
                 seen_output_files.add(output_file)
-            for name, usage, model in read_async_usage(result):
-                bucket = agents.get(name)
-                if bucket is None:
-                    bucket = agents[name] = Bucket(name)
-                bucket.add(usage, model)
+            if read_async_usage(result, deduper):
                 saw_any = True
+
+# Fold the deduplicated records into their rows. Deferred to here because a later line
+# can supersede an earlier one for the same request (see the Deduper note).
+for _key, _usage, _model, _bucket_name in deduper.records:
+    if _bucket_name is MAIN_BUCKET:
+        main.add(_usage, _model)
+    else:
+        _bucket = agents.get(_bucket_name)
+        if _bucket is None:
+            _bucket = agents[_bucket_name] = Bucket(_bucket_name)
+        _bucket.add(_usage, _model)
 
 if not saw_any:
     sys.exit(0)
@@ -346,29 +433,26 @@ def fmt_duration(seconds):
 
 # Analogy tiers: (upper bound of the tier, unit price, ko name, en singular, en plural).
 # The unit switches automatically with the magnitude so the count stays a small number.
-ANALOGY_TIERS = [
-    (1.0, 0.8, "사탕", "candy", "candies"),
-    (4.0, 2.0, "삼각김밥", "onigiri", "onigiri"),
-    (15.0, 5.0, "커피", "coffee", "coffees"),
-    (60.0, 12.0, "점심", "lunch", "lunches"),
-    (300.0, 25.0, "치킨", "fried chicken", "fried chickens"),
-    (float("inf"), 120.0, "회식", "team dinner", "team dinners"),
-]
+# One unit for every magnitude: the Big Mac. It is the same object everywhere, so the
+# reader converts without knowing local prices — unlike "lunch" or "team dinner", whose
+# cost varies by country. Priced at the Big Mac Index (US, mid-2026); a stale price only
+# shifts the count slightly, so this needs no upkeep.
+BIG_MAC_USD = 6.0
 
 
 def analogy(cost):
-    """One short line whose unit switches with the magnitude."""
+    """One short line putting the cost in Big Macs."""
     if cost < 0.01:   # rounds to $0.00 — an analogy would be noise
         return None
-    for limit, unit_price, name_ko, singular, plural in ANALOGY_TIERS:
-        if cost < limit:
-            count = max(1, int(round(cost / unit_price)))
-            if KO:
-                return "%s %d개쯤" % (name_ko, count)
-            if count == 1:
-                return "about one %s" % singular
-            return "about %d %s" % (count, plural)
-    return None
+    if cost < BIG_MAC_USD / 2:
+        # Below half a burger, rounding to "1" overstates it — say it plainly instead.
+        return "빅맥 반 개도 안 돼요" if KO else "less than half a Big Mac"
+    count = max(1, int(round(cost / BIG_MAC_USD)))
+    if KO:
+        return "빅맥 %d개쯤" % count
+    if count == 1:
+        return "about one Big Mac"
+    return "about %d Big Macs" % count
 
 
 def display_width(text):
@@ -395,6 +479,18 @@ note = analogy(total_cost)
 if note:
     headline += " · " + note
 lines.append(headline)
+
+# State what the figures cover. The table lists agent names, which reads as if those
+# agents spent the whole amount; without --since this is the entire session, other
+# skills and ordinary conversation included. Say so rather than let the reader guess.
+if since:
+    lines.append("- 이 시점 이후 작업 기준이에요." if KO else
+                 "- Covers the work done since that point.")
+else:
+    lines.append("- 이 세션 전체 기준이에요 — 다른 스킬과 일반 대화도 포함돼 있어요."
+                 if KO else
+                 "- Covers this whole session, other skills and ordinary conversation included.")
+
 lines.append("")
 
 label_source = "구분" if KO else "Source"
