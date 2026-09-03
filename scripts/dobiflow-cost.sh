@@ -482,23 +482,100 @@ def as_int(value):
 
 # --- Codex ------------------------------------------------------------------
 # Codex reports usage as `token_count` events carrying two figures:
-#   * `total_token_usage` — CUMULATIVE over the session. The 42 such lines of a measured
-#     session rose monotonically to a final 2,446,362. Summing these would multiply the
-#     total several-fold, so without a cutoff only the LAST one is read.
+#   * `total_token_usage` — CUMULATIVE, but only within one SEGMENT of the session (see
+#     below). The 42 such lines of a measured session rose monotonically to a final
+#     2,446,362. Summing every line would multiply the total several-fold, so without a
+#     cutoff only the last value of each segment is read.
 #   * `last_token_usage`  — the delta for that one turn. Needed for `--since`, since a
 #     cumulative figure cannot answer "how much since 10:00".
 # (Claude's per-request dedupe has no counterpart here and is not involved.)
 #
+# THE COUNTER RESTARTS WHEN A SESSION IS RESUMED. `total_token_usage` is cumulative only
+# until the session is picked up again later, at which point it counts from zero into the
+# SAME file under the SAME thread_id — a measured session ran to 314,688, was resumed 9.5
+# hours later, and its next line read 65,802. Reading only the final value therefore
+# reports the last stretch alone: 141,369 of an actual 456,057, silently losing 69%.
+#
+# So the file is read as a sequence of segments: a `total_tokens` LOWER than the one
+# before it means the counter restarted, so the previous segment's last value is banked
+# and a new segment begins; at EOF the final segment is banked. The reported usage is the
+# field-wise sum of the banked values, which ccusage independently confirms as 456,057.
+# A session that was never resumed has exactly one segment, so its figure is unchanged —
+# verified over 179 reset-free rollouts, byte-identical before and after.
+#
+# The restart is detected from `total_tokens` decreasing, not from the
+# `thread_settings_applied` / `task_started` markers that accompany a resume: the decrease
+# is the property actually being corrected for, and needs no marker vocabulary. Comparing
+# on `total_tokens` (not `input_tokens`) keeps a turn that is pure output from reading as
+# a reset. Resumes are uncommon but real — 6 of 185 local rollouts, one of them 3 times.
+#
+CODEX_USAGE_FIELDS = ("input_tokens", "cached_input_tokens",
+                      "cache_write_input_tokens", "output_tokens")
+
+
+class CodexSegments(object):
+    """Field-wise sum of the last `total_token_usage` of each segment.
+
+    Feed every `total_token_usage` dict in file order; a `total_tokens` below its
+    predecessor starts a new segment (the counter restarted on session resume). `total()`
+    banks the segment still open and returns the sum, or None when nothing usable arrived.
+    """
+
+    def __init__(self):
+        self._banked = dict((f, 0) for f in CODEX_USAGE_FIELDS)
+        self._current = None    # last usage dict of the segment in progress
+        self._prev_total = None  # its `total_tokens`, for the decrease check
+        self._found = False
+        self.segments = 1       # segment number of the line last accepted, 1-based
+
+    def add(self, usage):
+        """Record one `total_token_usage`, opening a new segment if it restarted."""
+        total = usage.get("total_tokens")
+        if isinstance(total, bool) or not isinstance(total, (int, float)):
+            # No usable counter to compare on: keep it as the segment's latest value
+            # rather than dropping a real turn, but leave the reset baseline untouched.
+            self._current = usage
+            self._found = True
+            return
+        if self._prev_total is not None and total < self._prev_total:
+            self._bank()
+            self.segments += 1
+        self._current = usage
+        self._prev_total = total
+        self._found = True
+
+    def _bank(self):
+        """Fold the open segment's last value into the running sum."""
+        if self._current is None:
+            return
+        for field in CODEX_USAGE_FIELDS:
+            self._banked[field] += as_int(self._current.get(field))
+        self._current = None
+        self._prev_total = None
+
+    def total(self):
+        self._bank()
+        return dict(self._banked) if self._found else None
+
+
 # `token_count` lines REPEAT VERBATIM — two consecutive lines were observed both reading
 # last_in=77,476 / total_in=275,917. `total_token_usage` is monotonic and immune, but
 # summing `last_token_usage` naively double-counts those repeats: measured over 14 live
 # sessions, naive summing missed the cumulative total in 4, while de-duplicating on
 # `total_token_usage.total_tokens` (which is unique per real turn, being a running sum)
 # matched 14/14. So the slice path must de-duplicate before it sums.
+#
+# That uniqueness holds only WITHIN a segment. Once the counter restarts on resume it
+# re-walks the low values it already passed, so a bare `total_tokens` could match a turn
+# from the earlier segment and discard it as a "repeat" — dropping real usage, the exact
+# failure this file is being fixed for. The key is therefore `(segment, total_tokens)`.
+# Verbatim repeats always sit inside one segment, so they are still caught. (No collision
+# occurs across the 185 local rollouts today; the pairing costs nothing and removes the
+# possibility rather than relying on the counter never landing on a value twice.)
 def codex_usage_from_slice(records):
     """Sum per-turn deltas over post-cutoff `token_count` lines, repeats removed.
 
-    `records` is [(total_tokens_key, last_token_usage)] in file order. The first
+    `records` is [((segment, total_tokens), last_token_usage)] in file order. The first
     occurrence of each key wins; later identical lines are the verbatim repeats.
     """
     seen = set()
@@ -523,11 +600,11 @@ def read_codex(path, since_ts=None):
     normal state of a session that has not called the model yet.
 
     With `since_ts` the tokens are the sum of the post-cutoff turns; without it they are
-    the last cumulative total, which is the simpler and independently ccusage-verified
-    path. The model is captured REGARDLESS of the cutoff: `turn_context` appears once per
-    session, at the very start, so filtering it by timestamp would lose the model label on
-    every cutoff past the first turn — and, when `token_count` was filtered along with it,
-    made the entire report vanish silently.
+    the sum of each segment's last cumulative total, which is the simpler and
+    independently ccusage-verified path. The model is captured REGARDLESS of the cutoff:
+    `turn_context` appears once per session, at the very start, so filtering it by
+    timestamp would lose the model label on every cutoff past the first turn — and, when
+    `token_count` was filtered along with it, made the entire report vanish silently.
     """
     bucket = None
     timestamps = []
@@ -535,6 +612,7 @@ def read_codex(path, since_ts=None):
     rate_limits = None
     model = None
     slice_records = []
+    segments = CodexSegments()
     try:
         with open(path, "r", encoding="utf-8", errors="replace") as fh:
             for line in fh:
@@ -566,25 +644,34 @@ def read_codex(path, since_ts=None):
                         model = candidate
                     continue
 
+                # Segments are tracked across the WHOLE file, cutoff or not. A resume that
+                # happened before the cutoff still divides the lines after it, so skipping
+                # the earlier ones here would number the segments wrong (and, under
+                # `--since`, key the dedupe on the wrong segment).
+                is_token_count = payload.get("type") == "token_count"
+                info = payload.get("info") if is_token_count else None
+                total = info.get("total_token_usage") if isinstance(info, dict) else None
+                if isinstance(total, dict):
+                    segments.add(total)
+
                 if before_cutoff:
                     continue
                 if ts is not None:
                     timestamps.append(ts)
 
-                if payload.get("type") != "token_count":
+                if not is_token_count:
                     continue
-                info = payload.get("info")
-                if isinstance(info, dict):
-                    total = info.get("total_token_usage")
-                    if isinstance(total, dict):
-                        usage = total          # later lines supersede: cumulative
-                        if since_ts is not None:
-                            delta = info.get("last_token_usage")
-                            if isinstance(delta, dict):
-                                key = total.get("total_tokens")
-                                if isinstance(key, bool) or not isinstance(key, (int, float)):
-                                    key = None   # unusable key -> count the line, never drop it
-                                slice_records.append((key, delta))
+                if isinstance(total, dict) and since_ts is not None:
+                    delta = info.get("last_token_usage")
+                    if isinstance(delta, dict):
+                        key = total.get("total_tokens")
+                        if isinstance(key, bool) or not isinstance(key, (int, float)):
+                            key = None   # unusable key -> count the line, never drop it
+                        else:
+                            # Paired with the segment: after a restart the counter
+                            # repeats values the earlier segment already used.
+                            key = (segments.segments, key)
+                        slice_records.append((key, delta))
                 limits = payload.get("rate_limits")
                 if isinstance(limits, dict):
                     rate_limits = limits
@@ -593,6 +680,10 @@ def read_codex(path, since_ts=None):
 
     if since_ts is not None:
         usage = codex_usage_from_slice(slice_records)
+    else:
+        # Sum of each segment's last value: identical to that single last value for a
+        # session that was never resumed, and the whole of a session that was.
+        usage = segments.total()
 
     if isinstance(usage, dict):
         raw_in = as_int(usage.get("input_tokens"))
