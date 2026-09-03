@@ -161,6 +161,8 @@ If things change later, run `/triage-init` again to refresh (existing config is 
   batch-cleans merged local branches · prunable worktrees · zombie loops folders (unmerged is auto-protected) →
   asks once ✋ whether you also want a **cost·time report** (active work time, tokens and cost split by main session and
   each subagent type). Say no and nothing is printed; the report never blocks the cleanup.
+  Works on Codex too, with two differences: no cost figure (no published rates) and no per-agent split
+  (Codex records in-session agents into one running total), but it adds the plan-quota line Codex exposes.
 - **Single-task worktree (optional)** — with config `worktree: true`, even a single bug/feature task is implemented in a
   `.claude/worktrees/<issue-number>` worktree, so it doesn't occupy the main working tree while you work
   (default false — has a dependency-install cost; falls back to the current method if creation fails).
