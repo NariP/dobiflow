@@ -15,7 +15,7 @@
 ![Codex](https://img.shields.io/badge/Codex-CLI-000000)
 ![로컬 실행](https://img.shields.io/badge/실행-100%25%20로컬-success)
 ![API 비용](https://img.shields.io/badge/추가%20API%20비용-0원-blue)
-![version](https://img.shields.io/badge/version-1.3.1-lightgrey)
+![version](https://img.shields.io/badge/version-1.3.2-lightgrey)
 ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 이슈 하나, 작업 하나를 한 줄로 던지면 — 도비가 원인을 파악하고, GitHub 이슈를 만들고,
@@ -227,6 +227,9 @@ dobiflow는 전부 **주인님 컴퓨터에서** 돌아가서, 도비가 지키�
 머지 후 정리를 시키면 도비가 **비용·시간 리포트**를 낼지 물어봐요 — 실제 작업한 시간과,
 메인 세션·서브에이전트 종류별(implementer·qa·git-writer 등) 토큰과 비용. 먼저 묻기 때문에
 필요 없으면 안 나와요. "자세히"라고 하면 캐시 읽기/쓰기와 캐시로 아낀 금액까지 펼쳐져요.
+
+집계 범위는 **세션 전체**예요 — dobiflow가 쓴 비용만이 아니라 다른 스킬과 일반 대화도
+포함돼요. 리포트 첫 줄에 그렇게 적혀 있고, 특정 시점 이후로 좁히면 그 사실도 표시돼요.
 
 로컬 세션 기록만 읽고, 아무 데도 전송하지 않아요. `~/.dobiflow/bin/dobiflow-cost`로
 실행되며(install.sh가 설치) 없으면 조용히 생략돼서 정리를 막지 않아요.
