@@ -165,12 +165,73 @@ class Bucket:
         self.cache_saved += read * rin * (1 - read_mult) / 1_000_000
 
 
+def strip_plugin_prefix(name):
+    """'dobiflow:code-reviewer' -> 'code-reviewer'. Bare and plugin-prefixed names
+    appear in the same session, so both shapes must land in the same bucket."""
+    name = str(name)
+    if name.startswith("dobiflow:"):
+        name = name[len("dobiflow:"):]
+    return name
+
+
+def read_async_usage(result):
+    """Usage for a background-launched subagent.
+
+    Async launches record no usage on the tool-result line — only a pointer to a
+    JSONL transcript in `outputFile`. Walk that file and return
+    [(agent_name, usage, model), ...] for its assistant lines.
+
+    Returns [] for anything unusable (missing/unreadable/malformed file, no
+    attributionAgent, no usage) — a background agent we cannot measure must never
+    break the report.
+    """
+    path = result.get("outputFile")
+    if not path or not isinstance(path, str):
+        return []
+    fallback_model = result.get("resolvedModel")
+    fallback_name = result.get("description")
+    found = []
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except Exception:
+                    continue  # broken line — skip it, never abort
+                # These files mix bare ints/strings in with the objects.
+                if not isinstance(entry, dict):
+                    continue
+                if entry.get("type") != "assistant":
+                    continue
+                message = entry.get("message")
+                if not isinstance(message, dict):
+                    continue
+                usage = message.get("usage")
+                if not isinstance(usage, dict):
+                    continue
+                model = message.get("model") or fallback_model
+                if not model or model == "<synthetic>":
+                    continue
+                # attributionAgent uses the same format as the sync path's agentType.
+                name = entry.get("attributionAgent") or fallback_name
+                if not name:
+                    continue
+                found.append((strip_plugin_prefix(name), usage, model))
+    except Exception:
+        return []  # unreadable file — skip silently
+    return found
+
+
 since_ts = parse_ts(since) if since else None
 
 main = Bucket("main")
 agents = {}          # normalized agent type -> Bucket
 timestamps = []
 saw_any = False
+seen_output_files = set()   # async transcripts already consumed (see the isAsync branch)
 
 with open(transcript, "r", encoding="utf-8", errors="replace") as fh:
     for line in fh:
@@ -212,6 +273,26 @@ with open(transcript, "r", encoding="utf-8", errors="replace") as fh:
                 if bucket is None:
                     bucket = agents[name] = Bucket(name)
                 bucket.add(usage, result.get("resolvedModel"))
+                saw_any = True
+
+        # Background-launched subagents carry no agentType and no usage here; their
+        # numbers live in the transcript at result.outputFile. Exclusive with the
+        # branch above (a launch line has isAsync, never agentType).
+        #
+        # Two launch lines can point at the same outputFile (a resumed or retried
+        # agent keeps its id). Reading it twice would count that agent twice, so
+        # track the files already consumed and skip repeats.
+        elif isinstance(result, dict) and result.get("isAsync"):
+            output_file = result.get("outputFile")
+            if isinstance(output_file, str):
+                if output_file in seen_output_files:
+                    continue
+                seen_output_files.add(output_file)
+            for name, usage, model in read_async_usage(result):
+                bucket = agents.get(name)
+                if bucket is None:
+                    bucket = agents[name] = Bucket(name)
+                bucket.add(usage, model)
                 saw_any = True
 
 if not saw_any:
