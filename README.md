@@ -15,7 +15,7 @@
 ![Codex](https://img.shields.io/badge/Codex-CLI-000000)
 ![runs local](https://img.shields.io/badge/runs-100%25%20local-success)
 ![no API cost](https://img.shields.io/badge/extra%20API%20cost-%240-blue)
-![version](https://img.shields.io/badge/version-1.3.1-lightgrey)
+![version](https://img.shields.io/badge/version-1.3.2-lightgrey)
 ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 Throw one bug or one task in a single line — Dobby finds the cause, files a GitHub
@@ -236,6 +236,10 @@ After a merge, when you ask Dobby to clean up, he offers a **cost·time report**
 time, plus tokens and cost split by the main session and each subagent type (implementer, qa,
 git-writer, …). He asks first; say no and nothing is printed. Ask for detail and it expands to
 cache reads/writes and how much caching saved.
+
+It covers the **whole session** — not just what dobiflow spent, but other skills and
+ordinary conversation too. The report says so on its first line, and says when it has been
+narrowed to a point in time.
 
 It reads the local session transcript only — nothing is sent anywhere. It runs via
 `~/.dobiflow/bin/dobiflow-cost` (installed by install.sh) and is silently skipped when absent,
