@@ -15,7 +15,7 @@
 ![Codex](https://img.shields.io/badge/Codex-CLI-000000)
 ![로컬 실행](https://img.shields.io/badge/실행-100%25%20로컬-success)
 ![API 비용](https://img.shields.io/badge/추가%20API%20비용-0원-blue)
-![version](https://img.shields.io/badge/version-1.2.1-lightgrey)
+![version](https://img.shields.io/badge/version-1.3.0-lightgrey)
 ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 이슈 하나, 작업 하나를 한 줄로 던지면 — 도비가 원인을 파악하고, GitHub 이슈를 만들고,
@@ -191,7 +191,7 @@ dobiflow는 전부 **주인님 컴퓨터에서** 돌아가서, 도비가 지키�
 - **테스트 레벨** — 완료 기준에 레벨이 붙어요: `Test(unit):` / `Test(e2e):` / `Covered-by: <기존 테스트>`. 자가체크 라운드는 unit 스위트(`test_command`)만 돌리고, e2e(`e2e_command`, 선택)는 머지 게이트에서 1회, `test_policy`(기본 `ui-flow-only`)가 신규 e2e 작성 범위를 제한해요 — 무거운 Playwright 스위트가 매 라운드를 느리게 만들 수 없어요
 - **PR 본문에 QA 시나리오** — 유저가 지각하는 표면(화면·플로우·CLI 출력·에러 메시지·API 응답 — change-map에 파일별 기록)을 건드린 PR엔 유저 플로우 시나리오(준비 / 순서 / 확인 지점: 보여야·보이면 안 되는·회귀 / 수정 전 동작)가 붙어요 — 사람이든 AI 브라우저든 그대로 따라 검증하는 대본. 내부 변경만이면 섹션 자체가 안 생겨요 — 빈 "해당 없음" 금지
 - **부채 테스트 감사** — PR 직전, 이번 루프가 추가한 테스트만 "깨지면 버그인가, 리팩토링인가"로 심사해요 — main엔 회귀 가치 있는 테스트만 들어가요
-- **머지 후 정리** — "머지했어" 한마디면 태깅(레포 관례 시) + 머지된 로컬 브랜치·worktree·남은 루프 폴더까지 싹 정리 — 미머지는 절대 안 건드려요
+- **머지 후 정리** — "머지했어" 한마디면 태깅(레포 관례 시) + 머지된 로컬 브랜치·worktree·남은 루프 폴더까지 싹 정리 — 미머지는 절대 안 건드려요. 원하면 **비용·시간 리포트**까지 (물어보고 냄)
 - **컨텍스트 아끼는 쓰기** — `git-writer` 도비가 이슈/커밋/push/PR을 **실행만** 담당. 메인이 메시지·본문을 완성해 넘기면 git-writer는 `gh`/`git`을 돌려 URL만 반환 → 장황한 `git log`/`diff`/`gh` 출력이 메인 세션에 안 쌓임
 - **업데이트 알림** — 세션 시작 시 하루 1회 dobiflow 새 버전을 확인해 갱신 방법을 알려줘요 (Claude: 플러그인 마켓플레이스 / Codex: `git pull`, 에이전트 변경 시 `install.sh --codex-only`) — 24시간 캐시, 네트워크 실패는 조용히 통과
 - **코드 탐색** — Serena LSP 있으면 심볼 단위 정밀, 없으면 grep 폴백
