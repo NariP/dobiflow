@@ -158,7 +158,9 @@ If things change later, run `/triage-init` again to refresh (existing config is 
   on the "if it breaks, is it a bug or a refactor?" criterion, stripping out implementation-detail-coupled, self-evident, and duplicate tests.
   It doesn't touch existing tests, and re-confirms the remaining tests are green after removal — no debt lands on main.
 - **Post-merge cleanup (optional)** — after a PR is merged, say "merged / clean it up" and it confirms the merge → (if the repo's convention) tags →
-  batch-cleans merged local branches · prunable worktrees · zombie loops folders (unmerged is auto-protected).
+  batch-cleans merged local branches · prunable worktrees · zombie loops folders (unmerged is auto-protected) →
+  asks once ✋ whether you also want a **cost·time report** (active work time, tokens and cost split by main session and
+  each subagent type). Say no and nothing is printed; the report never blocks the cleanup.
 - **Single-task worktree (optional)** — with config `worktree: true`, even a single bug/feature task is implemented in a
   `.claude/worktrees/<issue-number>` worktree, so it doesn't occupy the main working tree while you work
   (default false — has a dependency-install cost; falls back to the current method if creation fails).
@@ -212,7 +214,7 @@ Inside the `dobiflow` plugin:
 skills/   work · milestone · triage-fix · task-run · triage-status · triage-init · triage-help
 agents/   issue-triage · planner (planning) · qa-runner (test run) · qa (test audit · verdict) · policy-checker · code-reviewer (read-only) · implementer (implementation) · git-writer (write execution)
 hooks/    hooks.json (registers PostToolUse) · examples/ (user hook templates)
-scripts/  dobiflow-hook.sh (auto-detects issues/PRs) · dobiflow-emit.sh (publishes work lifecycle)
+scripts/  dobiflow-hook.sh (auto-detects issues/PRs) · dobiflow-emit.sh (publishes work lifecycle) · dobiflow-cost.sh (cost·time report at cleanup)
 docs/     triage-workflow-guide.md  (this guide)
 ```
 

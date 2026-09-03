@@ -33,6 +33,7 @@ dobiflow 설치 스크립트
   Codex : 스킬은 플러그인으로 설치(자동 시도) — codex plugin marketplace add <클론> + codex plugin add
           $CODEX_HOME/agents/<name>.toml  (서브에이전트는 플러그인 미지원이라 여기서 복사)
   공용  : $DOBIFLOW_HOME/bin/dobiflow-emit  (작업 생명주기 이벤트 발행기)
+          $DOBIFLOW_HOME/bin/dobiflow-cost  (정리 단계 비용·시간 리포터)
 
 환경변수: CLAUDE_HOME(기본 ~/.claude), CODEX_HOME(기본 ~/.codex), AGENTS_HOME(기본 ~/.agents),
           DOBIFLOW_HOME(기본 ~/.dobiflow)
@@ -68,12 +69,15 @@ SKILLS="work milestone triage-fix task-run triage-status triage-init triage-help
 AGENTS_MD="issue-triage planner qa qa-runner policy-checker code-reviewer implementer git-writer"
 MODE_LABEL=$([ "$LINK" = yes ] && echo "심링크" || echo "복사")
 
-# ---- 공용: 이벤트 발행기 (CLI 무관 — 스킬들이 ~/.dobiflow/bin/dobiflow-emit 으로 호출) ----
+# ---- 공용: 이벤트 발행기 + 비용 리포터 (CLI 무관 — 스킬들이 ~/.dobiflow/bin/ 으로 호출) ----
 echo "== 공용 =="
 run mkdir -p "$DOBIFLOW_HOME/bin"
 put_file "$REPO/scripts/dobiflow-emit.sh" "$DOBIFLOW_HOME/bin/dobiflow-emit"
 [ "$LINK" = yes ] || run chmod +x "$DOBIFLOW_HOME/bin/dobiflow-emit"
 echo "  → 이벤트 발행기 설치: $DOBIFLOW_HOME/bin/dobiflow-emit ($MODE_LABEL)"
+put_file "$REPO/scripts/dobiflow-cost.sh" "$DOBIFLOW_HOME/bin/dobiflow-cost"
+[ "$LINK" = yes ] || run chmod +x "$DOBIFLOW_HOME/bin/dobiflow-cost"
+echo "  → 비용·시간 리포터 설치: $DOBIFLOW_HOME/bin/dobiflow-cost ($MODE_LABEL)"
 
 # ---- Claude Code ----
 if [ "$DO_CLAUDE" != no ] && { [ "$DO_CLAUDE" = yes ] || command -v claude >/dev/null 2>&1; }; then

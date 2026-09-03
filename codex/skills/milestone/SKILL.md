@@ -178,6 +178,11 @@ Once a group's tasks are all done:
      (keeps `/work` re-detection·task-addition re-entry possible). The single-skill stage-7 sweep does not touch this folder while `plan.md` is present —
      cleanup is handled here.
   4. **Branch cleanup** — `op=cleanup-branch` the milestone branch·remaining group branches (merged only — same safety line as the stage-7 sweep).
+  5. **Cost & time report (optional)** — ask once ✋ ("want the cost·time report too?"). Only on a yes, run
+     `~/.dobiflow/bin/dobiflow-cost --session <this session id> --lang <user's language>` and relay its output as-is
+     (`--verbose` for detail; `--since <ISO8601 of the milestone start>` narrows it to this milestone).
+     Skip silently if the script is missing or prints nothing — it must never block the cleanup.
+   The report is for the user only — never paste it into an issue or PR body (§Tone: records stay neutral).
 
 ## Event emission (optional — same emitter as §triage-fix)
 Add parameters to the work-* events: `work_type=milestone`·`milestone=<slug>`·`scope=issue|milestone`·`group=<group>`.

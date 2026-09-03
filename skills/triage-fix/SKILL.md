@@ -235,6 +235,12 @@ Run only when, **after the PR is merged**, the user asks with something like "me
    report-only if any worktree/branch has uncommitted changes, delete all zombie `.claude/loops/` folders whose issue is closed
    (excluding milestone folders with `plan.md` — the detection in 1).
 
+4. **Cost & time report (optional)** — ask once ✋ ("want the cost·time report too?"). Only on a yes,
+   run `~/.dobiflow/bin/dobiflow-cost --session <this session id> --lang <user's language>` and relay its output as-is
+   (add `--verbose` when the user asks for detail; `--since <ISO8601 of the work start>` narrows it to this task).
+   Skip silently if the script is missing or prints nothing — it must never block the cleanup.
+   The report is for the user only — never paste it into an issue or PR body (§Tone: records stay neutral).
+
 The test audit is not done here — it was already finished before merge in Step 5.5.
 
 ---

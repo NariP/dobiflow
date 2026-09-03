@@ -15,7 +15,7 @@
 ![Codex](https://img.shields.io/badge/Codex-CLI-000000)
 ![runs local](https://img.shields.io/badge/runs-100%25%20local-success)
 ![no API cost](https://img.shields.io/badge/extra%20API%20cost-%240-blue)
-![version](https://img.shields.io/badge/version-1.2.1-lightgrey)
+![version](https://img.shields.io/badge/version-1.3.0-lightgrey)
 ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 Throw one bug or one task in a single line — Dobby finds the cause, files a GitHub
@@ -196,7 +196,7 @@ dobiflow runs everything **on your machine**, so Dobby keeps a few rules:
 - **Test levels** — acceptance criteria carry a level: `Test(unit):` / `Test(e2e):` / `Covered-by: <existing test>`. Self-check rounds run only the unit suite (`test_command`); e2e (`e2e_command`, optional) runs once at merge gates, and `test_policy` (default `ui-flow-only`) bounds where new e2e may be written — a heavy Playwright suite can no longer slow every loop round
 - **QA scenario in the PR body** — when a change touches what users perceive (screens, flows, CLI output, error messages, API responses — tracked per file in the change-map), the PR body gets a user-flow scenario (setup / steps / checkpoints incl. must-show·must-not-show·regression / pre-fix behavior) that a human or an AI browser can follow to verify. Internal-only PRs get no section at all — no empty "N/A" shells
 - **Debt-test audit** — right before the PR, Dobby audits only the tests this loop added ("if it breaks, is it a bug or a refactor?") — only tests with regression value reach main
-- **Post-merge cleanup** — say "merged" and Dobby tags (if the repo does tags) and sweeps merged local branches, worktrees and leftover loop folders — unmerged ones are never touched
+- **Post-merge cleanup** — say "merged" and Dobby tags (if the repo does tags) and sweeps merged local branches, worktrees and leftover loop folders — unmerged ones are never touched. He can also hand you a **cost & time report** (he asks first)
 - **Context-thrifty writes** — a `git-writer` Dobby runs issue/commit/push/PR as pure execution; main writes the message/body, git-writer just runs `gh`/`git` and returns the URL, so verbose `git log`/`diff`/`gh` output never piles up in the main session
 - **Update notice** — once a day at session start, Dobby checks the latest dobiflow release and prints how to update (Claude: plugin marketplace / Codex: `git pull`, plus `install.sh --codex-only` when agents changed) — 24h cache, network failures stay silent
 - **Code search** — symbol-level via Serena LSP when available, grep fallback otherwise
@@ -229,6 +229,20 @@ Drop an executable script at either location (or both):
   `~/.dobiflow/bin/dobiflow-emit` (installed by install.sh — silently skipped
   when absent; works for both Claude and Codex).
 - See `hooks/examples/` for templates. Hook failures never block Dobby's main work.
+
+### Cost & time report
+
+After a merge, when you ask Dobby to clean up, he offers a **cost·time report** — active work
+time, plus tokens and cost split by the main session and each subagent type (implementer, qa,
+git-writer, …). He asks first; say no and nothing is printed. Ask for detail and it expands to
+cache reads/writes and how much caching saved.
+
+It reads the local session transcript only — nothing is sent anywhere. It runs via
+`~/.dobiflow/bin/dobiflow-cost` (installed by install.sh) and is silently skipped when absent,
+so it can never block a cleanup.
+
+> **Upgrading from v1.2.x?** This release adds a new file under `~/.dobiflow/bin/`, so
+> **re-run `install.sh`** — otherwise Dobby offers the report and then quietly skips it.
 
 ## Dependencies (recommended)
 
