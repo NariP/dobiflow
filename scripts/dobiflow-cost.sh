@@ -249,12 +249,26 @@ def strip_plugin_prefix(name):
     return name
 
 
-def read_async_usage(result, deduper):
+def read_async_usage(result, deduper, since_ts=None):
     """Record usage for a background-launched subagent into `deduper`.
 
     Async launches record no usage on the tool-result line — only a pointer to a
     JSONL transcript in `outputFile`. Walk that file and hand each assistant line's
     usage to the deduper, which collapses the repeats of one request.
+
+    `since_ts` filters on each `.output` line's OWN timestamp, not the launch line's.
+    An async agent commonly outlives the cutoff: it is launched before, and keeps
+    working after. Filtering by the launch timestamp drops such an agent whole,
+    including everything it did after the cutoff — measured at 52% of one agent's
+    work, $3.10 reported as $0. The bias is systematic, because the longer an agent
+    runs the likelier it straddles a cutoff, so the most expensive agents are exactly
+    the ones that vanish. There is no over-counting to trade off against: across 15
+    measured agents the launch line and the first `.output` line were at most 1s
+    apart, so "launched after the cutoff but worked before it" does not occur.
+
+    A line carrying no parseable timestamp is COUNTED, never skipped. The add-on
+    principle of this script is that failures degrade toward over-reporting; a silent
+    under-count is the worse error and is precisely the bug this filter fixes.
 
     Returns True when at least one usage line was found. Anything unusable
     (missing/unreadable/malformed file, no attributionAgent, no usage) yields False —
@@ -279,6 +293,11 @@ def read_async_usage(result, deduper):
                 # These files mix bare ints/strings in with the objects.
                 if not isinstance(entry, dict):
                     continue
+                if since_ts is not None:
+                    line_ts = parse_ts(entry.get("timestamp"))
+                    # No timestamp -> keep the line (see the docstring).
+                    if line_ts is not None and line_ts < since_ts:
+                        continue
                 if entry.get("type") != "assistant":
                     continue
                 message = entry.get("message")
@@ -324,11 +343,43 @@ with open(transcript, "r", encoding="utf-8", errors="replace") as fh:
         if not isinstance(entry, dict):
             continue
 
+        result = entry.get("toolUseResult")
+        is_async_launch = isinstance(result, dict) and bool(result.get("isAsync"))
+
         ts = parse_ts(entry.get("timestamp"))
-        if since_ts is not None and ts is not None and ts < since_ts:
+        before_cutoff = since_ts is not None and ts is not None and ts < since_ts
+
+        # An async launch before the cutoff is the one thing --since must NOT drop here:
+        # the agent it started may have kept working long past the cutoff, and only its
+        # `.output` lines can say how much. Dropping it cost a straddling agent its entire
+        # bill (measured: 52% of its work was post-cutoff, $0 counted).
+        #
+        # INVARIANT for anyone adding a branch below: a pre-cutoff line now survives this
+        # point, so any new branch must re-check `before_cutoff` itself. Only the async
+        # branch is exempt, because it filters per `.output` line instead.
+        if before_cutoff and not is_async_launch:
             continue
-        if ts is not None:
+        # Excluded from timestamps either way, so active working time is unaffected.
+        if ts is not None and not before_cutoff:
             timestamps.append(ts)
+
+        # Background-launched subagents carry no agentType and no usage here; their
+        # numbers live in the transcript at result.outputFile. Exclusive with the
+        # two branches below (a launch line has isAsync, never agentType, and is a
+        # `user` line, never `assistant`) — hence the early `continue`.
+        #
+        # Two launch lines can point at the same outputFile (a resumed or retried
+        # agent keeps its id). Reading it twice would count that agent twice, so
+        # track the files already consumed and skip repeats.
+        if is_async_launch:
+            output_file = result.get("outputFile")
+            if isinstance(output_file, str):
+                if output_file in seen_output_files:
+                    continue
+                seen_output_files.add(output_file)
+            if read_async_usage(result, deduper, since_ts):
+                saw_any = True
+            continue
 
         # Main-session usage: assistant lines carrying message.usage.
         message = entry.get("message")
@@ -341,7 +392,6 @@ with open(transcript, "r", encoding="utf-8", errors="replace") as fh:
                 saw_any = True
 
         # Subagent usage: recorded on the Agent tool-call result line.
-        result = entry.get("toolUseResult")
         if isinstance(result, dict) and result.get("agentType"):
             usage = result.get("usage")
             if isinstance(usage, dict):
@@ -353,22 +403,6 @@ with open(transcript, "r", encoding="utf-8", errors="replace") as fh:
                 if bucket is None:
                     bucket = agents[name] = Bucket(name)
                 bucket.add(usage, result.get("resolvedModel"))
-                saw_any = True
-
-        # Background-launched subagents carry no agentType and no usage here; their
-        # numbers live in the transcript at result.outputFile. Exclusive with the
-        # branch above (a launch line has isAsync, never agentType).
-        #
-        # Two launch lines can point at the same outputFile (a resumed or retried
-        # agent keeps its id). Reading it twice would count that agent twice, so
-        # track the files already consumed and skip repeats.
-        elif isinstance(result, dict) and result.get("isAsync"):
-            output_file = result.get("outputFile")
-            if isinstance(output_file, str):
-                if output_file in seen_output_files:
-                    continue
-                seen_output_files.add(output_file)
-            if read_async_usage(result, deduper):
                 saw_any = True
 
 # Fold the deduplicated records into their rows. Deferred to here because a later line
