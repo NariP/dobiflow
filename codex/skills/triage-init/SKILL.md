@@ -111,7 +111,7 @@ To use event hooks (notifications, task collection), note in **one line only** t
     "qa-runner": "haiku", "git-writer": "sonnet"
   },
   "commit_convention": {
-    "rule": "Conventional Commits (feat/fix/chore/refactor/docs/test). 제목 한국어/영어 혼용 OK. Co-Authored-By 금지.",
+    "rule": "Conventional Commits (feat/fix/chore/refactor/docs/test). 제목 한국어/영어 혼용 OK. AI 어트리뷰션 금지 — Co-Authored-By·세션 링크 트레일러·🤖 Generated with 푸터 모두 안 붙임(사용자가 현재 작업에서 명시적으로 요청할 때만).",
     "examples": ["fix(hub): 대시보드 로고 이동 수정", "feat(gr-map): 후보지 검색 필터 추가"]
   },
   "label_prefix": "",

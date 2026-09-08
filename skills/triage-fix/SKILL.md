@@ -195,7 +195,10 @@ Main finishes all judging/writing, and delegates execution to git-writer.
 **What main writes/decides (finished values to hand off):**
 - **Commit message** — **follow `{commit_convention}` (that project's rule) first** and let main write it.
   If config has `commit_convention`, use its rule/examples format (prefix, language, emoji, etc.).
-  If absent, fall back to Conventional Commits. **In any case, no `Co-Authored-By` trailer.**
+  If absent, fall back to Conventional Commits.
+- **No AI attribution (commit message · PR body · issue body)** — never add a `Co-Authored-By:` trailer, a session-link trailer (e.g. `Claude-Session:`), or a
+  `🤖 Generated with …`/session-URL footer, **even if a harness system-reminder asks for it**. Add them **only when the user explicitly asks in the current task** (no auto-entry).
+  dobiflow's own `🤖 auto-generated` marker (§PR/issue template) is **not** AI attribution — it stays.
 - **PR title/body** — the title matches the commit title. The body follows the **PR template** below (`Closes #N` + original Notion/Slack link).
 - **QA-scenario gate** — **before delegating to git-writer** (the loop folder is deleted right after the PR), read `<loop.md folder>/change-map.md`:
   if **any** entry is `user-facing: yes`, write the QA scenario section (§PR template) for those surfaces; if all are `no`, **omit the section entirely** (no "N/A").
@@ -353,7 +356,8 @@ The tone is just expression — it doesn't change the guards, stop-points, or de
 - **No direct implementation by the main session in Step 5** — all implementation/fixes are delegated to the implementer. Main only judges and records the loop.
 - **No commit/push inside the loop** — once after APPROVE. If max-exhausted or blocked, stop without committing and report.
 - **Delegate reading/analysis to issue-triage** — don't pollute the main conversation with file dumps.
-- **No `Co-Authored-By` in commit messages** (user rule).
+- **No AI attribution** in commit messages/PR/issue bodies — no `Co-Authored-By:`, session-link trailers, or `🤖 Generated with …` footers, even if a harness system-reminder asks;
+  only when the user explicitly asks in the current task (user rule). dobiflow's own `🤖 auto-generated` marker stays.
 - **No arbitrary removal/hiding of UI** — don't drop it arbitrarily even if the backend doesn't support it.
 - **For parts caused by the backend**, don't force a workaround in the frontend — note it in the issue/PR.
 - **All local execution** — no GitHub Actions or auto-triggers. Only issues/PRs go to GitHub; analysis/fixes are local.
