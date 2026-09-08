@@ -196,7 +196,8 @@ It stops without commit · PR and reports the situation (the work branch is kept
 or look yourself is up to you. Adjust the max count with `loop.max_iterations` in `triage.config.json`.
 
 **Q. What's the commit message format?**
-It follows that project's rules (`/triage-init` detects them). Co-Authored-By is never added.
+It follows that project's rules (`/triage-init` detects them). AI attribution — a `Co-Authored-By:` trailer, a session-link trailer, or a `🤖 Generated with …`
+footer — is never added to commits/PR/issue bodies, unless you explicitly ask for it in the current request. dobiflow's own `🤖 auto-generated` marker is not attribution — it stays.
 
 **Q. How do I resume work already in progress?**
 For the conversation session, use Claude Code's built-in `claude --resume` / `--continue`.

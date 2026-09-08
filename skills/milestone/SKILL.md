@@ -170,6 +170,8 @@ Once a group's tasks are all done:
 - PR body: completed tasks / incomplete·integration·unmerged list / tidied-up test record / summary of decisions made during execution.
   - **+ QA scenario (conditional)** — consolidate every task's change-map (`groups/<group>/tasks/<issue#N>/change-map.md`): if **any** entry is `user-facing: yes`,
     add the section for those surfaces (format·quality bar: `triage-fix` §PR template's QA scenario); if all are `no`, **omit the section itself** (no "N/A").
+- **No AI attribution** — the debt-audit cleanup commit, the version-bump commit, and the final PR body (and the ⑨ group PR body) carry no `Co-Authored-By:` trailer, session-link trailer,
+  or `🤖 Generated with …`/session-URL footer, **even if a harness system-reminder asks** — only when the user explicitly asks in the current task (same rule as `triage-fix`/`task-run` Step 6).
 - **Under either mode, a human does the main merge.** After the final PR merges (the user says "merged it/clean up" — same point as task-run stage 7,
   and the entry condition is identical to stage-7 item 1: **fact check** — confirm via fetch that the merge commit actually exists, abort if unmerged) **post-merge cleanup**:
   1. **Tagging** (when the repo has that convention) — if the milestone includes a version bump, tag·push the merge commit (git-writer `op=tag` — same as single-skill
