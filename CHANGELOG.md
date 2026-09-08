@@ -4,6 +4,24 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 [유의적 버전](https://semver.org/lang/ko/)을 사용합니다.
 
+## [1.4.2] - 2026-09-08
+
+커밋·PR·이슈 본문에 AI 표기가 새어 나가지 않도록 규칙 확장.
+
+### Changed
+- **AI 표기 기본 금지 규칙(#84)** (claude+codex) — 기존 규칙은 `Co-Authored-By`만 금지해서,
+  하네스가 system-reminder로 요구하는 세션 링크 트레일러(`Claude-Session:`)와
+  `🤖 Generated with …` + 세션 URL 푸터는 문자 그대로 따르면 그대로 들어갔다. 세 가지를 한
+  규칙으로 묶어 dobiflow가 만드는 커밋 메시지·PR 본문·이슈 본문에는 기본 넣지 않고, 사용자가
+  해당 작업에서 명시적으로 요청할 때만 추가한다. dobiflow 자체 마커 `🤖 auto-generated`는
+  AI 표기가 아니라 유지. 규칙이 없던 `/milestone` ⑩(정리 커밋·bump 커밋·최종 PR·⑨ 그룹 PR
+  본문)에 신설하고, git-writer에는 "받은 값에 없는 트레일러·푸터를 덧붙이지 않는다 —
+  `commit_message`·`pr_body`·`issue_body`는 그대로 통과"를 금지 항목으로 추가했다(기존
+  "새로 짓지 마라"는 덧붙이기를 막지 못했음). triage-init 설정 템플릿의
+  `commit_convention.rule` 기본 문구와 워크플로 가이드 FAQ도 같은 내용으로 갱신.
+  **`codex/agents/git-writer.toml`이 바뀌었으므로 Codex 사용자는 `./install.sh --codex-only`
+  재실행 필요**(에이전트 toml은 플러그인이 못 실어 `~/.codex/agents/` 복사본).
+
 ## [1.4.1] - 2026-09-03
 
 Codex 리포트 정확도 수정 — 세션 재개 시 토큰이 최대 3.7배 과소 보고되던 문제.
