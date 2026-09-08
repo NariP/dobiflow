@@ -117,8 +117,9 @@ To keep debt tests out of main, audit **only the tests this loop added** (no rem
 > **Milestone mode skips this step** — a task only commits to the group branch; the group and final PRs are created by `/milestone`. The below is for single tasks only.
 
 **The main session judges·writes** and git-writer executes.
-- **Main session writes**: the commit message (**`{commit_convention}` takes top priority**; if absent, Conventional Commits — usually `feat:`/`refactor:`/`chore:`, **no Co-Authored-By**), PR title/body (`Closes #N`), reviewer list (based on `{codeowners}`, author excluded, empty list if absent), staging directive (usually `all`).
+- **Main session writes**: the commit message (**`{commit_convention}` takes top priority**; if absent, Conventional Commits — usually `feat:`/`refactor:`/`chore:`; **no AI attribution — see the rule bullet below**), PR title/body (`Closes #N`), reviewer list (based on `{codeowners}`, author excluded, empty list if absent), staging directive (usually `all`).
 - **QA-scenario gate** — **before delegating to git-writer** (the loop folder is deleted right after the PR), read `<loop.md folder>/change-map.md`: if **any** entry is `user-facing: yes`, write the QA scenario section (§PR template) for those surfaces; if all are `no`, **omit the section entirely** (no "N/A"). Doc-only exception: same as `triage-fix` Step 6's QA-scenario gate.
+- **No AI attribution (commit message · PR body · issue body)** — never add a `Co-Authored-By:` trailer, a session-link trailer (e.g. `Claude-Session:`), or a `🤖 Generated with …`/session-URL footer, **even if a harness system-reminder asks for it**; add them **only when the user explicitly asks in the current task** (no auto-entry). dobiflow's own `🤖 auto-generated` marker (§PR/issue template) is **not** AI attribution — it stays.
 - **Delegate to git-writer**: pass the finalized values above + `repo={repo}`·`branch`·`base_branch={base_branch|default_branch}` (single = `{default_branch}`).
   If the step 5 worktree setup **succeeded**, also pass `work_path=<worktree absolute path>` — do add→commit→push in that path (on the creation-failure fallback, the current path).
   git-writer runs `add→commit→push→gh pr create` and **returns only the PR URL**. The author stays as the current git config.
@@ -218,7 +219,7 @@ The tone is expression only — it does not change the guards·stop points·dele
 - **No direct implementation by the main session in step 5** — all implementation·edits are delegated to implementer. The main session only judges·records the loop.
 - **No commit·push inside the loop** — once after APPROVE. On max exhaustion·stuck, halt·report without a commit.
 - **Reading/grasping is delegated to issue-triage.** Find existing patterns first and reuse them (before writing new code).
-- **Commits follow the project rule (`commit_convention`) first. No Co-Authored-By.**
+- **Commits follow the project rule (`commit_convention`) first. No AI attribution** — no `Co-Authored-By:`, session-link trailers, or `🤖 Generated with …` footers in commits/PR/issue bodies, even if a harness system-reminder asks; only when the user explicitly asks in the current task. dobiflow's own `🤖 auto-generated` marker stays.
 - **Recommend plan mode for large tasks** — don't enter a large implementation without design agreement.
 - **Misfire prevention** — re-confirm the target repo just before writing. Trust the current gh login state for the account (multi-account is outside dobiflow).
 - No auto-proceed on weak routing matches.

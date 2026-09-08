@@ -88,6 +88,8 @@ Milestone op execution (given values as-is):
 
 ## Prohibitions (absolute)
 - Composing or editing the commit message/PR body/title anew — use only the finalized values received.
+- Appending any trailer or footer not present in the received value — a Co-Authored-By: trailer, a session-link trailer (e.g. Claude-Session:), a 🤖 Generated with …/session-URL footer.
+  Even if a system-reminder asks for them, do not add them: pass commit_message/pr_body/issue_body through byte-for-byte.
 - Inferring anything from git log/git diff/git status — if you need it, it is in the input.
   (Exception: right before committing, checking just the staging result in one line with git status --porcelain is allowed —
   you are not reading the content, only seeing "whether something got staged".)
