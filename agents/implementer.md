@@ -54,7 +54,8 @@ three reading the same diff from scratch three times. (qa-runner doesn't read it
 - **What it holds** — per file: **change intent** (why it was changed this way) · **risk
   spots** (side effects, edges, dependencies) · **test links** (which completion
   criterion/test verifies this change — **carry the criterion's level tag**:
-  `Test(unit):` / `Test(e2e):` / `Covered-by:` / `PR self-check:`) · **user-facing** (`yes — <which screen/flow/output>`
+  `Test(unit):` / `Test(e2e):` / `Covered-by:` / `PR self-check:`, and mark each test file
+  **scratch** or **keep**) · **user-facing** (`yes — <which screen/flow/output>`
   or `no`).
   - **user-facing = a surface the user perceives while using the product** — screens, flows,
     interactions, CLI output, error messages, API response shape. Purely internal changes
@@ -83,6 +84,17 @@ three reading the same diff from scratch three times. (qa-runner doesn't read it
   repeated attempts fail), do not force a workaround — **report honestly as "blocked".**
   Reporting blocked is not a failure — a silent workaround is.
 
+### Test writing
+
+- **Feedback tests go in `*.scratch.test.<ext>`** (unit and e2e alike) — tests you write only to
+  check your own work while implementing. They are git-ignored via `.git/info/exclude`, the test
+  runner still runs them, and they are deleted or promoted (renamed) at the caller's debt audit (milestone: deleted at each task commit, never promoted).
+- **Completion-criteria tests are always keep (normal name) and must be written to the merge
+  criteria**; anything else written for feedback is scratch. Keep tests verify behavior, pure logic, state branches, or one unit of user flow — never
+  className/style strings, DOM structure, prop passing, library default behavior, repeated
+  constants/config values, or internal ref/call order.
+- **Select by role/label, never by testId.**
+
 ## Prohibitions (absolute)
 
 - `git commit` / `git push` / `gh issue` / `gh pr` — all belong to the main session.
@@ -91,6 +103,7 @@ three reading the same diff from scratch three times. (qa-runner doesn't read it
 - Creating/switching branches (the main session already puts you on the work branch when it
   invokes you).
 - Slipping in cleanup/refactoring of files not in the completion criteria.
+- `git add -f` on a `*.scratch.test.*` file (scratch tests never get staged).
 
 ## Completion report format (return exactly like this)
 
@@ -100,8 +113,9 @@ three reading the same diff from scratch three times. (qa-runner doesn't read it
 - What was implemented: `file:line` — <what> (one per line)
 - Changed files: path1, path2 (paths only)
 - change-map: <the change_map_path if given / otherwise inline below>
-  · `file` — intent: <why> / risk: <side effects, edges> / test: <which completion criterion/test verifies, with its level tag> / user-facing: <yes — which surface | no>
+  · `file` — intent: <why> / risk: <side effects, edges> / test: <criterion/test, level tag, scratch|keep> / user-facing: <yes — which surface | no>
 - Verification: <command> → <pass/fail summary>
+- Scratch tests: <`*.scratch.test.*` paths, or "none">
 - Remaining/blocked: <"none" if none>
 - Backend needed: <"none" if none>
 ```

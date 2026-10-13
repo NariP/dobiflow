@@ -149,7 +149,8 @@ If things change later, run `/triage-init` again to refresh (existing config is 
 - **Test level split** — completion criteria carry **how** they're verified: `Test(unit):` (the default — runs every round),
   `Test(e2e):` (browser-level, only within `test_policy` and only run at merge gates), `Covered-by:` (an existing test already covers it),
   `PR self-check:` (a human confirms). So a self-check round stays fast (unit only) while e2e still guards the merge — and
-  qa flags an e2e written outside the policy as a failure.
+  qa flags an e2e written outside the policy as a failure. Feedback tests written while implementing go in `*.scratch.test.<ext>`
+  (git-ignored via `.git/info/exclude`, still run by the test runner) and never count as a completion criterion.
 - **Self-check separation** — domain policy checks (policy-checker) and general code review (code-reviewer) are kept separate,
   and **test execution (qa-runner) is separated from test judgment (qa)** — the runner reports facts only (`ran`/`did-not-run`/`blocked-before-tests`)
   and has no way to manufacture green, while qa runs no tests at all and grades on the runner's verify.log. If the run is red, the audit is skipped that round
@@ -157,6 +158,7 @@ If things change later, run `/triage-init` again to refresh (existing config is 
 - **Debt-test audit** — before commit · PR (for milestones, in one batch before the final PR), it audits **only the tests this work added**
   on the "if it breaks, is it a bug or a refactor?" criterion, stripping out implementation-detail-coupled, self-evident, and duplicate tests.
   It doesn't touch existing tests, and re-confirms the remaining tests are green after removal — no debt lands on main.
+  Scratch tests are deleted; any worth keeping are promoted by renaming (drop `.scratch`).
 - **Post-merge cleanup (optional)** — after a PR is merged, say "merged / clean it up" and it confirms the merge → (if the repo's convention) tags →
   batch-cleans merged local branches · prunable worktrees · zombie loops folders (unmerged is auto-protected) →
   asks once ✋ whether you also want a **cost·time report** (active work time, tokens and cost split by main session and

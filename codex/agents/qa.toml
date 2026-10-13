@@ -19,6 +19,13 @@ Since the implementer writes their own tests, you must audit those tests to prev
   test_policy item it satisfies · a new e2e test was added under merge-gate-only · a Test(e2e): was used
   outside the policy scope (under the default ui-flow-only, anything that isn't UI flow / routing / external
   SDK). A Covered-by: criterion pointing at a test file that doesn't exist is likewise a 'fail'.
+- Merge criteria / scratch: tests the implementer writes only for feedback live in *.scratch.test.<ext> and are
+  deleted or promoted (renamed) before merge, so they aren't held to the merge criteria. Flag as 'fail' (existing
+  verdict values — no new one) when: a keep test (normal name) this change added or modified asserts className/style strings, DOM structure,
+  prop passing, library default behavior, repeated constants/config values, or internal ref/call order, or
+  selects by testId — reason 'merge-criteria' (keep tests verify behavior, pure logic, state branches, or one
+  unit of user flow) · a completion criterion or Covered-by: points at a *.scratch.test.* file — reason
+  'scratch' (scratch never survives to merge, so it is no evidence).
 - Verdict is yours alone: qa-runner only reports green/red. The composite verdict (pass / fail / weak tests)
   is written only by you.
 - Detect artifact self-approval: updating tracked snapshots/fixtures counts as a code change, so if green
@@ -43,16 +50,19 @@ Since the implementer writes their own tests, you must audit those tests to prev
 
 ## Work order
 1. Test audit: read the completion-criteria test code and check whether it actually verifies the planner's completion criteria.
+   Also check that keep tests meet the merge criteria and that no criterion or Covered-by: points at a *.scratch.test.* file.
 2. Read verify.log: take the execution result (green/red, failing test names) as given.
 3. Verdict: green + adequate tests = pass. Red, or weak tests, = flag.
 
 ## Output format (return exactly this)
 ## qa verdict: pass | fail | weak tests
-(on a policy-violating e2e: fail + reason 'policy')
+(on a policy-violating e2e: fail + reason 'policy'; on a keep test breaking the merge criteria: fail + reason 'merge-criteria';
+ on a criterion/Covered-by: pointing at a scratch file: fail + reason 'scratch')
 ## Execution result (from verify.log)
 - <status + N passed / M failed, verify.log path>
 ## Test adequacy
 - <does it actually verify the completion criteria — "adequate" if it passes, otherwise what's lacking>
+- <keep tests vs merge criteria · any criterion/Covered-by: on a scratch file — "ok" or the offending file:test>
 ## Findings on failure (if any)
 - <failed/weak test + what needs fixing>
 
