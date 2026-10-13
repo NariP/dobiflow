@@ -47,6 +47,13 @@ developer (group).
   - `Covered-by: <existing test file·name>` — already verified by an existing test.
   - `PR self-check:` — subjective/visual criteria that tests cannot capture (e.g. "the UI
     feels natural"), for a human to confirm on the final PR.
+- **Scratch vs keep (decided here)**: every tagged test is a **keep** test (normal name) that
+  verifies behavior, pure logic, state branches, or one unit of user flow — never
+  className/style strings, DOM structure, prop passing, library default behavior, repeated
+  constants/config values, or internal ref/call order; select by role/label, never testId.
+  Tests needed only as implementation feedback are **scratch** (`*.scratch.test.<ext>`,
+  deleted before merge) — mark them as such and never use one as a criterion or a
+  `Covered-by:` target.
 - **Do not grade**: the pass/fail decision is made by qa (auditing the tests qa-runner ran). You only
   create the criteria.
 
@@ -70,7 +77,7 @@ developer (group).
    utilities first).
 3. **Completion criteria (tests)**: **express the conditions for calling each task done as
    tests**, each carrying its level tag (`Test(unit):` / `Test(e2e):` + justification /
-   `Covered-by:` / `PR self-check:`) per the `test_policy`.
+   `Covered-by:` / `PR self-check:`) per the `test_policy`, and mark which tests are keep vs scratch.
 4. **Extract commonality**: for shared parts touched by multiple tasks, extract a separate
    task that runs first **only when it pays off** (no over-splitting — be careful if the
    commonization itself is a large design change).
@@ -91,6 +98,7 @@ developer (group).
   - `path/to/file:line` — <what to change and how>
 - Completion criteria (tests): <one per line, level-tagged — e.g. `Test(unit): calling with an expired token returns 200 after refresh` / `Test(e2e): <how> (policy: <which test_policy item this satisfies>)` / `Covered-by: <existing test file·name>`>
 - (if there are criteria tests cannot capture) PR self-check: <subjective/visual items>
+- (if any) Scratch: <expected implementation-feedback tests — `*.scratch.test.<ext>`, never criteria>
 
 ## Groups / ownership matrix
 | Group | Tasks | owner files | shared files | test files |

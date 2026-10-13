@@ -92,7 +92,8 @@ if needed `mcp__serena__activate_project <repo absolute path>` once (on failure,
 - **Delegate to planner**: pass the evidence packet + config (`convention_doc`·`tech_stack`·`e2e_command`·`test_policy`·`serena`). The planner splits into tasks.
 
 ### ② File plan · ③ Grouping (planner)
-- The planner writes each task's file plan + **completion criteria (as tests, each tagged `Test(unit):`/`Test(e2e):`/`Covered-by:`/`PR self-check:` — `Test(e2e):` only within `{test_policy}`)**, groups related·dependent tasks into the **same group**, and
+- The planner writes each task's file plan + **completion criteria (as tests, each tagged `Test(unit):`/`Test(e2e):`/`Covered-by:`/`PR self-check:` — `Test(e2e):` only within `{test_policy}`; criterion tests are **keep** tests written to the merge criteria (⑩ classification), and any
+  expected implementation-feedback tests are marked **scratch** — `*.scratch.test.<ext>`, never a criterion)**, groups related·dependent tasks into the **same group**, and
   uses an **ownership matrix** to mechanically check file overlap between groups (merge/warn on overlap). Factor out shared parts as a separate task only when it pays off.
 - Record the planner output in `plan.md`. If the task count exceeds `{milestone.max_issues}`, confirm "split into multiple milestones / proceed?".
 
@@ -121,6 +122,8 @@ if needed `mcp__serena__activate_project <repo absolute path>` once (on failure,
 - **Worktree dependency prep**: a fresh worktree has no `node_modules` etc., so tests·builds won't run out of the box.
   Right after creating a worktree, **install dependencies** (`{install_command}` if present, e.g. `pnpm install`). pnpm/yarn are usually cheap thanks to a
   shared store. Skip it if there's no install command or the stack doesn't need one (don't run it if it's not in config).
+- **Scratch exclude (main session, not git-writer)**: add `*.scratch.test.*` to `.git/info/exclude` alongside `.claude/loops/`·`.claude/worktrees/` (skip if already present — info/exclude is shared
+  across worktrees, so once per milestone is enough; also applies to no-worktree sequential runs).
 
 ### ⑧ Execution (groups = parallel, within a group = sequential)
 - **Parallel width `{milestone.max_parallel}`** (1=sequential under halt mode). Each group runs its tasks **sequentially** in its own worktree:
@@ -133,11 +136,14 @@ if needed `mcp__serena__activate_project <repo absolute path>` once (on failure,
     the main repo — §⑦) — be aware of the first-query warmup cost (tens of seconds/worktree).
     Under parallel, also **downgrade the `serena` in the config handed to workers to false** (double safety with the spawn-prompt prohibition —
     mechanically interlocks with the agent's "if serena=false, don't use serena tools" rule). Sequential keeps `serena=true`.
-  - implementer implements + writes completion-criteria tests → generates a **change-map from the commit-candidate diff** → self-check
+  - implementer implements + writes tests (completion-criteria tests are always keep (normal name) and must be written to the merge criteria; anything else written for feedback is scratch, `*.scratch.test.<ext>`) → generates a **change-map from the commit-candidate diff** → self-check
     (phase A: code-reviewer+policy-checker+qa-runner in parallel → phase B: qa audit, **skipped with `audit skipped (red)` in loop.md if the runner is red**).
-  - **If the self-check is green, git-writer commits to the group branch.** On failure (blocked/max_iter/runner red/qa fail) → **don't commit + new issue** (dedup marker `[milestone:<slug>][task:<issue#N>]`, check for the same key before creating) + next task. Leave the failed task's original issue open.
+  - **If the self-check is green, git-writer commits to the group branch.** Before handing off, (implementer) deletes the task's `*.scratch.test.*` files; (main session) runs the check
+    `git ls-files -c -o | grep '\.scratch\.test\.'` and confirms none remains — git-writer also aborts on a staged match.
+    Scratch is never promoted in milestone mode — a test worth keeping is written as a criterion (keep) test from the start. On failure (blocked/max_iter/runner red/qa fail) → **don't commit + new issue** (dedup marker `[milestone:<slug>][task:<issue#N>]`, check for the same key before creating) + next task. Leave the failed task's original issue open.
   - Under halt mode, stop for the 4-stage approval per task.
-  - **The task stage does no debt-test audit** — added tests are left as a regression net for later tasks, and the audit happens all at once at ⑩.
+  - **The task stage does no debt-test audit** — the **keep** tests it added are left as a regression net for later tasks (scratch is deleted at each task commit and
+    never carried over), and the audit happens all at once at ⑩.
 - **Search cache**: when a sub searches, it returns a cache_delta as result JSON → the controller merges serially into `search-cache.json`. On a file change (SHA), invalidate that file's entry.
   - **Hit metering**: subs also include `cache_hits`·`cache_misses` in their result JSON. The controller accumulates them into `search-cache.json`'s `_stats`
     (`total_hits`·`total_misses`·`hit_rate`) and records the hit rate in the ⑩ final-PR body (or log) — leaving data on whether the cache actually paid off.
@@ -159,8 +165,10 @@ Once a group's tasks are all done:
 ### ⑩ Final PR ✋
 - After all groups are merged or confirmed·marked unmerged, run the final `full_verify` (`qa-runner` — pure execution) once, **plus `{e2e_command}` once if set**.
 - **Debt-test audit (after the final full_verify is green · before creating the final PR)** — only for tests the whole milestone added,
-  classify each by "if it breaks, is it a bug or a refactor?" (no proposing changes to existing tests); remove debt via a **cleanup commit**
-  (milestone branch, git-writer) → re-confirm `full_verify` (qa-runner; if red, roll back the removal·keep it). **This re-confirm is unit-only — don't re-run `{e2e_command}`** (cost; the removal only touched unit tests). If there are 0 debt items, proceed as-is.
+  first confirm no `*.scratch.test.*` exists on the milestone branch (`git ls-files '*.scratch.test.*'` is empty; if any slipped in, implementer deletes it before the cleanup commit below), then
+  classify each by "if it breaks, is it a bug or a refactor?" (no proposing changes to existing tests; debt examples as in `task-run` Step 5.5 — className/style strings,
+  DOM structure, prop passing, library default behavior, repeated constants/config values, internal ref/call order, testId selectors); remove debt via a **cleanup commit**
+  (milestone branch, git-writer) → re-confirm `full_verify` (qa-runner; if red, roll back only the debt removals and keep those tests — scratch deletion is never rolled back). **This re-confirm is unit-only — don't re-run `{e2e_command}`** (cost; the removal only touched unit tests — if a removed file was e2e, including a slipped-in scratch e2e file, re-run `{e2e_command}` once too). If there are 0 debt items and no scratch file, proceed as-is.
 - git-writer **opens the PR from the milestone branch → main and stops**
   (under stacking the base is the A branch, not main — §Milestone stacking ③. **Stacked-merge caution**: before merging C, delete A's **remote** branch
   first — §Milestone stacking ⑤ retarget warning). If any group is unmerged, make it a draft.

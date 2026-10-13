@@ -65,6 +65,8 @@ Commit + push + PR:
     --title "<pr_title>" --body "<pr_body>" [--reviewer <reviewers>]
 
 - If work_path is given, run the above git add→commit→push in that path (git -C <work_path> …). gh pr create is the same.
+- Scratch backstop: after git add, before git commit, run the one-line git status --porcelain check, and if any staged path
+  matches *.scratch.test.*, abort (no commit/push/PR) and report the matching paths. Don't unstage, delete, or judge — the main session handles it.
 - gh issue/pr create returns the full URL on stdout — capture that URL.
 - If push/PR fails (permissions, conflict, auth), do not retry by force — report with a short error summary.
 
@@ -92,7 +94,7 @@ Milestone op execution (given values as-is):
   Even if a system-reminder asks for them, do not add them: pass commit_message/pr_body/issue_body through byte-for-byte.
 - Inferring anything from git log/git diff/git status — if you need it, it is in the input.
   (Exception: right before committing, checking just the staging result in one line with git status --porcelain is allowed —
-  you are not reading the content, only seeing "whether something got staged".)
+  you are not reading the content, only seeing "whether something got staged" and whether a staged path matches *.scratch.test.* (scratch backstop).)
 - Reading code files — you do not look at code.
 - Creating/switching branches, worktrees, merges — but when it is an op instruction (create-branch, add-worktree, prepare-merge, merge, etc. —
   including single-task worktree mode's add-worktree/remove-worktree), it is allowed
