@@ -85,7 +85,8 @@ Decide **which repo the issue belongs to**. Skippable if cwd is already the obvi
 - **Show the created issue content (root-cause analysis + fix plan) to the user** and ask.
 - **When reporting the created issue, spell out the full URL returned by `gh` as a clickable link** (don't use just `#N`).
 - **Confirm the repo and base branch together on one screen** (to prevent mis-targeting) — show `#N` + full URL, `repo: {repo} / base: {default_branch}`,
-  a one-line loop summary (implementer implements → lint/test → self-check, up to {loop.max_iterations} rounds), and ask "shall I fix it this way and open a PR?".
+  a one-line loop summary (implementer implements → lint/test → self-check, up to {loop.max_iterations} rounds) + which tests are **keep**
+  (completion criteria, normal name) and which are **scratch** (implementation feedback, `*.scratch.test.<ext>`, deleted at Step 5.5), and ask "shall I fix it this way and open a PR?".
 - **Never touch code** until the user explicitly says **OK / 진행 / go ahead**.
 
 ### Step 5 — Branch + implementation loop 🔁
@@ -116,7 +117,7 @@ In this step the main session **does not implement directly** — it only acts a
   **Copy "Related locations" verbatim from the relevant-locations/flow source that Step 2 issue-triage returned** — since the issue body (Cause analysis)
   is a user-facing summary and file:lines may be trimmed, put the **full issue-triage return** into loop.md (main already has it, so
   0 extra tokens). This is the handoff that keeps the implementer from re-exploring — the more detail, the less re-exploration.
-- Add one line each to `.git/info/exclude` so `.claude/loops/` and `.claude/worktrees/` aren't committed
+- Add one line each to `.git/info/exclude` so `.claude/loops/`, `.claude/worktrees/` and `*.scratch.test.*` aren't committed
   (skip if already present — info/exclude is shared across worktrees, so once is enough).
 - **Emit event**: `work-started` — args `branch=<branch-name> title="<issue title>" issue_url=<issue full URL>` (§emit events).
 
@@ -125,7 +126,8 @@ In this step the main session **does not implement directly** — it only acts a
    (round 1 = the issue's fix plan; from round 2 = the previous round's REQUEST_CHANGES findings),
    config (`convention_doc`·`tech_stack`·`lint_command`·`test_command`·`e2e_command`·`test_policy`·`serena`),
    and **`change_map_path`** (the `change-map.md` in the loop.md folder). The implementer implements with minimal edits and
-   **writes a test that satisfies the completion criteria**, then makes **lint pass** before reporting, and **leaves a change-map at that path once**
+   **writes a test that satisfies the completion criteria** (completion-criteria tests are always **keep** (normal name) and must be written to the merge criteria — §Step 5.5 judgment;
+   anything else written for feedback is scratch, `*.scratch.test.<ext>`), then makes **lint pass** before reporting, and **leaves a change-map at that path once**
    (per-file change intent · risk · test linkage — read first by the self-check subagents). **Running tests is qa-runner's job, judging pass/fail is qa's** (self-check below). If it can't be solved, report "blocked" (no done-report in a failing state).
 2. **Self-check — two phases (all read-only): execution (phase A) → audit (phase B).** **Pass the list of changed-file paths + `change_map_path`**
    (the "changed files" field of the implementer's report + the change-map path). The subagents **read the change-map first and only open the originals at suspect spots**.
@@ -177,11 +179,12 @@ In this step the main session **does not implement directly** — it only acts a
 ### Step 5.5 — Debt-test audit (after APPROVE · before commit)
 > **In milestone mode, skip this step too** — don't audit during tasks; do it in bulk at `/milestone` ⑩.
 
-To keep debt tests out of main, audit **only the tests this loop added** (proposing removal of existing ones is forbidden too).
-- **fast-path**: if 0 tests were added, go straight to Step 6 with no classification.
-- **Judgment**: "if it breaks, is it a **bug** or a **refactor**?" — behavior-spec verification = asset (keep); coupling to implementation details, tautological, or duplicate = debt (remove).
-- **Procedure**: classify (reuse qa's audit result or main's judgment) → remove debt (implementer) → re-run the remaining tests **once**, confirm green (qa-runner) → Step 6. If red, roll back and keep.
-- **If 0 debt, go to Step 6 as-is.** Record the removal list (file:test-name + reason) in the PR self-check.
+To keep debt tests out of main, audit **only the tests this loop added** — keep tests and every `*.scratch.test.*` (proposing removal of existing ones is forbidden too).
+- **fast-path**: if 0 tests were added (scratch files counted too — count them with the Step 6 scratch-guard command, not from the implementer report), go straight to Step 6 with no classification.
+- **Judgment**: "if it breaks, is it a **bug** or a **refactor**?" — behavior-spec verification (behavior · pure logic · state branches · one unit of user flow, selected by role/label) = asset (keep); coupling to implementation details, tautological, or duplicate = debt (remove).
+  Concrete debt examples: asserting className/style strings, DOM structure, prop passing, library default behavior, or repeated constants/config values; checking internal ref/call order; selecting by testId.
+- **Procedure**: classify (reuse qa's audit result or main's judgment; scratch **promotion candidates** are classified by the main session against the merge criteria — qa's audit ran before promotion and exempted scratch files, so it doesn't cover them) → delete every `*.scratch.test.*` that isn't promoted, promote the scratch tests that pass the judgment by renaming (drop `.scratch`), and remove debt among the keep tests (implementer: delete non-promoted scratch, rename promoted, remove debt) → re-run the remaining tests **once**, confirm green (qa-runner) → Step 6. If red: roll back only the keep-test debt removals (implementer). A promoted test that is itself red is returned to scratch and deleted (implementer); other promotions stay. Re-run once (qa-runner). If still red, halt and report. Scratch deletion is never rolled back (count a returned promotion in the PR self-check "scratch deleted").
+- **If 0 debt and 0 scratch, go to Step 6 as-is.** Record the removal list (file:test-name + reason), the promoted (renamed) files and the scratch-deleted count in the PR self-check.
 
 ### Step 6 — Commit + PR (only after APPROVE · delegate to git-writer)
 > **In milestone mode, skip this step.** Tasks only stack commits on the group branch (no PR or issue branch created);
@@ -204,6 +207,8 @@ Main finishes all judging/writing, and delegates execution to git-writer.
 - **Reviewer list** — if `{codeowners}` is a path, from the matching code owners **exclude the author themselves** → the remaining people.
   If no one remains or `{codeowners}` is false, an empty list (omit reviewers).
 - **Staging instruction** — usually `all` (all changes on the work branch). If only specific files, the file list.
+- **Scratch guard** — before delegating, confirm no `*.scratch.test.*` remains in the working tree or staging (list tracked, staged and untracked files, independent of excludes:
+  `git ls-files -c -o | grep '\.scratch\.test\.'`). If any remains, go back to Step 5.5 — never hand it to git-writer (git-writer also aborts on a staged match, as a backstop).
 
 **Delegate execution to git-writer:** hand off the finished values above + `repo={repo}` `branch=<work branch>` `base_branch={base_branch|default_branch}` (single=`{default_branch}`).
 git-writer runs `git add → commit → push → gh pr create` and **returns only the PR URL**.
@@ -262,10 +267,10 @@ Generate the issue body **in the user's language** (match the language they wrot
 - **Problem** — 1-3 lines on what's wrong.
 - **Reproduction** — `Location:` (screen path), numbered steps, then `Expected:` vs `Actual:`.
 - **Cause analysis (issue-triage result)** — related locations as `path/to/file:line — <role>`; flow (entry point → ... → failure point); the most likely cause (mark it "guess" if speculative).
-- **Resolution** — where and how to fix it; if the backend is needed, what to request from it. Write the "done when this works" items as a checklist, each tagged with **how it is verified**:
+- **Resolution** — where and how to fix it; if the backend is needed, what to request from it. Write the "done when this works" items as a checklist, each tagged with **how it is verified**. Tagged tests are **keep** tests written to the merge criteria (§Step 5.5 judgment); scratch tests (`*.scratch.test.*`) never appear as criteria:
   - `Test(unit): <how to verify>` — the default. Runs every self-check round via `{test_command}`. A bare `Test:` is read as unit (backward compatible).
   - `Test(e2e): <how to verify>` — browser-level only. Allowed **only within `{test_policy}`** (default `ui-flow-only` = UI flow / routing / external SDK), and needs a **one-line justification naming which policy item it satisfies**. Under `merge-gate-only`, write no new `Test(e2e):` — use `Covered-by:` or `PR self-check:`. E2E never runs inside the loop; it runs at merge gates only.
-  - `Covered-by: <existing test file·name>` — already verified by an existing test; nothing new to write.
+  - `Covered-by: <existing test file·name>` — already verified by an existing keep test (never a `*.scratch.test.*` file); nothing new to write.
   - `PR self-check:` — subjective·visual items a test can't capture, for a human to confirm on the final PR.
 - **Source** — original link (Notion/Slack).
 
@@ -278,7 +283,7 @@ Generate the PR body **in the user's language** (match the language they wrote i
 - **What changed** — 1-3 lines on what this PR changes, from a user/screen perspective.
 - **Background** — `Closes #<issue-number>`, why it was needed (symptom/request, 1-2 lines), and the original issue link (Notion/Slack).
 - **Work done** — key changes, one line each by `file:line`.
-- **Self-check (step-5 loop result)** — loop round at APPROVE; policy (policy-checker summary); code (code-reviewer summary); tests (qa-runner result + qa audit summary — completion-criteria tests pass, run command); removed tests (step 5.5 removal list as file:test-name+reason, or "none").
+- **Self-check (step-5 loop result)** — loop round at APPROVE; policy (policy-checker summary); code (code-reviewer summary); tests (qa-runner result + qa audit summary — completion-criteria tests pass, run command); removed tests (step 5.5 removal list as file:test-name+reason, or "none"); promoted (renamed) tests: file list / scratch deleted: N (or "none").
 - **QA scenario** — **conditional section: include it only when the change-map has at least one `user-facing: yes`. If every entry is `no`, omit the section itself — never write "N/A"/"none".** One bullet per user flow, inline fields:
   - **Setup** (account·permissions·data·entry path) / **Steps** (the user's actions, imperative, in order) / **Checkpoints** (expected observations judgeable from a screenshot or output) / **Before this fix** (only for changes with a before/after).
   - Checkpoints must cover **three kinds**: what **must** appear / what must **not** appear / **regression** (cases you didn't change staying the same).
@@ -308,6 +313,7 @@ The content filled in follows whatever is copied from the issue — user-facing 
 
 ## Verification commands
 - lint: `<lint_command>` / test (unit — every round): `<test_command>` (or "none")
+- scratch: `*.scratch.test.*` (info/exclude · deleted at 5.5 (milestone: at each task commit))
 - e2e: `<e2e_command>` (or "none" — merge gates only, never inside the loop) / test_policy: `<test_policy>`
 - Once at APPROVE: `<loop.full_verify_command>` (or "none" — not run inside the loop)
 - change-map: `<loop.md folder>/change-map.md` (implementer leaves it each iteration → read first by the self-check subagents)
