@@ -4,6 +4,32 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며,
 [유의적 버전](https://semver.org/lang/ko/)을 사용합니다.
 
+## [1.5.0] - 2026-10-13
+
+구현용 테스트와 머지되는 테스트를 파일 이름으로 분리 — AI가 넣는 테스트가 무분별하게 쌓이던 문제 해결.
+
+### Added
+- **구현용 테스트 scratch 분리 규칙(#88)** (claude+codex) — 두 축을 도입했다.
+  (a) 머지 기준: 커밋되는 `*.test.<ext>`는 동작·순수 로직·상태 분기·사용자 흐름 한 단위만
+  검증하고, className·DOM 구조·prop 전달·라이브러리 기본 동작·상수 되풀이·내부 호출 순서는
+  쓰지 않는다(선택자는 role·label, testId 금지). (b) scratch 분리: 구현 중 피드백용 테스트는
+  `*.scratch.test.<ext>`로 짓고, 5단계 셋업이 `.git/info/exclude`에 `*.scratch.test.*`를
+  넣어 로컬에서만 무시된다 — 대상 레포 `.gitignore`·triage-init은 건드리지 않는다. 테스트
+  러너는 둘 다 돌리므로 로컬 피드백은 그대로.
+  5.5 부채 테스트 감사는 "scratch 삭제 → 기준 통과분 `.scratch`를 떼어 승격(rename) →
+  1회 재실행"으로 바뀌고, 승격 후보는 메인 세션이 머지 기준으로 분류한다. 빨간불이면 keep
+  테스트 부채 제거만 롤백하고 빨간 승격분은 scratch로 되돌려 삭제, 다시 1회 재실행, 그래도
+  빨간불이면 중단·보고(scratch 삭제는 롤백하지 않음). 6단계·마일스톤 ⑧ 태스크 커밋 전
+  `git ls-files -c -o | grep '\.scratch\.test\.'`로 잔존 0을 확인하고, git-writer는 스테이징
+  경로가 `*.scratch.test.*`에 걸리면 커밋을 중단한다(마지막 방어선). 마일스톤에서는 scratch를
+  승격하지 않고 태스크 커밋마다 implementer가 삭제하며, "남긴 테스트가 뒤 태스크의 회귀망"
+  서술은 keep 테스트로 한정. 에이전트: implementer에 Test writing 절·`git add -f` 금지·
+  `Scratch tests:` 리포트 필드, qa에 fail 사유 `merge-criteria`·`scratch`(verdict 값 신설
+  없음), planner에 완료 기준 작성 시 scratch/keep 결정, git-writer에 scratch 백스톱.
+  새 config 키 없음.
+  **`codex/agents/{implementer,qa,planner,git-writer}.toml`이 바뀌었으므로 Codex 사용자는
+  `./install.sh --codex-only` 재실행 필요.**
+
 ## [1.4.2] - 2026-09-08
 
 커밋·PR·이슈 본문에 AI 표기가 새어 나가지 않도록 규칙 확장.
